@@ -1,7 +1,7 @@
-﻿{
+{
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "6.60",
-  "release_date": "2026-09-04",
+  "latest_version": "6.80",
+  "release_date": "2026-09-11",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V6.60 - Linear Regression Channel & Dual-Period Hybrid Engine, 80:20 Harvest, ATH Confluence, Samurai MTF Fusion"
+  "changelog": "Good Trade Gold PRO V6.80 - Dual-Mode Hybrid Engine (Safe Co-Pilot vs Aggressive Sniper Auto), Fibo Zone Deadlock Fix, 15s Aggressive Debounce, Fast Scalp BE +250pts, Khun Ann Angel Shield Mode Switch"
 }
