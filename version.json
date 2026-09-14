@@ -1,7 +1,7 @@
-﻿{
-    "latest_version":  "7.25",
+{
+    "latest_version":  "7.30",
     "release_date":  "2026-09-14",
     "name":  "Good Trade Gold PRO EA",
     "download_url":  "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-    "changelog":  "Good Trade Gold PRO V7.25 - Institutional Harmonic Precision \u0026 Continuous Plan Architecture: Separated Prop Firm Daily Guard Scope (GUARD_SCOPE_BOT_ONLY vs GUARD_SCOPE_ALL_COMBINED) preventing manual trades from locking bot, 1-Click GUI Reset Guard button on Card 3, continuous unblocked technical trade plan calculation on Card 2, dual-channel Bot vs Mobile performance tracking on Card 4, and dynamic SL breach protection."
+    "changelog":  "Good Trade Gold PRO V7.30 - CME Institutional Options Radar & Hybrid Cloud Sync Edition: Integrated CME Group QuikStrike Options Open Interest Profile for Gold (OG active contracts). Real-time Put Wall support (Strike 4000.0) and Call Wall resistance (Strike 4050.0) tracking with on-chart dashed levels, HUD Card 1 Row 11 live telemetry (Cloud Synced vs Manual Level), Anti-Sell/Anti-Buy trade guards near institutional walls, and +20 points confluence bonus on Wall rejection/sweep for sniper entries."
 }
