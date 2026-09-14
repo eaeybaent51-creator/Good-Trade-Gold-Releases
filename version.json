@@ -1,7 +1,7 @@
 {
-    "latest_version":  "7.30",
-    "release_date":  "2026-09-14",
+    "latest_version":  "7.31",
+    "release_date":  "2026-09-15",
     "name":  "Good Trade Gold PRO EA",
     "download_url":  "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-    "changelog":  "Good Trade Gold PRO V7.30 - CME Institutional Options Radar & Hybrid Cloud Sync Edition: Integrated CME Group QuikStrike Options Open Interest Profile for Gold (OG active contracts). Real-time Put Wall support (Strike 4000.0) and Call Wall resistance (Strike 4050.0) tracking with on-chart dashed levels, HUD Card 1 Row 11 live telemetry (Cloud Synced vs Manual Level), Anti-Sell/Anti-Buy trade guards near institutional walls, and +20 points confluence bonus on Wall rejection/sweep for sniper entries."
+    "changelog":  "Good Trade Gold PRO V7.31 - Bearish SL Inversion Patch, CME Wall Sweep Proximity Guard & HUD Nav Calibration: Corrected Sell Stop Loss calculation to place SL strictly above Entry (+minSafeSLPts), added proximity buffers to CME Wall Sweep detection to eliminate permanent false alerts, recalibrated Top Nav buttons to fit 475px HUD width without overflow, and enhanced Fibo line anti-collision spacing."
 }
