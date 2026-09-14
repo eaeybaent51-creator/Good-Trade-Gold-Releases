@@ -1,7 +1,7 @@
 ﻿{
-    "download_url":  "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-    "changelog":  "Good Trade Gold PRO V7.24 - Adaptive 777 Dynamic SL \u0026 Institutional Continuous Precision: Centralized GetDynamicSLBounds() engine with Safe Co-Pilot 777 pts min SL floor (1,000 pts ceiling) \u0026 Aggressive Sniper 250 pts min / 777 pts hard ceiling. Deadlock-free Card 2 HUD with non-destructive countdown timer, Fibo Wave entry latch fix, and 800 pts proximity tracking across Unicorn, CRT, and Wave.",
-    "name":  "Good Trade Gold PRO EA",
+    "latest_version":  "7.25",
     "release_date":  "2026-09-14",
-    "latest_version":  "7.24"
+    "name":  "Good Trade Gold PRO EA",
+    "download_url":  "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
+    "changelog":  "Good Trade Gold PRO V7.25 - Institutional Harmonic Precision \u0026 Continuous Plan Architecture: Separated Prop Firm Daily Guard Scope (GUARD_SCOPE_BOT_ONLY vs GUARD_SCOPE_ALL_COMBINED) preventing manual trades from locking bot, 1-Click GUI Reset Guard button on Card 3, continuous unblocked technical trade plan calculation on Card 2, dual-channel Bot vs Mobile performance tracking on Card 4, and dynamic SL breach protection."
 }
