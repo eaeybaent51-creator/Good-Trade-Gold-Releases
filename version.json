@@ -1,7 +1,7 @@
 {
-    "latest_version":  "7.31",
+    "latest_version":  "7.25",
     "release_date":  "2026-09-15",
     "name":  "Good Trade Gold PRO EA",
     "download_url":  "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-    "changelog":  "Good Trade Gold PRO V7.31 - Bearish SL Inversion Patch, CME Wall Sweep Proximity Guard & HUD Nav Calibration: Corrected Sell Stop Loss calculation to place SL strictly above Entry (+minSafeSLPts), added proximity buffers to CME Wall Sweep detection to eliminate permanent false alerts, recalibrated Top Nav buttons to fit 475px HUD width without overflow, and enhanced Fibo line anti-collision spacing."
+    "changelog":  "Good Trade Gold PRO V7.25 Master Clean Edition: Completely removed CME Options Radar per user request for a cleaner, clutter-free chart and simpler operation. Includes Bearish Stop Loss inversion fix, Top Nav button calibration, and Fibo anti-collision spacing."
 }
