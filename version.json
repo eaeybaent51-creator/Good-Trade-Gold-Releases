@@ -1,7 +1,7 @@
-{
-  "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.22",
-  "release_date": "2026-09-13",
-  "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.22 - Exhaustive 15-Subsystem Harmony Edition: Full-Stack London Judas Swing Integration (Wyckoff Directional Bias +18%/-2%, Stochastic Trigger Arms & Trend-Agnostic Bonus), Universal Trade Price Normalization Guard (NormalizeDouble on Pre-News Breakeven, Plan Entries/SL/TP, and Spike/HTF Reversal Orders), and 100% Gold Master Contrarian Parameter Integrity."
+﻿{
+    "download_url":  "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
+    "changelog":  "Good Trade Gold PRO V7.24 - Adaptive 777 Dynamic SL \u0026 Institutional Continuous Precision: Centralized GetDynamicSLBounds() engine with Safe Co-Pilot 777 pts min SL floor (1,000 pts ceiling) \u0026 Aggressive Sniper 250 pts min / 777 pts hard ceiling. Deadlock-free Card 2 HUD with non-destructive countdown timer, Fibo Wave entry latch fix, and 800 pts proximity tracking across Unicorn, CRT, and Wave.",
+    "name":  "Good Trade Gold PRO EA",
+    "release_date":  "2026-09-14",
+    "latest_version":  "7.24"
 }
