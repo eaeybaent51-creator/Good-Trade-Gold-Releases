@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.30",
+  "latest_version": "7.40",
   "release_date": "2026-09-15",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.30 - Trend Pullback Shield Edition: Smart Pullback-Aware Stochastic & Fibo Guards (eliminated false 'ห้าม Sell ก้นเหว' and 'ห้าม Buy ยอดดอย' on trend pullbacks), Strict Anti-Falling-Knife & Anti-Rocket-Launch Filters, and High-Probability Pullback Bounce/Dip Execution Engine."
+  "changelog": "Good Trade Gold PRO V7.40 - Pure Institutional Price Action Master Edition: Completely removed legacy Stochastic Oscillator and overbought/oversold lag traps. Replaced with pure Candlestick Rejection, Pinbar/Hammer tails, Color Flip confirmation, and SMC Liquidity Shift triggers. Zero conflicts, zero false exhaustion blocks, and flawless trend pullback execution."
 }
