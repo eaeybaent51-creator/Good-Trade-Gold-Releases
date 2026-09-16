@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.40",
-  "release_date": "2026-09-15",
+  "latest_version": "7.51",
+  "release_date": "2026-09-16",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.40 - Pure Institutional Price Action Master Edition: Completely removed legacy Stochastic Oscillator and overbought/oversold lag traps. Replaced with pure Candlestick Rejection, Pinbar/Hammer tails, Color Flip confirmation, and SMC Liquidity Shift triggers. Zero conflicts, zero false exhaustion blocks, and flawless trend pullback execution."
+  "changelog": "Good Trade Gold PRO V7.51 - Institutional Harmony & Anti-Contradiction Edition: Fixed Zombie Unicorn state persistence, integrated EMA Death/Golden Cross into Directional Bias, harmonized Card 1 & Card 2 Peak Reversals, enforced true SMC 50% Equilibrium Discount/Premium Zone, and balanced Market Extreme Bias."
 }
