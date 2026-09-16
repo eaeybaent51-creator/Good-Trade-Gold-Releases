@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.60",
-  "release_date": "2026-09-16",
+  "latest_version": "7.70",
+  "release_date": "2026-09-17",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.60 - Institutional Mean Reversion & CME Options Wall Super-Confluence Edition: Unlocked Core Reversal auto-execution gate with sniper privilege, integrated real-time Z-Score Statistical Mean Reversion Engine (+/- 2.0 SD), embedded CME Options Open Interest Call/Put Wall Guard with dynamic on-chart visuals, and deployed ironclad Anti-Peak SELL and Anti-Abyss BUY sniper triggers."
+  "changelog": "Good Trade Gold PRO V7.70 - Institutional Breakdown Master & Zero-Conflict Execution Edition: Unlocked Structural Breakdown SELL and Breakout BUY sniper engine, eliminated false CRT Turtle Soup sweeps during dumps, decoupled TREND_SIDEWAY blanket plan wipeouts to prevent WAIT_STRUCTURE freeze, relaxed Directional Bias clamp for breakdown trades in Safe Co-Pilot mode, and enhanced Card 2 real-time accumulation range monitoring."
 }
