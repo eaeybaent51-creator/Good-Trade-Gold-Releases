@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.51",
+  "latest_version": "7.60",
   "release_date": "2026-09-16",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.51 - Institutional Harmony & Anti-Contradiction Edition: Fixed Zombie Unicorn state persistence, integrated EMA Death/Golden Cross into Directional Bias, harmonized Card 1 & Card 2 Peak Reversals, enforced true SMC 50% Equilibrium Discount/Premium Zone, and balanced Market Extreme Bias."
+  "changelog": "Good Trade Gold PRO V7.60 - Institutional Mean Reversion & CME Options Wall Super-Confluence Edition: Unlocked Core Reversal auto-execution gate with sniper privilege, integrated real-time Z-Score Statistical Mean Reversion Engine (+/- 2.0 SD), embedded CME Options Open Interest Call/Put Wall Guard with dynamic on-chart visuals, and deployed ironclad Anti-Peak SELL and Anti-Abyss BUY sniper triggers."
 }
