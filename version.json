@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.78",
+  "latest_version": "7.79",
   "release_date": "2026-09-17",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.78 - CME 3-Tier Matrix & Adaptive Buffer Suite: Comprehensive institutional upgrade addressing the 4305 Put Wall proximity incident. Expands base proximity detection to 600 pts ($6.00) around major Put/Call walls. Adds Intermediate Half-Century strikes (.50) including 4350 Intermediate Call (905 OI) and 4250 Intermediate Put (2,150 OI) with 300 pt buffer. Introduces Expiration Guard / DTE tracking with dynamic buffer expansion (+150 pts) during Gamma Pinning (DTE <= 3 days). Integrates two-way symmetric CME Reversal Sniper Flip (blocking Sells at Put support and arming Buy snipers; blocking Buys at Call resistance and arming Sell snipers). Enhanced HUD Card 2 revTag and Amber/Cyan visual drawings on chart."
+  "changelog": "Good Trade Gold PRO V7.79 - Two-Way Breakout/Breakdown & Retest Sniper Suite: 1) Institutional Two-Way Symmetric Momentum Breakout/Breakdown Suite with CME Runway Clearance (>= 350 pts to major Put/Call walls), candle body momentum confirmation, tight structural SL, and adaptive multi-target TP1-3. 2) CME Strike Polarity Flip Retest Confluence Bonus (+15 pts) for both Bullish Call retest from above and Bearish Put retest from below. 3) Anti-Collision Smart Label Staggering & Dynamic Anchors (+24 bars future offset and vertical clearance from Fibo 50% Equilibrium). 4) Live DTE & Expiration Lifecycle Widget on HUD Card 1 with Gamma Pinning warning."
 }
