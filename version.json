@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.75",
+  "latest_version": "7.76",
   "release_date": "2026-09-17",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.75 - Dynamic CRT Sweep Execution & News Precision Master: Upgraded CRT Turtle Soup with dynamic sweep momentum trigger allowing immediate execution on post-sweep dumps/rallies, eliminated STATE_WAIT_PULLBACK lockup to allow Section 0.4 Structural Breakdown to fire without obstruction, added InpNewsStandDownAutoTrades input with crystal-clear Card 2 real-time news stand-down and manual action guidance, and fixed LRL MTF angle character formatting (@ glitch resolved)."
+  "changelog": "Good Trade Gold PRO V7.76 - Prop Firm Daily Guard Persistent Unlock & Baseline Reset Master: Resolved the persistent Max Daily Loss lock bug where clicking the reset/unlock button failed to clear the red MAX LOSS banner due to un-baselined historical deal re-evaluation. Implemented persistent manual unlock memory and baseline PnL snapshotting, allowing instant unlocking of both Auto-Trade and Manual Controller buttons while resetting intraday drawdown tracking from the new baseline, with full GlobalVariables persistence across timeframe switches and MT5 restarts."
 }
