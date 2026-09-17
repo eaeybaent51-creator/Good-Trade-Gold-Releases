@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.76",
+  "latest_version": "7.77",
   "release_date": "2026-09-17",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.76 - Prop Firm Daily Guard Persistent Unlock & Baseline Reset Master: Resolved the persistent Max Daily Loss lock bug where clicking the reset/unlock button failed to clear the red MAX LOSS banner due to un-baselined historical deal re-evaluation. Implemented persistent manual unlock memory and baseline PnL snapshotting, allowing instant unlocking of both Auto-Trade and Manual Controller buttons while resetting intraday drawdown tracking from the new baseline, with full GlobalVariables persistence across timeframe switches and MT5 restarts."
+  "changelog": "Good Trade Gold PRO V7.77 - CME Options Dual-Tier Institutional Wall Suite: Upgraded CME Options Liquidity Radar to a Dual-Tier Institutional Defense System based on live CME Gold Options Open Interest Matrix. Features Primary Tactical Put Wall at 4300 (3,415 OI), Macro Put Base at 4200 (2,731 OI), Tactical Call Wall at 4400 (2,146 OI), and Mega Institutional Call Wall at 4500 (12,129 OI). Fully integrated into Anti-Peak/Anti-Bottom Guards, Reversal Planning, Breakdown/Breakout guards, dynamic TP targets, and multi-color on-chart dashed/solid wall visualization with live contract volume tags."
 }
