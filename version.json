@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.79",
-  "release_date": "2026-09-17",
+  "latest_version": "7.80",
+  "release_date": "2026-09-18",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.79 - Two-Way Breakout/Breakdown & Retest Sniper Suite: 1) Institutional Two-Way Symmetric Momentum Breakout/Breakdown Suite with CME Runway Clearance (>= 350 pts to major Put/Call walls), candle body momentum confirmation, tight structural SL, and adaptive multi-target TP1-3. 2) CME Strike Polarity Flip Retest Confluence Bonus (+15 pts) for both Bullish Call retest from above and Bearish Put retest from below. 3) Anti-Collision Smart Label Staggering & Dynamic Anchors (+24 bars future offset and vertical clearance from Fibo 50% Equilibrium). 4) Live DTE & Expiration Lifecycle Widget on HUD Card 1 with Gamma Pinning warning."
+  "changelog": "Good Trade Gold PRO V7.80 - Safe True Reversal Confirmation & CME Wall Proximity Caution Engine: 1) Institutional Safe Mode True Reversal Confirmation requiring a 2-step setup and follow-through break of trigger bar (break below Low for Sell, break above High for Buy) preventing fakeout wick entries. 2) CME Wall Proximity Caution Engine covering all 6 institutional CME Options Walls (Mega Call 4500, Tactical Call 4400, Intermediate Call 4350, Intermediate Put 4250, Tactical Put 4300, Macro Put 4200) strictly barring wrong-way entries and enforcing rejection confirmation before allowing counter-wall fades. 3) HUD Dashboard Card 2 and state status synchronization displaying real-time wall caution, confirmation waiting states, and armed timers. 4) Mobile Co-Pilot manual protection prompt when ordering near major/minor CME Walls."
 }
