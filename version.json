@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.90",
+  "latest_version": "7.95",
   "release_date": "2026-09-20",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.90 - Multi-TF ABCD Wave Matrix & Smart Action Command Suite: 1) Multi-Timeframe ABCD Wave Phase Detection & Display across M5, M15, M30, H1, H4 in Dashboard Card 1 (showing ขา A Impulse, ขา B Peak, ขา C OTE Pullback, ขา D Target Extension, or Sideway). 2) Quasimodo (QM) & SMC Smart Action Command Engine providing intuitive Thai action directives (Sideway นั่งทับมือ, สเต็ป 1 กวาด SL, สเต็ป 2 ยืนยัน ChoCH+BOS รอเข้าโซน, สเต็ป 3 แตะโซนรอแท่งเทียน, สเต็ป 4 ลั่นไกสไนเปอร์). 3) On-Chart ABCD Wave Visuals with Points A, B, C (shaded OTE 61.8%-78.6% box), and D (161.8% target line) and Liquidity Trap warning tags (Bull Trap / Bear Trap). 4) Interactive Top Nav Bar with 7 buttons including dedicated [ 🌊 ABCD: ON/OFF ] with persistent GlobalVariables memory."
+  "changelog": "Good Trade Gold PRO V7.95 - 2-Line Dynamic State Matrix & Intelligent Auto-Wrap State Banner Suite: 1) Upgraded HUD_STATE_BOX from 24px single-line to 40px dual-line container. 2) Intelligent FormatStateBannerLines auto-wrapping engine splitting triggers and actionable directives with clean indentation (↳). 3) Dynamic Alert Accent shifting background and border colors according to market safety states (Crimson/Burgundy for risk alerts, Emerald Green for trigger ready, Luxury Gold for daily targets/cooldown). 4) Dynamic vertical centering for single-line states. 5) Candlestick PA display optimization preventing text truncation."
 }
