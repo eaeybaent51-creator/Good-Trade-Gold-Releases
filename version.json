@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.80",
-  "release_date": "2026-09-18",
+  "latest_version": "7.90",
+  "release_date": "2026-09-20",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.80 - Safe True Reversal Confirmation & CME Wall Proximity Caution Engine: 1) Institutional Safe Mode True Reversal Confirmation requiring a 2-step setup and follow-through break of trigger bar (break below Low for Sell, break above High for Buy) preventing fakeout wick entries. 2) CME Wall Proximity Caution Engine covering all 6 institutional CME Options Walls (Mega Call 4500, Tactical Call 4400, Intermediate Call 4350, Intermediate Put 4250, Tactical Put 4300, Macro Put 4200) strictly barring wrong-way entries and enforcing rejection confirmation before allowing counter-wall fades. 3) HUD Dashboard Card 2 and state status synchronization displaying real-time wall caution, confirmation waiting states, and armed timers. 4) Mobile Co-Pilot manual protection prompt when ordering near major/minor CME Walls."
+  "changelog": "Good Trade Gold PRO V7.90 - Multi-TF ABCD Wave Matrix & Smart Action Command Suite: 1) Multi-Timeframe ABCD Wave Phase Detection & Display across M5, M15, M30, H1, H4 in Dashboard Card 1 (showing ขา A Impulse, ขา B Peak, ขา C OTE Pullback, ขา D Target Extension, or Sideway). 2) Quasimodo (QM) & SMC Smart Action Command Engine providing intuitive Thai action directives (Sideway นั่งทับมือ, สเต็ป 1 กวาด SL, สเต็ป 2 ยืนยัน ChoCH+BOS รอเข้าโซน, สเต็ป 3 แตะโซนรอแท่งเทียน, สเต็ป 4 ลั่นไกสไนเปอร์). 3) On-Chart ABCD Wave Visuals with Points A, B, C (shaded OTE 61.8%-78.6% box), and D (161.8% target line) and Liquidity Trap warning tags (Bull Trap / Bear Trap). 4) Interactive Top Nav Bar with 7 buttons including dedicated [ 🌊 ABCD: ON/OFF ] with persistent GlobalVariables memory."
 }
