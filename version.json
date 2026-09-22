@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
   "latest_version": "7.95",
-  "release_date": "2026-09-20",
+  "release_date": "2026-09-22",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.95 - 2-Line Dynamic State Matrix & Intelligent Auto-Wrap State Banner Suite: 1) Upgraded HUD_STATE_BOX from 24px single-line to 40px dual-line container. 2) Intelligent FormatStateBannerLines auto-wrapping engine splitting triggers and actionable directives with clean indentation (↳). 3) Dynamic Alert Accent shifting background and border colors according to market safety states (Crimson/Burgundy for risk alerts, Emerald Green for trigger ready, Luxury Gold for daily targets/cooldown). 4) Dynamic vertical centering for single-line states. 5) Candlestick PA display optimization preventing text truncation."
+  "changelog": "Good Trade Gold PRO V7.95 - 2-Line Dynamic State Matrix & Intelligent Auto-Wrap State Banner Suite with 21-Sep CME Options Open Interest Matrix: 1) Upgraded HUD_STATE_BOX to 40px dual-line container. 2) Intelligent FormatStateBannerLines auto-wrapping engine splitting triggers and actionable directives with clean indentation (↳). 3) Dynamic Alert Accent shifting background and border colors according to market safety states. 4) CME Options Matrix refresh with 21-Sep settlement (DTE 63.20 vs 4375.5) featuring Call Wall 4400 (2,405 OI), Mega Call 4500 (12,267 OI), Put Wall 4300 (3,399 OI), Macro Put 4200 (2,804 OI), Intermediate Put 4250 (2,243 OI), and Intermediate Call 4350 (949 OI)."
 }
