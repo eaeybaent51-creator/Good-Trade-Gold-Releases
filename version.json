@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.96",
+  "latest_version": "7.97",
   "release_date": "2026-09-23",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.96 - Anti-Fakeout Suite & Post-SL/BE 15-Minute Cooldown Guard: 1) Multi-Timeframe Candle Body Close Confirmation for Breakouts (M1/M5 2-bar follow-through, M15/M30/H1 1-bar solid body close). 2) Anti-Fakeout Rejection Wick Filter (Wick ratio <= 35%) and minimum body expansion guard (100 pts on Gold) eliminating intra-bar wick stop hunts. 3) Trend-Alignment Guard blocking counter-trend breakouts. 4) Breakout Confluence Quality Score (55-65% threshold) eliminating score bypass. 5) 15-Minute Post-SL and Post-BE Cooldown Guard pausing auto entries after Stop Loss or Break-Even exits."
+  "changelog": "Good Trade Gold PRO V7.97 - CME Options Open Interest (OI) Matrix Refresh (22-Sep-2026 Settlement / 62.32 DTE vs 4351.2 Futures): 1) Primary Tactical Call Wall (4400.0) updated to 2,467 OI (+72). 2) CME MEGA Call Wall (4500.0) updated to 12,419 OI (+122). 3) CME Intermediate Call (4350.0) updated to 969 OI (+20). 4) Primary Tactical Put Wall (4300.0) updated to 3,457 OI (+60). 5) CME Intermediate Put (4250.0) updated to 2,255 OI (+11). 6) CME Macro Put Base (4200.0) updated to 2,859 OI (+52). 7) DTE calibrated to 62.32 DTE (OGZ6 Expiry 24-Nov-2026)."
 }
