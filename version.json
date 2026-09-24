@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.98",
-  "release_date": "2026-09-24",
+  "latest_version": "7.99",
+  "release_date": "2026-09-25",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.98 - CME Options Open Interest (OI) Matrix Refresh (23-Sep-2026 Settlement / 61.27 DTE vs 4295.2 Futures): 1) Primary Tactical Call Wall (4400.0) updated to 2,368 OI (-99). 2) CME MEGA Call Wall (4500.0) updated to 12,612 OI (+193). 3) CME Intermediate Call (4350.0) updated to 1,108 OI (+139). 4) Primary Tactical Put Wall (4300.0) updated to 3,562 OI (+105). 5) CME Intermediate Put (4250.0) reinforced to 2,883 OI (+628). 6) CME Macro Put Base (4200.0) reinforced to 3,123 OI (+264). 7) DTE calibrated to 61.27 DTE (OGZ6 Expiry 24-Nov-2026)."
+  "changelog": "Good Trade Gold PRO V7.99 - Smart Structural Re-Entry Guard & Multi-TF EMA 14 Matrix Suite (FOREX LAB P'Chanut Style): 1) Smart Structural Re-Entry Guard: Replaced rigid 15-minute / 3-minute hard freeze. If closed with Break-Even, re-entry is unlocked immediately. If closed with SL loss, price level is protected (+-250 pts) to prevent duplicate spam, UNLESS price is inside Demand/Supply Zone + confirmed by Price Action Reversal + Quality Score >= 70%. 2) Multi-TF EMA 14 Matrix: Integrated 8 Timeframes (W1, D1, H4, H1, M30, M15, M5, M1) with Purple Neon chart levels and Waterfall Cascade scoring (+8 pts cascade alignment, +7 pts rejection touch). 3) Institutional EMA 200: Trendline filter and bounce confluence (+5 pts). 4) HUD Card 1 Real-Time Badge integration."
 }
