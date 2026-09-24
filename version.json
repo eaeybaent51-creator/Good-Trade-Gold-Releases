@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.97",
-  "release_date": "2026-09-23",
+  "latest_version": "7.98",
+  "release_date": "2026-09-24",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.97 - CME Options Open Interest (OI) Matrix Refresh (22-Sep-2026 Settlement / 62.32 DTE vs 4351.2 Futures): 1) Primary Tactical Call Wall (4400.0) updated to 2,467 OI (+72). 2) CME MEGA Call Wall (4500.0) updated to 12,419 OI (+122). 3) CME Intermediate Call (4350.0) updated to 969 OI (+20). 4) Primary Tactical Put Wall (4300.0) updated to 3,457 OI (+60). 5) CME Intermediate Put (4250.0) updated to 2,255 OI (+11). 6) CME Macro Put Base (4200.0) updated to 2,859 OI (+52). 7) DTE calibrated to 62.32 DTE (OGZ6 Expiry 24-Nov-2026)."
+  "changelog": "Good Trade Gold PRO V7.98 - CME Options Open Interest (OI) Matrix Refresh (23-Sep-2026 Settlement / 61.27 DTE vs 4295.2 Futures): 1) Primary Tactical Call Wall (4400.0) updated to 2,368 OI (-99). 2) CME MEGA Call Wall (4500.0) updated to 12,612 OI (+193). 3) CME Intermediate Call (4350.0) updated to 1,108 OI (+139). 4) Primary Tactical Put Wall (4300.0) updated to 3,562 OI (+105). 5) CME Intermediate Put (4250.0) reinforced to 2,883 OI (+628). 6) CME Macro Put Base (4200.0) reinforced to 3,123 OI (+264). 7) DTE calibrated to 61.27 DTE (OGZ6 Expiry 24-Nov-2026)."
 }
