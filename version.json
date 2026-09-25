@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "7.99",
+  "latest_version": "8.01",
   "release_date": "2026-09-25",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V7.99 - Smart Structural Re-Entry Guard & Multi-TF EMA 14 Matrix Suite (FOREX LAB P'Chanut Style): 1) Smart Structural Re-Entry Guard: Replaced rigid 15-minute / 3-minute hard freeze. If closed with Break-Even, re-entry is unlocked immediately. If closed with SL loss, price level is protected (+-250 pts) to prevent duplicate spam, UNLESS price is inside Demand/Supply Zone + confirmed by Price Action Reversal + Quality Score >= 70%. 2) Multi-TF EMA 14 Matrix: Integrated 8 Timeframes (W1, D1, H4, H1, M30, M15, M5, M1) with Purple Neon chart levels and Waterfall Cascade scoring (+8 pts cascade alignment, +7 pts rejection touch). 3) Institutional EMA 200: Trendline filter and bounce confluence (+5 pts). 4) HUD Card 1 Real-Time Badge integration."
+  "changelog": "Good Trade Gold PRO V8.01 - Universal Multi-Line Text Auto-Wrapping & Zero-Overflow Card Architecture: 1) Universal SmartWrapText & SmartWrapText3 Engine: Automatically detects long texts and splits across lines (_L1, _L2, _L3) at logical separators without truncating, guaranteeing 100% text visibility in all cards. 2) Card Heights & Spacing Expansion: Card 1 (268px), Card 2 (152px with 3-line Entry display), Card 3 (166px with 3-line Re-Entry guard), Card 4 (110px with 3-line stats). 3) Default Expansion Fix: Corrected GlobalVariableCheck fallback so Cards 3 & 4 are always expanded by default. 4) MTF ABCD & Action Advice compact formatting."
 }
