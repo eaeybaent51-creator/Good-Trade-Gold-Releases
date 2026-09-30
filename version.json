@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "8.02",
-  "release_date": "2026-09-29",
+  "latest_version": "8.03",
+  "release_date": "2026-09-30",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V8.02 - Universal On-Chart Graphic Anti-Collision Matrix, Subwindow 1 Geometry Precision & Zero-Overflow Card Protection: 1) Fibonacci vs Plan Anti-Collision: Automatically flips Fibo badges to the left of the candlestick (-14 bars) if within 22 pixels of any active Plan target (Entry/SL/TP1/TP2/TP3), eliminating triple-text overlap. 2) ABCD Wave Staggering: Shifts Point D projection badge to wave.timeB + 6 bars when Plan TP2 is active, clearing the forward margin for the TP2 badge. Point C anchored cleanly inside OTE box. 3) Institutional BSL/SSL Forward Offset: Advanced to +7 bars into empty margin to avoid colliding with Point B swing highs. 4) Subwindow 1 Geometry Refinement: Live aqua Bid line centered on Candle 0 and PA badge vertically centered. 5) Dashboard Card 1 Overflows Eliminated: Compacted Smart Action, Samurai Macro, Candlestick (PA), and Market Advice Line 2."
+  "changelog": "Good Trade Gold PRO V8.03 - CME Options Wall Master Calibration (Sep 30, 2026 - QuikStrike Settlement Data Date 29 Sep 2026, 55.32 DTE): 1) Calibrated Mega Call Wall (Strike 4500.0) to 12,011 OI (+51 contracts). 2) Calibrated Tactical Call Wall (Strike 4400.0) to 2,070 OI. 3) Calibrated Tactical Put Wall (Strike 4300.0) to 3,385 OI. 4) Calibrated Intermediate Put Support (Strike 4250.0) to 2,632 OI. 5) Calibrated Macro Put Base (Strike 4200.0) to 2,531 OI. 6) Updated DTE tracking to 55 DTE."
 }
