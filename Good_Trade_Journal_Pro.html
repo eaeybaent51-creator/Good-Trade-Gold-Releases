@@ -1,0 +1,2195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Good Trade Journal" />
+  <title>Good Trade Gold — สมุดบันทึกการเทรด & บริหารพอร์ตอัจฉริยะ (Journal Pro)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #070b14;
+      --bg-card: #101827;
+      --bg-card-hover: #162238;
+      --bg-input: #0b1220;
+      --border: #1e2d4a;
+      --border-light: #2b426b;
+      --gold: #fbbf24;
+      --gold-dim: #d97706;
+      --gold-glow: rgba(251, 191, 36, 0.15);
+      --win: #10b981;
+      --win-bg: rgba(16, 185, 129, 0.12);
+      --loss: #f43f5e;
+      --loss-bg: rgba(244, 63, 94, 0.12);
+      --be: #38bdf8;
+      --be-bg: rgba(56, 189, 248, 0.12);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #3b82f6;
+      --radius: 14px;
+      --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Prompt', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-main);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(251, 191, 36, 0.07) 0px, transparent 50%);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* TOP HEADER */
+    header {
+      background: rgba(16, 24, 39, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 12px 20px;
+    }
+
+    .header-inner {
+      max-width: 1560px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #fbbf24, #b45309);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.35);
+    }
+
+    .brand-title h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.3px;
+    }
+
+    .brand-title p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* PORTFOLIO BAR */
+    .portfolio-bar {
+      max-width: 1560px;
+      margin: 14px auto 0;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .port-pills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .port-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+    }
+
+    .port-pill:hover {
+      border-color: var(--border-light);
+      color: var(--text-main);
+    }
+
+    .port-pill.active {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(217, 119, 6, 0.1));
+      border-color: var(--gold);
+      color: var(--gold);
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.15);
+    }
+
+    /* CONTAINER */
+    .container {
+      max-width: 1560px;
+      margin: 16px auto;
+      padding: 0 20px;
+    }
+
+    /* KPI GRID */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 1280px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 680px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .kpi-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .kpi-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* MAIN WORKSPACE LAYOUT */
+    .workspace {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* PANEL / CARD */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .panel-title {
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-body {
+      padding: 16px 18px;
+    }
+
+    /* FORM ELEMENTS */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 9px 12px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.15);
+    }
+
+    /* SIDE BUTTONS (BUY / SELL) */
+    .side-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .side-btn {
+      padding: 10px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .side-btn.buy.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--win);
+      color: #34d399;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+    }
+
+    .side-btn.sell.active {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: var(--loss);
+      color: #fb7185;
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.25);
+    }
+
+    /* RESULT STATUS TOGGLE (TP / SL / BE) */
+    .outcome-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .outcome-btn {
+      padding: 8px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    .outcome-btn.tp.active {
+      background: var(--win-bg);
+      border-color: var(--win);
+      color: var(--win);
+    }
+
+    .outcome-btn.sl.active {
+      background: var(--loss-bg);
+      border-color: var(--loss);
+      color: var(--loss);
+    }
+
+    .outcome-btn.be.active {
+      background: var(--be-bg);
+      border-color: var(--be);
+      color: var(--be);
+    }
+
+    /* QUICK CHIPS */
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.73rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .chip:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(251, 191, 36, 0.08);
+    }
+
+    .chip.win-chip:hover {
+      border-color: var(--win);
+      color: var(--win);
+    }
+
+    .chip.loss-chip:hover {
+      border-color: var(--loss);
+      color: var(--loss);
+    }
+
+    /* BUTTONS */
+    .btn {
+      padding: 9px 15px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #fbbf24, #d97706);
+      color: #090d16;
+      box-shadow: 0 4px 14px rgba(251, 191, 36, 0.3);
+    }
+
+    .btn-gold:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: var(--bg-card);
+      border-color: var(--border-light);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.4);
+      color: #fb7185;
+    }
+
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.25);
+    }
+
+    .btn-block {
+      width: 100%;
+      padding: 12px;
+      font-size: 0.98rem;
+    }
+
+    /* TABS */
+    .tabs-nav {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: rgba(11, 18, 32, 0.6);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 13px 18px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-btn.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+      background: rgba(251, 191, 36, 0.06);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 18px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* TABLES */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th {
+      background: rgba(11, 18, 32, 0.9);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-align: left;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(30, 45, 74, 0.6);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* BADGES */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-buy {
+      background: var(--win-bg);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-sell {
+      background: var(--loss-bg);
+      color: #fb7185;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .badge-be {
+      background: var(--be-bg);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-port {
+      background: rgba(251, 191, 36, 0.12);
+      color: var(--gold);
+      border: 1px solid rgba(251, 191, 36, 0.25);
+    }
+
+    .text-win { color: #34d399 !important; font-weight: 600; }
+    .text-loss { color: #fb7185 !important; font-weight: 600; }
+    .text-be { color: #38bdf8 !important; font-weight: 600; }
+    .text-gold { color: var(--gold) !important; font-weight: 600; }
+
+    /* FILTER BAR */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      background: rgba(11, 18, 32, 0.5);
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-group input, .filter-group select {
+      width: auto;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+    }
+
+    /* CALENDAR HEATMAP */
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .cal-dow {
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 6px 0;
+    }
+
+    .cal-day {
+      min-height: 82px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .cal-day:hover {
+      border-color: var(--gold);
+      transform: translateY(-1px);
+    }
+
+    .cal-day.empty {
+      background: rgba(11, 18, 32, 0.3);
+      border-color: transparent;
+      cursor: default;
+    }
+
+    .cal-day.win-day {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .cal-day.loss-day {
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+
+    .cal-date-num {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .cal-pnl {
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .cal-pts {
+      font-size: 0.72rem;
+      text-align: right;
+      color: var(--text-muted);
+    }
+
+    /* MODAL */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      max-width: 580px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    /* CHART BOX */
+    .chart-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 260px;
+      display: block;
+    }
+
+    /* TOAST */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #10b981;
+      color: #06130e;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 999;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .action-icon-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 4px 7px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      transition: all 0.15s;
+    }
+
+    .action-icon-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .summary-section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--gold);
+      margin: 14px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">🏆</div>
+        <div class="brand-title">
+          <h1>GOOD TRADE GOLD — JOURNAL PRO</h1>
+          <p>สมุดบันทึกการเทรดแยกพอร์ต • คำนวณจุด TP/SL & สรุปรายวัน/สัปดาห์/เดือน (คุณเอ้ Edition)</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <button class="btn btn-outline" onclick="openPortfolioModal()">🏦 จัดการพอร์ต</button>
+        <button class="btn btn-outline" onclick="openSyncModal()">☁️ ซิงค์ข้อมูล / สำรองไฟล์</button>
+        <button class="btn btn-gold" onclick="exportCSV()">📥 ส่งออก Excel (CSV)</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- PORTFOLIO SELECTOR BAR -->
+  <div class="portfolio-bar">
+    <div class="port-pills" id="portfolioPills"></div>
+    <div style="font-size: 0.8rem; color: var(--text-muted);">
+      💾 สถานะความจำ: <span style="color: var(--win); font-weight: 600;">บันทึกอัตโนมัติในเครื่อง (Auto-Saved)</span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <div class="container">
+
+    <!-- 6 KPI SUMMARY CARDS -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label"><span>💰 พอร์ตปัจจุบัน (Balance)</span><span id="kpiPortName" class="badge badge-port">ทุกพอร์ต</span></div>
+        <div class="kpi-value mono" id="kpiBalance">$0.00</div>
+        <div class="kpi-sub" id="kpiROI">ทุนตั้งต้น: $0.00 (0.00%)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span>💵 กำไร/ขาดทุนสุทธิ (Net PnL)</span><span>📈</span></div>
+        <div class="kpi-value mono" id="kpiNetPnL">$0.00</div>
+        <div class="kpi-sub" id="kpiTodayPnL">วันนี้: $0.00 (0 จุด)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span>🎯 จำนวนจุดสุทธิ (Net Points)</span><span>⚡</span></div>
+        <div class="kpi-value mono" id="kpiNetPoints">0 pts</div>
+        <div class="kpi-sub" id="kpiPointsDetail">รวม TP: +0 | รวม SL: -0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span>🏆 อัตราชนะ (Win Rate)</span><span>🎯</span></div>
+        <div class="kpi-value mono" id="kpiWinRate">0.0%</div>
+        <div class="kpi-sub" id="kpiTradeCounts">ทั้งหมด 0 ไม้ (W:0 / L:0 / BE:0)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span>⚖️ Profit Factor & เฉลี่ย</span><span>📊</span></div>
+        <div class="kpi-value mono" id="kpiProfitFactor">0.00</div>
+        <div class="kpi-sub" id="kpiAvgPts">เฉลี่ยชนะ: +0 pts | แพ้: -0 pts</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span>📅 ผลงานเดือนนี้ (Monthly)</span><span>🗓️</span></div>
+        <div class="kpi-value mono" id="kpiMonthPnL">$0.00</div>
+        <div class="kpi-sub" id="kpiWeekPnL">สัปดาห์นี้: $0.00 (0 pts)</div>
+      </div>
+    </div>
+
+    <!-- WORKSPACE: LEFT FORM + RIGHT ANALYTICS -->
+    <div class="workspace">
+
+      <!-- LEFT COLUMN: TRADE ENTRY FORM -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" id="formHeaderTitle">✍️ บันทึกการออกไม้รายวัน</div>
+          <button class="action-icon-btn" onclick="resetTradeForm()" title="ล้างฟอร์ม">🔄 เริ่มใหม่</button>
+        </div>
+        <div class="panel-body">
+          <form id="tradeForm" onsubmit="saveTrade(event)">
+            <input type="hidden" id="editTradeId" value="" />
+
+            <div class="form-row">
+              <div>
+                <label>🏦 เลือกพอร์ตที่เทรด</label>
+                <select id="fPortfolio" required onchange="onPortfolioSelectChange()"></select>
+              </div>
+              <div>
+                <label>📅 วันที่ & เวลาออกไม้</label>
+                <input type="datetime-local" id="fDateTime" required />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div>
+                <label>🪙 สินทรัพย์ (Symbol)</label>
+                <select id="fSymbol" onchange="autoCalcFromPrices()">
+                  <option value="XAUUSD">XAUUSD (ทองคำ)</option>
+                  <option value="BTCUSD">BTCUSD (บิตคอยน์)</option>
+                  <option value="EURUSD">EURUSD (ยูโร)</option>
+                  <option value="GBPUSD">GBPUSD (ปอนด์)</option>
+                  <option value="USDJPY">USDJPY (เยน)</option>
+                  <option value="US30">US30 (ดาวโจนส์)</option>
+                  <option value="NAS100">NAS100 (แนสแด็ก)</option>
+                </select>
+              </div>
+              <div>
+                <label>📦 ขนาด Lot (Lot Size)</label>
+                <input type="number" id="fLot" step="0.01" min="0.01" value="0.01" required oninput="onPointsOrLotChange()" class="mono" />
+                <div class="quick-chips">
+                  <span class="chip" onclick="setLot(0.01)">0.01</span>
+                  <span class="chip" onclick="setLot(0.02)">0.02</span>
+                  <span class="chip" onclick="setLot(0.05)">0.05</span>
+                  <span class="chip" onclick="setLot(0.10)">0.10</span>
+                  <span class="chip" onclick="setLot(0.20)">0.20</span>
+                  <span class="chip" onclick="setLot(0.50)">0.50</span>
+                  <span class="chip" onclick="setLot(1.00)">1.00</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>🧭 ฝั่งออเดอร์ (Order Type)</label>
+              <div class="side-toggle">
+                <button type="button" id="btnSideBuy" class="side-btn buy active" onclick="setSide('BUY')">🟢 BUY (ซื้อขึ้น)</button>
+                <button type="button" id="btnSideSell" class="side-btn sell" onclick="setSide('SELL')">🔴 SELL (ขายลง)</button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div>
+                <label>📍 ออกไม้ที่ราคา (Entry Price)</label>
+                <input type="number" id="fEntryPrice" step="any" placeholder="เช่น 4600.00" oninput="autoCalcFromPrices()" class="mono" />
+              </div>
+              <div>
+                <label>🏁 ปิดไม้ที่ราคา (Exit Price / ไม่บังคับ)</label>
+                <input type="number" id="fExitPrice" step="any" placeholder="เช่น 4609.50" oninput="autoCalcFromPrices()" class="mono" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>🏅 ผลการเทรดของไม้นี้ (Outcome)</label>
+              <div class="outcome-toggle">
+                <button type="button" id="btnOutTP" class="outcome-btn tp active" onclick="setOutcome('WIN')">🏆 ชนะ (TP)</button>
+                <button type="button" id="btnOutSL" class="outcome-btn sl" onclick="setOutcome('LOSS')">🛑 โดน (SL)</button>
+                <button type="button" id="btnOutBE" class="outcome-btn be" onclick="setOutcome('BE')">🛡️ บังทุน (BE)</button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div>
+                <label>🎯 จำนวนจุด (+TP / -SL กี่จุด)</label>
+                <input type="number" id="fPoints" step="any" placeholder="เช่น 950 หรือ -770" required oninput="onPointsOrLotChange()" class="mono" />
+                <div class="quick-chips">
+                  <span class="chip win-chip" onclick="setQuickPoints('WIN', 450)">+450</span>
+                  <span class="chip win-chip" onclick="setQuickPoints('WIN', 700)">+700</span>
+                  <span class="chip win-chip" onclick="setQuickPoints('WIN', 950)">+950 TP1</span>
+                  <span class="chip win-chip" onclick="setQuickPoints('WIN', 1900)">+1900 TP2</span>
+                  <span class="chip" onclick="setQuickPoints('BE', 10)">+10 VSL</span>
+                  <span class="chip" onclick="setQuickPoints('BE', 50)">+50 BE</span>
+                  <span class="chip loss-chip" onclick="setQuickPoints('LOSS', -770)">-770 SL</span>
+                  <span class="chip loss-chip" onclick="setQuickPoints('LOSS', -1000)">-1000 SL</span>
+                </div>
+              </div>
+              <div>
+                <label id="lblMoneyInput">💵 กำไร/ขาดทุนสุทธิ ($)</label>
+                <input type="number" id="fProfitMoney" step="any" placeholder="คำนวณอัตโนมัติ" required class="mono" />
+                <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 4px;">
+                  *คำนวณจาก Lot × จุดอัตโนมัติ (พิมพ์แก้ตามจริงได้)
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>⚔️ กลยุทธ์ / ท่าที่ใช้เข้าเทรด (Strategy Setup)</label>
+              <select id="fStrategy">
+                <option value="สปีดไลน์ + คลื่น A-B-C-D (กำนันบอล)">📐 สปีดไลน์ + คลื่น A-B-C-D (กำนันบอล)</option>
+                <option value="กลับตัวหลอก (Fakeout Trap EP4)">⚡ กลับตัวหลอก (Fakeout Trap EP4)</option>
+                <option value="กำแพงสถาบัน CME Options Wall">🏛️ กำแพงสถาบัน CME Options Wall</option>
+                <option value="ตาข่ายสมดุล Gann & จุดหมดแรง (v≈0)">🌐 ตาข่ายสมดุล Gann & จุดหมดแรง (v≈0)</option>
+                <option value="โซน Demand/Supply + เส้น EMA 14">🔥 โซน Demand/Supply + เส้น EMA 14</option>
+                <option value="ICT Unicorn / Hidden Blade 50%">🦄 ICT Unicorn / Hidden Blade 50%</option>
+                <option value="Fibo OTE 70.5% + Dow Wave">🌊 Fibo OTE 70.5% + Dow Wave</option>
+                <option value="บอท Good Trade Gold EA (Auto)">🤖 บอท Good Trade Gold EA (Auto)</option>
+                <option value="เทรดมือทั่วไป / ข่าว">📱 เทรดมือทั่วไป / ข่าว</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>📝 บันทึกช่วยจำ (เหตุผลเข้าไม้ / ข้อสังเกต)</label>
+              <textarea id="fNote" rows="2" placeholder="เช่น รอปริ้นสปีดไลน์ M15 ย่อแตะ Demand + ติด Put Wall 4300..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-gold btn-block" id="btnSubmitTrade">
+              💾 บันทึกไม้เทรดลงสมุดพอร์ต
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: MULTI-VIEW REPORTS & SUMMARIES -->
+      <div class="panel">
+        <div class="tabs-nav">
+          <button class="tab-btn active" onclick="switchTab('daily', this)">📋 1. รายการเทรด & สรุปรายวัน</button>
+          <button class="tab-btn" onclick="switchTab('weekly', this)">📆 2. สรุปรายสัปดาห์</button>
+          <button class="tab-btn" onclick="switchTab('monthly', this)">🗓️ 3. สรุปรายเดือน & ปฏิทินกำไร</button>
+          <button class="tab-btn" onclick="switchTab('analytics', this)">📈 4. กราฟพอร์ต & วิเคราะห์ท่าเทรด</button>
+        </div>
+
+        <!-- TAB 1: DAILY LOG & TRADE HISTORY -->
+        <div id="tab-daily" class="tab-content active">
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label style="margin:0;">🔍 กรองวันที่:</label>
+              <input type="date" id="filterDate" onchange="renderAll()" />
+              <button class="action-icon-btn" onclick="document.getElementById('filterDate').value=''; renderAll();">ดูทุกวัน</button>
+              <select id="filterSide" onchange="renderAll()">
+                <option value="ALL">ทุกฝั่ง (BUY & SELL)</option>
+                <option value="BUY">เฉพาะ BUY 🟢</option>
+                <option value="SELL">เฉพาะ SELL 🔴</option>
+              </select>
+              <select id="filterOutcome" onchange="renderAll()">
+                <option value="ALL">ทุกผลลัพธ์ (TP / SL / BE)</option>
+                <option value="WIN">เฉพาะไม้ชนะ (TP) 🏆</option>
+                <option value="LOSS">เฉพาะไม้แพ้ (SL) 🛑</option>
+                <option value="BE">เฉพาะบังทุน (BE) 🛡️</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <input type="text" id="filterSearch" placeholder="ค้นหาบันทึก / กลยุทธ์..." oninput="renderAll()" />
+            </div>
+          </div>
+
+          <div class="summary-section-title">📅 ตารางสรุปยอดรายวัน (Daily Summary)</div>
+          <div class="table-wrap" style="margin-bottom: 20px; max-height: 240px; overflow-y: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>วันที่</th>
+                  <th>จำนวนไม้</th>
+                  <th>ชนะ / แพ้ / บังทุน</th>
+                  <th>Win Rate</th>
+                  <th>รวมจุดที่ได้/เสีย (Net Points)</th>
+                  <th>กำไร/ขาดทุนสุทธิ</th>
+                </tr>
+              </thead>
+              <tbody id="dailySummaryBody"></tbody>
+            </table>
+          </div>
+
+          <div class="summary-section-title">📝 ประวัติการออกไม้รายวันแบบละเอียด (Trade-by-Trade History)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>วัน-เวลา</th>
+                  <th>พอร์ต</th>
+                  <th>สินทรัพย์</th>
+                  <th>ฝั่ง</th>
+                  <th>Lot</th>
+                  <th>ราคาเข้า ➔ ปิด</th>
+                  <th>ผลลัพธ์</th>
+                  <th>จำนวนจุด (TP/SL)</th>
+                  <th>กำไร/ขาดทุน</th>
+                  <th>กลยุทธ์ & บันทึก</th>
+                  <th>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="tradeHistoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 2: WEEKLY SUMMARY -->
+        <div id="tab-weekly" class="tab-content">
+          <div class="summary-section-title">📆 สรุปผลการเทรดรายสัปดาห์ (Weekly Performance Report)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>สัปดาห์ (จันทร์ - อาทิตย์)</th>
+                  <th>จำนวนไม้ทั้งหมด</th>
+                  <th>ชนะ (TP)</th>
+                  <th>แพ้ (SL)</th>
+                  <th>บังทุน (BE)</th>
+                  <th>Win Rate</th>
+                  <th>สุทธิกี่จุด (Net Points)</th>
+                  <th>กำไร/ขาดทุนสุทธิ</th>
+                  <th>เฉลี่ยต่อไม้</th>
+                </tr>
+              </thead>
+              <tbody id="weeklySummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: MONTHLY SUMMARY & CALENDAR -->
+        <div id="tab-monthly" class="tab-content">
+          <div class="cal-header">
+            <div class="summary-section-title" style="margin:0;">🗓️ ปฏิทินกำไรรายวัน (PnL Calendar Heatmap)</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn btn-outline" style="padding:5px 12px;" onclick="changeCalendarMonth(-1)">◀ เดือนก่อน</button>
+              <span id="calMonthLabel" style="font-weight:700; color:var(--gold); min-width:140px; text-align:center;"></span>
+              <button class="btn btn-outline" style="padding:5px 12px;" onclick="changeCalendarMonth(1)">เดือนถัดไป ▶</button>
+            </div>
+          </div>
+
+          <div class="cal-grid" id="calendarGrid" style="margin-bottom: 24px;"></div>
+
+          <div class="summary-section-title">📊 ตารางสรุปผลงานรายเดือน (Monthly Summary)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>เดือน / ปี</th>
+                  <th>จำนวนวันเทรด</th>
+                  <th>จำนวนไม้</th>
+                  <th>ชนะ / แพ้ / BE</th>
+                  <th>Win Rate</th>
+                  <th>รวมจุดสุทธิ (Points)</th>
+                  <th>กำไร/ขาดทุนสุทธิ</th>
+                  <th>ROI เทียบทุนตั้งต้น</th>
+                </tr>
+              </thead>
+              <tbody id="monthlySummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 4: EQUITY CURVE & STRATEGY ANALYTICS -->
+        <div id="tab-analytics" class="tab-content">
+          <div class="summary-section-title">📈 กราฟการเติบโตของพอร์ตและจำนวนจุดสะสม (Cumulative Equity Curve)</div>
+          <div class="chart-box">
+            <canvas id="equityCanvas" width="900" height="260"></canvas>
+          </div>
+
+          <div class="summary-section-title">⚔️ วิเคราะห์ประสิทธิภาพแยกตามกลยุทธ์ (Strategy Win-Rate & Points Breakdown)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>กลยุทธ์ / ท่าเทรด</th>
+                  <th>จำนวนไม้</th>
+                  <th>ชนะ / แพ้ / BE</th>
+                  <th>อัตราชนะ (Win Rate)</th>
+                  <th>รวมจุดสุทธิ (Points)</th>
+                  <th>กำไรสุทธิ</th>
+                </tr>
+              </thead>
+              <tbody id="strategySummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 1: PORTFOLIO MANAGER -->
+  <div class="modal-backdrop" id="portfolioModal">
+    <div class="modal">
+      <div class="panel-header">
+        <div class="panel-title">🏦 จัดการพอร์ตการเทรดของคุณเอ้ (Multi-Portfolio Setup)</div>
+        <button class="action-icon-btn" onclick="closePortfolioModal()">✕ ปิด</button>
+      </div>
+      <div class="panel-body">
+        <div class="table-wrap" style="margin-bottom: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>ชื่อพอร์ต</th>
+                <th>สกุลเงิน</th>
+                <th>ทุนตั้งต้น</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="portListBody"></tbody>
+          </table>
+        </div>
+
+        <div style="background: var(--bg-input); padding: 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 0.88rem; font-weight: 600; color: var(--gold); margin-bottom: 10px;">➕ เพิ่มพอร์ตใหม่ / แก้ไขพอร์ต</div>
+          <input type="hidden" id="editPortId" value="" />
+          <div class="form-row-3">
+            <div>
+              <label>ชื่อพอร์ต</label>
+              <input type="text" id="pName" placeholder="เช่น ETO พอร์ตปั้น" />
+            </div>
+            <div>
+              <label>หน่วยเงิน</label>
+              <select id="pCurrency">
+                <option value="USD">USD ($)</option>
+                <option value="USC">Cent (¢)</option>
+                <option value="THB">THB (฿)</option>
+              </select>
+            </div>
+            <div>
+              <label>ทุนตั้งต้น</label>
+              <input type="number" id="pInitialBalance" step="any" placeholder="เช่น 1000" />
+            </div>
+          </div>
+          <button class="btn btn-gold" style="width: 100%;" onclick="savePortfolio()">💾 บันทึกพอร์ต</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: CLOUD SYNC & BACKUP -->
+  <div class="modal-backdrop" id="syncModal">
+    <div class="modal">
+      <div class="panel-header">
+        <div class="panel-title">☁️ ซิงค์ข้อมูลข้ามเครื่อง & สำรองไฟล์ (บันทึกได้ทุกที่ทุกเวลา)</div>
+        <button class="action-icon-btn" onclick="closeSyncModal()">✕ ปิด</button>
+      </div>
+      <div class="panel-body">
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 12px;">
+          คุณเอ้สามารถส่งออกเป็นไฟล์เก็บไว้ หรือคัดลอก <b>"รหัสซิงค์ข้อมูล"</b> ส่งเข้า LINE Keep เพื่อโอนย้ายสมุดบันทึกระหว่างมือถือ คอมที่บ้าน และคอมที่ทำงานได้ทันทีครับ
+        </p>
+
+        <div class="form-row" style="margin-bottom: 16px;">
+          <button class="btn btn-gold" onclick="downloadJSONBackup()">💾 ดาวน์โหลดไฟล์สำรอง (.json)</button>
+          <button class="btn btn-outline" onclick="document.getElementById('fileRestoreInput').click()">📂 โหลดไฟล์สำรองเข้าพอร์ต</button>
+          <input type="file" id="fileRestoreInput" accept=".json" style="display:none;" onchange="restoreFromJSONFile(event)" />
+        </div>
+
+        <div class="form-group">
+          <label>📲 รหัสซิงค์ข้ามเครื่องด่วน (Quick Sync Code — คัดลอกหรือวางรหัสที่นี่)</label>
+          <textarea id="syncCodeArea" rows="4" class="mono" style="font-size: 0.75rem;" placeholder="กดปุ่ม 'สร้างรหัสซิงค์' เพื่อคัดลอก หรือวางรหัสจากอีกเครื่องแล้วกด 'นำเข้ารหัสซิงค์'"></textarea>
+        </div>
+        <div class="form-row">
+          <button class="btn btn-outline" onclick="generateSyncCode()">📋 สร้าง & คัดลอกรหัสซิงค์</button>
+          <button class="btn btn-gold" onclick="importSyncCode()">📥 นำเข้ารหัสซิงค์</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast">✅ บันทึกข้อมูลเรียบร้อย!</div>
+
+  <script>
+    const STORAGE_KEY = 'GTG_JOURNAL_PRO_V1';
+
+    let appState = {
+      selectedPortfolioId: 'ALL',
+      portfolios: [
+        { id: 'port_eto_usd', name: 'ETO Markets (พอร์ตหลัก USD)', currency: 'USD', initialBalance: 1000 },
+        { id: 'port_eto_cent', name: 'ETO Markets (พอร์ต Cent)', currency: 'USC', initialBalance: 10000 },
+        { id: 'port_otg', name: 'OTG Group (พอร์ตสไนเปอร์)', currency: 'USD', initialBalance: 500 },
+        { id: 'port_deungdang', name: 'พอร์ตดึงดังเทรด (กำนันบอล)', currency: 'USD', initialBalance: 300 }
+      ],
+      trades: []
+    };
+
+    let currentSide = 'BUY';
+    let currentOutcome = 'WIN';
+    let calYear = new Date().getFullYear();
+    let calMonth = new Date().getMonth();
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.portfolios) && Array.isArray(parsed.trades)) {
+            appState = parsed;
+          }
+        }
+      } catch (e) {
+        console.error('Load error:', e);
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    function getCurrencySymbol(curr) {
+      if (curr === 'USC') return '¢';
+      if (curr === 'THB') return '฿';
+      return '$';
+    }
+
+    function getActiveCurrency() {
+      if (appState.selectedPortfolioId === 'ALL') return '$';
+      const p = appState.portfolios.find(x => x.id === appState.selectedPortfolioId);
+      return p ? getCurrencySymbol(p.currency) : '$';
+    }
+
+    function formatMoney(val, currSym = '$') {
+      const num = Number(val) || 0;
+      const sign = num > 0 ? '+' : (num < 0 ? '-' : '');
+      return `${sign}${currSym}${Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function formatPoints(pts) {
+      const num = Number(pts) || 0;
+      const sign = num > 0 ? '+' : '';
+      return `${sign}${num.toLocaleString('en-US', { maximumFractionDigits: 1 })} pts`;
+    }
+
+    function setNowDateTime() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const localISOTime = new Date(now - offset).toISOString().slice(0, 16);
+      document.getElementById('fDateTime').value = localISOTime;
+    }
+
+    function setSide(side) {
+      currentSide = side;
+      document.getElementById('btnSideBuy').classList.toggle('active', side === 'BUY');
+      document.getElementById('btnSideSell').classList.toggle('active', side === 'SELL');
+      autoCalcFromPrices();
+    }
+
+    function setOutcome(outcome) {
+      currentOutcome = outcome;
+      document.getElementById('btnOutTP').classList.toggle('active', outcome === 'WIN');
+      document.getElementById('btnOutSL').classList.toggle('active', outcome === 'LOSS');
+      document.getElementById('btnOutBE').classList.toggle('active', outcome === 'BE');
+
+      const ptsInput = document.getElementById('fPoints');
+      let pts = parseFloat(ptsInput.value);
+      if (!isNaN(pts)) {
+        if (outcome === 'LOSS' && pts > 0) ptsInput.value = -Math.abs(pts);
+        if (outcome === 'WIN' && pts < 0) ptsInput.value = Math.abs(pts);
+        onPointsOrLotChange();
+      }
+    }
+
+    function setLot(val) {
+      document.getElementById('fLot').value = val.toFixed(2);
+      onPointsOrLotChange();
+    }
+
+    function setQuickPoints(outcome, pts) {
+      setOutcome(outcome);
+      document.getElementById('fPoints').value = pts;
+      onPointsOrLotChange();
+    }
+
+    function getPointMultiplier(symbol) {
+      if (symbol === 'XAUUSD') return 0.1; // 100 pts ($1.00 move) on 0.01 lot = $1.00 -> 1 pt on 1.00 lot = $0.10 (or 0.01 lot * 950 pts = $9.50)
+      if (symbol === 'BTCUSD') return 1.0;
+      return 0.1;
+    }
+
+    function autoCalcFromPrices() {
+      const entry = parseFloat(document.getElementById('fEntryPrice').value);
+      const exit = parseFloat(document.getElementById('fExitPrice').value);
+      const symbol = document.getElementById('fSymbol').value;
+
+      if (!isNaN(entry) && !isNaN(exit) && entry > 0 && exit > 0) {
+        let diff = currentSide === 'BUY' ? (exit - entry) : (entry - exit);
+        let factor = 100; // XAUUSD 2 decimals: 1.00 = 100 points
+        if (symbol === 'BTCUSD') factor = 1;
+        else if (symbol.includes('JPY')) factor = 1000;
+        else if (symbol === 'EURUSD' || symbol === 'GBPUSD') factor = 100000;
+        else if (symbol === 'US30' || symbol === 'NAS100') factor = 10;
+
+        const pts = Math.round(diff * factor * 10) / 10;
+        document.getElementById('fPoints').value = pts;
+
+        if (pts > 60) setOutcome('WIN');
+        else if (pts < -10) setOutcome('LOSS');
+        else setOutcome('BE');
+
+        onPointsOrLotChange();
+      }
+    }
+
+    function onPointsOrLotChange() {
+      const pts = parseFloat(document.getElementById('fPoints').value);
+      const lot = parseFloat(document.getElementById('fLot').value);
+      if (!isNaN(pts)) {
+        if (pts > 60 && currentOutcome === 'LOSS') setOutcome('WIN');
+        else if (pts < 0 && currentOutcome === 'WIN') setOutcome('LOSS');
+      }
+      if (!isNaN(pts) && !isNaN(lot)) {
+        // Standard Gold / Forex calculation: 0.01 lot * 100 pts = $1.00 => money = pts * lot
+        const calcMoney = Math.round(pts * lot * 100) / 100;
+        document.getElementById('fProfitMoney').value = calcMoney;
+      }
+    }
+
+    function onPortfolioSelectChange() {
+      const portId = document.getElementById('fPortfolio').value;
+      const p = appState.portfolios.find(x => x.id === portId);
+      const sym = p ? getCurrencySymbol(p.currency) : '$';
+      document.getElementById('lblMoneyInput').textContent = `💵 กำไร/ขาดทุนสุทธิ (${sym})`;
+    }
+
+    function saveTrade(e) {
+      e.preventDefault();
+      const editId = document.getElementById('editTradeId').value;
+      const portfolioId = document.getElementById('fPortfolio').value;
+      const dateTime = document.getElementById('fDateTime').value;
+      const symbol = document.getElementById('fSymbol').value;
+      const lot = parseFloat(document.getElementById('fLot').value) || 0.01;
+      const entryPrice = parseFloat(document.getElementById('fEntryPrice').value) || 0;
+      const exitPrice = parseFloat(document.getElementById('fExitPrice').value) || 0;
+      let points = parseFloat(document.getElementById('fPoints').value) || 0;
+      let profitMoney = parseFloat(document.getElementById('fProfitMoney').value) || 0;
+      const strategy = document.getElementById('fStrategy').value;
+      const note = document.getElementById('fNote').value.trim();
+
+      if (currentOutcome === 'LOSS' && points > 0) points = -Math.abs(points);
+      if (currentOutcome === 'LOSS' && profitMoney > 0) profitMoney = -Math.abs(profitMoney);
+      if (currentOutcome === 'WIN' && points < 0) points = Math.abs(points);
+      if (currentOutcome === 'WIN' && profitMoney < 0) profitMoney = Math.abs(profitMoney);
+
+      const record = {
+        id: editId || ('tr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+        portfolioId,
+        dateTime,
+        symbol,
+        side: currentSide,
+        lot,
+        entryPrice,
+        exitPrice,
+        outcome: currentOutcome,
+        points,
+        profitMoney,
+        strategy,
+        note
+      };
+
+      if (editId) {
+        const idx = appState.trades.findIndex(x => x.id === editId);
+        if (idx >= 0) appState.trades[idx] = record;
+        showToast('✅ แก้ไขรายการเทรดเรียบร้อยแล้ว!');
+      } else {
+        appState.trades.unshift(record);
+        showToast('✅ บันทึกไม้เทรดลงพอร์ตเรียบร้อยแล้ว!');
+      }
+
+      saveData();
+      resetTradeForm();
+      renderAll();
+    }
+
+    function resetTradeForm() {
+      document.getElementById('editTradeId').value = '';
+      document.getElementById('formHeaderTitle').textContent = '✍️ บันทึกการออกไม้รายวัน';
+      document.getElementById('btnSubmitTrade').textContent = '💾 บันทึกไม้เทรดลงสมุดพอร์ต';
+      document.getElementById('fEntryPrice').value = '';
+      document.getElementById('fExitPrice').value = '';
+      document.getElementById('fPoints').value = '';
+      document.getElementById('fProfitMoney').value = '';
+      document.getElementById('fNote').value = '';
+      setSide('BUY');
+      setOutcome('WIN');
+      setNowDateTime();
+    }
+
+    function editTrade(id) {
+      const tr = appState.trades.find(x => x.id === id);
+      if (!tr) return;
+      document.getElementById('editTradeId').value = tr.id;
+      document.getElementById('formHeaderTitle').textContent = '✏️ แก้ไขรายการเทรด';
+      document.getElementById('btnSubmitTrade').textContent = '💾 บันทึกการแก้ไข';
+      document.getElementById('fPortfolio').value = tr.portfolioId;
+      document.getElementById('fDateTime').value = tr.dateTime;
+      document.getElementById('fSymbol').value = tr.symbol;
+      document.getElementById('fLot').value = tr.lot;
+      document.getElementById('fEntryPrice').value = tr.entryPrice || '';
+      document.getElementById('fExitPrice').value = tr.exitPrice || '';
+      setSide(tr.side);
+      setOutcome(tr.outcome);
+      document.getElementById('fPoints').value = tr.points;
+      document.getElementById('fProfitMoney').value = tr.profitMoney;
+      document.getElementById('fStrategy').value = tr.strategy;
+      document.getElementById('fNote').value = tr.note || '';
+      onPortfolioSelectChange();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function deleteTrade(id) {
+      if (!confirm('ยืนยันการลบรายการเทรดนี้ใช่หรือไม่?')) return;
+      appState.trades = appState.trades.filter(x => x.id !== id);
+      saveData();
+      renderAll();
+      showToast('🗑️ ลบรายการเทรดเรียบร้อยแล้ว');
+    }
+
+    function selectPortfolio(id) {
+      appState.selectedPortfolioId = id;
+      if (id !== 'ALL') {
+        document.getElementById('fPortfolio').value = id;
+        onPortfolioSelectChange();
+      }
+      saveData();
+      renderAll();
+    }
+
+    function renderPortfolioSelectors() {
+      const pillsEl = document.getElementById('portfolioPills');
+      const selectEl = document.getElementById('fPortfolio');
+      const currentVal = selectEl.value;
+
+      let pillsHTML = `<button class="port-pill ${appState.selectedPortfolioId === 'ALL' ? 'active' : ''}" onclick="selectPortfolio('ALL')">🌐 รวมทุกพอร์ต (${appState.trades.length} ไม้)</button>`;
+      let optionsHTML = '';
+
+      appState.portfolios.forEach(p => {
+        const count = appState.trades.filter(t => t.portfolioId === p.id).length;
+        const sym = getCurrencySymbol(p.currency);
+        pillsHTML += `<button class="port-pill ${appState.selectedPortfolioId === p.id ? 'active' : ''}" onclick="selectPortfolio('${p.id}')">🏦 ${p.name} (${sym}) [${count}]</button>`;
+        optionsHTML += `<option value="${p.id}">${p.name} (${p.currency})</option>`;
+      });
+
+      pillsEl.innerHTML = pillsHTML;
+      selectEl.innerHTML = optionsHTML;
+      if (appState.selectedPortfolioId !== 'ALL') {
+        selectEl.value = appState.selectedPortfolioId;
+      } else if (currentVal && appState.portfolios.some(p => p.id === currentVal)) {
+        selectEl.value = currentVal;
+      }
+      onPortfolioSelectChange();
+    }
+
+    function getFilteredTrades() {
+      let list = appState.trades.slice();
+      if (appState.selectedPortfolioId !== 'ALL') {
+        list = list.filter(t => t.portfolioId === appState.selectedPortfolioId);
+      }
+      const fDate = document.getElementById('filterDate').value;
+      if (fDate) {
+        list = list.filter(t => t.dateTime && t.dateTime.startsWith(fDate));
+      }
+      const fSide = document.getElementById('filterSide').value;
+      if (fSide !== 'ALL') {
+        list = list.filter(t => t.side === fSide);
+      }
+      const fOut = document.getElementById('filterOutcome').value;
+      if (fOut !== 'ALL') {
+        list = list.filter(t => t.outcome === fOut);
+      }
+      const q = document.getElementById('filterSearch').value.trim().toLowerCase();
+      if (q) {
+        list = list.filter(t => 
+          (t.strategy && t.strategy.toLowerCase().includes(q)) ||
+          (t.note && t.note.toLowerCase().includes(q)) ||
+          (t.symbol && t.symbol.toLowerCase().includes(q))
+        );
+      }
+      list.sort((a, b) => (b.dateTime || '').localeCompare(a.dateTime || ''));
+      return list;
+    }
+
+    function getPortfolioTrades() {
+      let list = appState.trades.slice();
+      if (appState.selectedPortfolioId !== 'ALL') {
+        list = list.filter(t => t.portfolioId === appState.selectedPortfolioId);
+      }
+      list.sort((a, b) => (b.dateTime || '').localeCompare(a.dateTime || ''));
+      return list;
+    }
+
+    function renderKPIs() {
+      const trades = getPortfolioTrades();
+      const currSym = getActiveCurrency();
+      let initBal = 0;
+      if (appState.selectedPortfolioId === 'ALL') {
+        initBal = appState.portfolios.reduce((s, p) => s + (Number(p.initialBalance) || 0), 0);
+        document.getElementById('kpiPortName').textContent = 'รวมทุกพอร์ต';
+      } else {
+        const p = appState.portfolios.find(x => x.id === appState.selectedPortfolioId);
+        initBal = p ? (Number(p.initialBalance) || 0) : 0;
+        document.getElementById('kpiPortName').textContent = p ? p.name : '';
+      }
+
+      let netPnL = 0, netPts = 0, sumTPPts = 0, sumSLPts = 0;
+      let wins = 0, losses = 0, bes = 0;
+      let grossProfit = 0, grossLoss = 0;
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const curMonthStr = todayStr.slice(0, 7);
+      const startOfWeek = getMonday(now).toISOString().slice(0, 10);
+
+      let todayPnL = 0, todayPts = 0;
+      let monthPnL = 0, weekPnL = 0, weekPts = 0;
+
+      trades.forEach(t => {
+        const pnl = Number(t.profitMoney) || 0;
+        const pts = Number(t.points) || 0;
+        netPnL += pnl;
+        netPts += pts;
+
+        if (pts > 0) sumTPPts += pts;
+        if (pts < 0) sumSLPts += Math.abs(pts);
+
+        if (t.outcome === 'WIN') { wins++; grossProfit += Math.max(0, pnl); }
+        else if (t.outcome === 'LOSS') { losses++; grossLoss += Math.abs(Math.min(0, pnl)); }
+        else { bes++; if (pnl > 0) grossProfit += pnl; }
+
+        const dStr = (t.dateTime || '').slice(0, 10);
+        if (dStr === todayStr) { todayPnL += pnl; todayPts += pts; }
+        if (dStr.startsWith(curMonthStr)) { monthPnL += pnl; }
+        if (dStr >= startOfWeek) { weekPnL += pnl; weekPts += pts; }
+      });
+
+      const curBal = initBal + netPnL;
+      const roi = initBal > 0 ? ((netPnL / initBal) * 100) : 0;
+      const totalDecided = wins + losses;
+      const winRate = totalDecided > 0 ? ((wins / totalDecided) * 100) : 0;
+      const pf = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99.9 : 0);
+      const avgWinPts = wins > 0 ? (sumTPPts / wins) : 0;
+      const avgLossPts = losses > 0 ? (sumSLPts / losses) : 0;
+
+      document.getElementById('kpiBalance').textContent = `${currSym}${curBal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      document.getElementById('kpiROI').textContent = `ทุนตั้งต้น: ${currSym}${initBal.toLocaleString()} (${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%)`;
+
+      const pnlEl = document.getElementById('kpiNetPnL');
+      pnlEl.textContent = formatMoney(netPnL, currSym);
+      pnlEl.className = 'kpi-value mono ' + (netPnL >= 0 ? 'text-win' : 'text-loss');
+      document.getElementById('kpiTodayPnL').textContent = `วันนี้: ${formatMoney(todayPnL, currSym)} (${formatPoints(todayPts)})`;
+
+      const ptsEl = document.getElementById('kpiNetPoints');
+      ptsEl.textContent = formatPoints(netPts);
+      ptsEl.className = 'kpi-value mono ' + (netPts >= 0 ? 'text-gold' : 'text-loss');
+      document.getElementById('kpiPointsDetail').textContent = `รวม TP: +${sumTPPts.toLocaleString()} | SL: -${sumSLPts.toLocaleString()} จุด`;
+
+      document.getElementById('kpiWinRate').textContent = `${winRate.toFixed(1)}%`;
+      document.getElementById('kpiTradeCounts').textContent = `รวม ${trades.length} ไม้ (ชนะ:${wins} / แพ้:${losses} / BE:${bes})`;
+
+      document.getElementById('kpiProfitFactor').textContent = pf === 99.9 ? '∞ (ไร้พ่าย)' : pf.toFixed(2);
+      document.getElementById('kpiAvgPts').textContent = `เฉลี่ย TP: +${avgWinPts.toFixed(0)} | SL: -${avgLossPts.toFixed(0)} จุด`;
+
+      const mEl = document.getElementById('kpiMonthPnL');
+      mEl.textContent = formatMoney(monthPnL, currSym);
+      mEl.className = 'kpi-value mono ' + (monthPnL >= 0 ? 'text-win' : 'text-loss');
+      document.getElementById('kpiWeekPnL').textContent = `สัปดาห์นี้: ${formatMoney(weekPnL, currSym)} (${formatPoints(weekPts)})`;
+    }
+
+    function getMonday(d) {
+      const dt = new Date(d);
+      const day = dt.getDay();
+      const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+      dt.setDate(diff);
+      dt.setHours(0, 0, 0, 0);
+      return dt;
+    }
+
+    function renderDailyAndHistory() {
+      const trades = getFilteredTrades();
+      const currSym = getActiveCurrency();
+
+      // 1. Daily Summary Table
+      const dailyMap = {};
+      trades.forEach(t => {
+        const day = (t.dateTime || '').slice(0, 10) || 'ไม่ระบุ';
+        if (!dailyMap[day]) {
+          dailyMap[day] = { day, count: 0, w: 0, l: 0, be: 0, pts: 0, pnl: 0 };
+        }
+        dailyMap[day].count++;
+        if (t.outcome === 'WIN') dailyMap[day].w++;
+        else if (t.outcome === 'LOSS') dailyMap[day].l++;
+        else dailyMap[day].be++;
+        dailyMap[day].pts += Number(t.points) || 0;
+        dailyMap[day].pnl += Number(t.profitMoney) || 0;
+      });
+
+      const days = Object.values(dailyMap).sort((a, b) => b.day.localeCompare(a.day));
+      const dailyBody = document.getElementById('dailySummaryBody');
+      if (days.length === 0) {
+        dailyBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:20px;">ยังไม่มีรายการบันทึกในหมวดนี้ — เริ่มกรอกไม้แรกที่แผงด้านซ้ายได้เลยครับ</td></tr>`;
+      } else {
+        dailyBody.innerHTML = days.map(d => {
+          const wr = (d.w + d.l) > 0 ? ((d.w / (d.w + d.l)) * 100).toFixed(1) + '%' : '100%';
+          return `
+            <tr onclick="document.getElementById('filterDate').value='${d.day}'; renderAll();" style="cursor:pointer;">
+              <td class="mono" style="font-weight:600; color:var(--gold);">📅 ${d.day}</td>
+              <td>${d.count} ไม้</td>
+              <td><span class="text-win">W:${d.w}</span> / <span class="text-loss">L:${d.l}</span> / <span class="text-be">BE:${d.be}</span></td>
+              <td class="mono">${wr}</td>
+              <td class="mono ${d.pts >= 0 ? 'text-win' : 'text-loss'}">${formatPoints(d.pts)}</td>
+              <td class="mono ${d.pnl >= 0 ? 'text-win' : 'text-loss'}">${formatMoney(d.pnl, currSym)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // 2. Trade History Table
+      const histBody = document.getElementById('tradeHistoryBody');
+      if (trades.length === 0) {
+        histBody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-dim); padding:24px;">ยังไม่มีประวัติการออกไม้</td></tr>`;
+      } else {
+        histBody.innerHTML = trades.map(t => {
+          const port = appState.portfolios.find(p => p.id === t.portfolioId);
+          const pName = port ? port.name : 'พอร์ตทั่วไป';
+          const pSym = port ? getCurrencySymbol(port.currency) : '$';
+          const dtFormatted = (t.dateTime || '').replace('T', ' ');
+          const priceStr = t.entryPrice ? `${t.entryPrice}${t.exitPrice ? ' ➔ ' + t.exitPrice : ''}` : '—';
+          const outBadge = t.outcome === 'WIN'
+            ? `<span class="badge badge-buy">🏆 ชนะ TP</span>`
+            : (t.outcome === 'LOSS' ? `<span class="badge badge-sell">🛑 โดน SL</span>` : `<span class="badge badge-be">🛡️ บังทุน BE</span>`);
+
+          return `
+            <tr>
+              <td class="mono" style="font-size:0.78rem;">${dtFormatted}</td>
+              <td><span class="badge badge-port">${pName}</span></td>
+              <td class="mono" style="font-weight:600;">${t.symbol}</td>
+              <td><span class="badge ${t.side === 'BUY' ? 'badge-buy' : 'badge-sell'}">${t.side === 'BUY' ? '🟢 BUY' : '🔴 SELL'}</span></td>
+              <td class="mono">${Number(t.lot).toFixed(2)}</td>
+              <td class="mono" style="font-size:0.8rem;">${priceStr}</td>
+              <td>${outBadge}</td>
+              <td class="mono ${t.points >= 0 ? 'text-win' : 'text-loss'}">${formatPoints(t.points)}</td>
+              <td class="mono ${t.profitMoney >= 0 ? 'text-win' : 'text-loss'}">${formatMoney(t.profitMoney, pSym)}</td>
+              <td>
+                <div style="font-weight:500; color:var(--text-main);">${t.strategy || ''}</div>
+                ${t.note ? `<div style="font-size:0.75rem; color:var(--text-muted);">${t.note}</div>` : ''}
+              </td>
+              <td style="white-space:nowrap;">
+                <button class="action-icon-btn" onclick="editTrade('${t.id}')" title="แก้ไข">✏️</button>
+                <button class="action-icon-btn" onclick="deleteTrade('${t.id}')" title="ลบ">🗑️</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    function renderWeeklySummary() {
+      const trades = getPortfolioTrades();
+      const currSym = getActiveCurrency();
+      const weekMap = {};
+
+      trades.forEach(t => {
+        if (!t.dateTime) return;
+        const dt = new Date(t.dateTime);
+        const mon = getMonday(dt);
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
+        const key = mon.toISOString().slice(0, 10);
+        const label = `${key} ถึง ${sun.toISOString().slice(0, 10)}`;
+
+        if (!weekMap[key]) {
+          weekMap[key] = { key, label, count: 0, w: 0, l: 0, be: 0, pts: 0, pnl: 0 };
+        }
+        weekMap[key].count++;
+        if (t.outcome === 'WIN') weekMap[key].w++;
+        else if (t.outcome === 'LOSS') weekMap[key].l++;
+        else weekMap[key].be++;
+        weekMap[key].pts += Number(t.points) || 0;
+        weekMap[key].pnl += Number(t.profitMoney) || 0;
+      });
+
+      const weeks = Object.values(weekMap).sort((a, b) => b.key.localeCompare(a.key));
+      const tbody = document.getElementById('weeklySummaryBody');
+      if (weeks.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-dim); padding:24px;">ยังไม่มีข้อมูลสรุปรายสัปดาห์</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = weeks.map(w => {
+        const wr = (w.w + w.l) > 0 ? ((w.w / (w.w + w.l)) * 100).toFixed(1) + '%' : '100%';
+        const avgPnl = w.count > 0 ? (w.pnl / w.count) : 0;
+        return `
+          <tr>
+            <td class="mono" style="font-weight:600; color:var(--gold);">📆 ${w.label}</td>
+            <td>${w.count} ไม้</td>
+            <td class="text-win">${w.w}</td>
+            <td class="text-loss">${w.l}</td>
+            <td class="text-be">${w.be}</td>
+            <td class="mono">${wr}</td>
+            <td class="mono ${w.pts >= 0 ? 'text-win' : 'text-loss'}">${formatPoints(w.pts)}</td>
+            <td class="mono ${w.pnl >= 0 ? 'text-win' : 'text-loss'}">${formatMoney(w.pnl, currSym)}</td>
+            <td class="mono">${formatMoney(avgPnl, currSym)} / ไม้</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function changeCalendarMonth(delta) {
+      calMonth += delta;
+      if (calMonth > 11) { calMonth = 0; calYear++; }
+      if (calMonth < 0) { calMonth = 11; calYear--; }
+      renderMonthlyAndCalendar();
+    }
+
+    function renderMonthlyAndCalendar() {
+      const trades = getPortfolioTrades();
+      const currSym = getActiveCurrency();
+
+      const thaiMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      document.getElementById('calMonthLabel').textContent = `${thaiMonths[calMonth]} ${calYear}`;
+
+      const dailyMap = {};
+      trades.forEach(t => {
+        const d = (t.dateTime || '').slice(0, 10);
+        if (!d) return;
+        if (!dailyMap[d]) dailyMap[d] = { pts: 0, pnl: 0, count: 0 };
+        dailyMap[d].pts += Number(t.points) || 0;
+        dailyMap[d].pnl += Number(t.profitMoney) || 0;
+        dailyMap[d].count++;
+      });
+
+      const firstDay = new Date(calYear, calMonth, 1).getDay();
+      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+      const dows = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+      let calHTML = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+      for (let i = 0; i < firstDay; i++) {
+        calHTML += `<div class="cal-day empty"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const info = dailyMap[dateStr];
+        if (info) {
+          const cls = info.pnl >= 0 ? 'win-day' : 'loss-day';
+          const col = info.pnl >= 0 ? 'text-win' : 'text-loss';
+          calHTML += `
+            <div class="cal-day ${cls}" onclick="document.getElementById('filterDate').value='${dateStr}'; switchTab('daily', document.querySelector('.tab-btn')); renderAll();">
+              <div class="cal-date-num"><span>${day}</span><span>${info.count} ไม้</span></div>
+              <div>
+                <div class="cal-pnl mono ${col}">${formatMoney(info.pnl, currSym)}</div>
+                <div class="cal-pts mono">${formatPoints(info.pts)}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          calHTML += `
+            <div class="cal-day">
+              <div class="cal-date-num"><span>${day}</span></div>
+              <div class="cal-pts" style="opacity:0.3;">—</div>
+            </div>
+          `;
+        }
+      }
+      document.getElementById('calendarGrid').innerHTML = calHTML;
+
+      // Monthly Table
+      const monthMap = {};
+      trades.forEach(t => {
+        const m = (t.dateTime || '').slice(0, 7);
+        const d = (t.dateTime || '').slice(0, 10);
+        if (!m) return;
+        if (!monthMap[m]) monthMap[m] = { m, daysSet: new Set(), count: 0, w: 0, l: 0, be: 0, pts: 0, pnl: 0 };
+        monthMap[m].daysSet.add(d);
+        monthMap[m].count++;
+        if (t.outcome === 'WIN') monthMap[m].w++;
+        else if (t.outcome === 'LOSS') monthMap[m].l++;
+        else monthMap[m].be++;
+        monthMap[m].pts += Number(t.points) || 0;
+        monthMap[m].pnl += Number(t.profitMoney) || 0;
+      });
+
+      let initBal = 0;
+      if (appState.selectedPortfolioId === 'ALL') {
+        initBal = appState.portfolios.reduce((s, p) => s + (Number(p.initialBalance) || 0), 0);
+      } else {
+        const p = appState.portfolios.find(x => x.id === appState.selectedPortfolioId);
+        initBal = p ? (Number(p.initialBalance) || 0) : 0;
+      }
+
+      const months = Object.values(monthMap).sort((a, b) => b.m.localeCompare(a.m));
+      const mBody = document.getElementById('monthlySummaryBody');
+      if (months.length === 0) {
+        mBody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:24px;">ยังไม่มีข้อมูลสรุปรายเดือน</td></tr>`;
+      } else {
+        mBody.innerHTML = months.map(x => {
+          const wr = (x.w + x.l) > 0 ? ((x.w / (x.w + x.l)) * 100).toFixed(1) + '%' : '100%';
+          const roi = initBal > 0 ? ((x.pnl / initBal) * 100).toFixed(2) + '%' : '—';
+          return `
+            <tr>
+              <td class="mono" style="font-weight:600; color:var(--gold);">🗓️ ${x.m}</td>
+              <td>${x.daysSet.size} วัน</td>
+              <td>${x.count} ไม้</td>
+              <td><span class="text-win">W:${x.w}</span> / <span class="text-loss">L:${x.l}</span> / <span class="text-be">BE:${x.be}</span></td>
+              <td class="mono">${wr}</td>
+              <td class="mono ${x.pts >= 0 ? 'text-win' : 'text-loss'}">${formatPoints(x.pts)}</td>
+              <td class="mono ${x.pnl >= 0 ? 'text-win' : 'text-loss'}">${formatMoney(x.pnl, currSym)}</td>
+              <td class="mono ${x.pnl >= 0 ? 'text-win' : 'text-loss'}">${roi}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    function renderAnalyticsAndChart() {
+      const trades = getPortfolioTrades().slice().reverse(); // chronological
+      const currSym = getActiveCurrency();
+
+      // 1. Strategy Breakdown
+      const stratMap = {};
+      trades.forEach(t => {
+        const s = t.strategy || 'ไม่ระบุ';
+        if (!stratMap[s]) stratMap[s] = { s, count: 0, w: 0, l: 0, be: 0, pts: 0, pnl: 0 };
+        stratMap[s].count++;
+        if (t.outcome === 'WIN') stratMap[s].w++;
+        else if (t.outcome === 'LOSS') stratMap[s].l++;
+        else stratMap[s].be++;
+        stratMap[s].pts += Number(t.points) || 0;
+        stratMap[s].pnl += Number(t.profitMoney) || 0;
+      });
+
+      const strats = Object.values(stratMap).sort((a, b) => b.pnl - a.pnl);
+      const sBody = document.getElementById('strategySummaryBody');
+      if (strats.length === 0) {
+        sBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:24px;">ยังไม่มีข้อมูลวิเคราะห์กลยุทธ์</td></tr>`;
+      } else {
+        sBody.innerHTML = strats.map(st => {
+          const wr = (st.w + st.l) > 0 ? ((st.w / (st.w + st.l)) * 100).toFixed(1) + '%' : '100%';
+          return `
+            <tr>
+              <td style="font-weight:600; color:var(--gold);">${st.s}</td>
+              <td>${st.count} ไม้</td>
+              <td><span class="text-win">W:${st.w}</span> / <span class="text-loss">L:${st.l}</span> / <span class="text-be">BE:${st.be}</span></td>
+              <td class="mono">${wr}</td>
+              <td class="mono ${st.pts >= 0 ? 'text-win' : 'text-loss'}">${formatPoints(st.pts)}</td>
+              <td class="mono ${st.pnl >= 0 ? 'text-win' : 'text-loss'}">${formatMoney(st.pnl, currSym)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // 2. Draw Equity Curve Canvas
+      const canvas = document.getElementById('equityCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      let initBal = 0;
+      if (appState.selectedPortfolioId === 'ALL') {
+        initBal = appState.portfolios.reduce((s, p) => s + (Number(p.initialBalance) || 0), 0);
+      } else {
+        const p = appState.portfolios.find(x => x.id === appState.selectedPortfolioId);
+        initBal = p ? (Number(p.initialBalance) || 0) : 0;
+      }
+
+      const points = [initBal];
+      let running = initBal;
+      trades.forEach(t => {
+        running += Number(t.profitMoney) || 0;
+        points.push(running);
+      });
+
+      if (points.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '14px Prompt, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('บันทึกไม้เทรดอย่างน้อย 1 ไม้ เพื่อแสดงกราฟการเติบโตของพอร์ต (Equity Curve)', W / 2, H / 2);
+        return;
+      }
+
+      const minVal = Math.min(...points);
+      const maxVal = Math.max(...points);
+      const pad = 36;
+      const range = Math.max(maxVal - minVal, 10);
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(43, 66, 107, 0.35)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad + ((H - pad * 2) * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad * 1.8, y);
+        ctx.lineTo(W - pad, y);
+        ctx.stroke();
+
+        const val = maxVal - (range * i) / 4;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${currSym}${val.toFixed(0)}`, pad * 1.6, y + 4);
+      }
+
+      // Line path
+      ctx.beginPath();
+      points.forEach((v, idx) => {
+        const x = pad * 1.8 + ((W - pad * 2.8) * idx) / (points.length - 1);
+        const y = pad + (H - pad * 2) * (1 - (v - minVal) / range);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Gradient fill
+      const grad = ctx.createLinearGradient(0, pad, 0, H - pad);
+      grad.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
+      grad.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+      ctx.lineTo(W - pad, H - pad);
+      ctx.lineTo(pad * 1.8, H - pad);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    function switchTab(tabName, btnEl) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+      if (tabName === 'analytics') renderAnalyticsAndChart();
+    }
+
+    // PORTFOLIO MODAL FUNCTIONS
+    function openPortfolioModal() {
+      renderPortModalList();
+      document.getElementById('portfolioModal').classList.add('open');
+    }
+
+    function closePortfolioModal() {
+      document.getElementById('portfolioModal').classList.remove('open');
+    }
+
+    function renderPortModalList() {
+      const tbody = document.getElementById('portListBody');
+      tbody.innerHTML = appState.portfolios.map(p => `
+        <tr>
+          <td style="font-weight:600; color:var(--gold);">${p.name}</td>
+          <td class="mono">${p.currency}</td>
+          <td class="mono">${getCurrencySymbol(p.currency)}${Number(p.initialBalance).toLocaleString()}</td>
+          <td>
+            <button class="action-icon-btn" onclick="editPortfolio('${p.id}')">✏️ แก้ไข</button>
+            <button class="action-icon-btn" onclick="deletePortfolio('${p.id}')">🗑️ ลบ</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function editPortfolio(id) {
+      const p = appState.portfolios.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('editPortId').value = p.id;
+      document.getElementById('pName').value = p.name;
+      document.getElementById('pCurrency').value = p.currency;
+      document.getElementById('pInitialBalance').value = p.initialBalance;
+    }
+
+    function savePortfolio() {
+      const id = document.getElementById('editPortId').value;
+      const name = document.getElementById('pName').value.trim();
+      const currency = document.getElementById('pCurrency').value;
+      const initialBalance = parseFloat(document.getElementById('pInitialBalance').value) || 0;
+      if (!name) return alert('กรุณาตั้งชื่อพอร์ต');
+
+      if (id) {
+        const idx = appState.portfolios.findIndex(x => x.id === id);
+        if (idx >= 0) appState.portfolios[idx] = { id, name, currency, initialBalance };
+      } else {
+        appState.portfolios.push({
+          id: 'port_' + Date.now(),
+          name,
+          currency,
+          initialBalance
+        });
+      }
+
+      document.getElementById('editPortId').value = '';
+      document.getElementById('pName').value = '';
+      document.getElementById('pInitialBalance').value = '';
+      saveData();
+      renderPortModalList();
+      renderAll();
+      showToast('✅ บันทึกข้อมูลพอร์ตเรียบร้อย!');
+    }
+
+    function deletePortfolio(id) {
+      if (appState.portfolios.length <= 1) return alert('ต้องมีพอร์ตอย่างน้อย 1 พอร์ตในระบบ');
+      if (!confirm('ต้องการลบพอร์ตนี้ใช่หรือไม่?')) return;
+      appState.portfolios = appState.portfolios.filter(x => x.id !== id);
+      if (appState.selectedPortfolioId === id) appState.selectedPortfolioId = 'ALL';
+      saveData();
+      renderPortModalList();
+      renderAll();
+    }
+
+    // SYNC & BACKUP FUNCTIONS
+    function openSyncModal() {
+      document.getElementById('syncModal').classList.add('open');
+    }
+
+    function closeSyncModal() {
+      document.getElementById('syncModal').classList.remove('open');
+    }
+
+    function downloadJSONBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const dl = document.createElement('a');
+      const d = new Date().toISOString().slice(0, 10);
+      dl.setAttribute("href", dataStr);
+      dl.setAttribute("download", `Good_Trade_Journal_Backup_${d}.json`);
+      document.body.appendChild(dl);
+      dl.click();
+      dl.remove();
+      showToast('💾 ดาวน์โหลดไฟล์สำรองเรียบร้อย!');
+    }
+
+    function restoreFromJSONFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed && Array.isArray(parsed.portfolios) && Array.isArray(parsed.trades)) {
+            appState = parsed;
+            saveData();
+            renderAll();
+            closeSyncModal();
+            showToast('📂 โหลดข้อมูลเข้าพอร์ตสำเร็จ!');
+          } else {
+            alert('รูปแบบไฟล์ไม่ถูกต้อง');
+          }
+        } catch (err) {
+          alert('ไม่สามารถอ่านไฟล์ได้');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function generateSyncCode() {
+      const code = btoa(unescape(encodeURIComponent(JSON.stringify(appState))));
+      const area = document.getElementById('syncCodeArea');
+      area.value = code;
+      area.select();
+      document.execCommand('copy');
+      showToast('📋 คัดลอกรหัสซิงค์แล้ว! ส่งเข้า LINE เพื่อเปิดอีกเครื่องได้เลย');
+    }
+
+    function importSyncCode() {
+      const code = document.getElementById('syncCodeArea').value.trim();
+      if (!code) return alert('กรุณาวางรหัสซิงค์ในช่องข้อความก่อนครับ');
+      try {
+        const jsonStr = decodeURIComponent(escape(atob(code)));
+        const parsed = JSON.parse(jsonStr);
+        if (parsed && Array.isArray(parsed.portfolios) && Array.isArray(parsed.trades)) {
+          appState = parsed;
+          saveData();
+          renderAll();
+          closeSyncModal();
+          showToast('📥 ซิงค์ข้อมูลเข้าเครื่องนี้สำเร็จ 100%!');
+        }
+      } catch (e) {
+        alert('รหัสซิงค์ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
+      }
+    }
+
+    function exportCSV() {
+      const trades = getPortfolioTrades();
+      if (trades.length === 0) return alert('ยังไม่มีรายการเทรดสำหรับส่งออก');
+      const headers = ['วันที่-เวลา','พอร์ต','สินทรัพย์','ฝั่ง','ขนาด Lot','ราคาเข้า','ราคาปิด','ผลลัพธ์','จำนวนจุด(Points)','กำไรสุทธิ','กลยุทธ์','บันทึกย่อ'];
+      const rows = trades.map(t => {
+        const p = appState.portfolios.find(x => x.id === t.portfolioId);
+        const pName = p ? p.name : '';
+        return [
+          t.dateTime,
+          `"${pName}"`,
+          t.symbol,
+          t.side,
+          t.lot,
+          t.entryPrice || '',
+          t.exitPrice || '',
+          t.outcome,
+          t.points,
+          t.profitMoney,
+          `"${(t.strategy || '').replace(/"/g, '""')}"`,
+          `"${(t.note || '').replace(/"/g, '""')}"`
+        ].join(',');
+      });
+      const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Good_Trade_Journal_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('📥 ส่งออกไฟล์ CSV (เปิดใน Excel ได้ทันที) เรียบร้อย!');
+    }
+
+    function renderAll() {
+      renderPortfolioSelectors();
+      renderKPIs();
+      renderDailyAndHistory();
+      renderWeeklySummary();
+      renderMonthlyAndCalendar();
+      renderAnalyticsAndChart();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      setNowDateTime();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
