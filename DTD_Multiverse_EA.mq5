@@ -641,8 +641,9 @@ void ScanDTD_CF_M1_Always()
       g_DTD_M1.shortestWickPrice = targetPrice;
       g_DTD_M1.shortestWickTime  = targetTime;
 
-      // ตรวจสอบการกลืนกิน: แท่ง M1 ปิดเนื้อเทียนเหนือเส้นเกณฑ์
-      bool confirmed = (ratesM1[1].close > targetPrice || ratesM1[0].close > targetPrice);
+      // ตรวจสอบการกลืนกิน: แท่ง M1 ปิดเนื้อเทียนเหนือเส้นเกณฑ์ (ใช้แท่งปิดแล้ว ratesM1[1] หรือ [2] ป้องกันไส้หลอก)
+      bool confirmed = (ratesM1[1].close > targetPrice || ratesM1[2].close > targetPrice);
+      bool isTestingNow = (!confirmed && ratesM1[0].close > targetPrice);
       g_DTD_M1.isEngulfConfirmed = confirmed;
 
       double curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -695,6 +696,12 @@ void ScanDTD_CF_M1_Always()
          g_DTD_M1.statusText  = "🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
          g_DTD_M1.statusColor = C'0,255,136';
       }
+      else if(isTestingNow)
+      {
+         double dist = (targetPrice - curAsk) / _Point;
+         g_DTD_M1.statusText  = StringFormat("⚡ CF M1: 🟢 แท่งสด M1 กำลังเบรกทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(targetPrice, _Digits), DoubleToString(dist, 0));
+         g_DTD_M1.statusColor = clrOrange;
+      }
       else
       {
          double dist = (targetPrice - curAsk) / _Point;
@@ -733,7 +740,9 @@ void ScanDTD_CF_M1_Always()
       g_DTD_M1.shortestWickPrice = targetPrice;
       g_DTD_M1.shortestWickTime  = targetTime;
 
-      bool confirmed = (ratesM1[1].close < targetPrice || ratesM1[0].close < targetPrice);
+      // ตรวจสอบการกลืนกิน: แท่ง M1 ปิดเนื้อเทียนใต้เส้นเกณฑ์ (ใช้แท่งปิดแล้ว ratesM1[1] หรือ [2] ป้องกันไส้หลอก)
+      bool confirmed = (ratesM1[1].close < targetPrice || ratesM1[2].close < targetPrice);
+      bool isTestingNow = (!confirmed && ratesM1[0].close < targetPrice);
       g_DTD_M1.isEngulfConfirmed = confirmed;
 
       double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -784,6 +793,12 @@ void ScanDTD_CF_M1_Always()
       {
          g_DTD_M1.statusText  = "🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
          g_DTD_M1.statusColor = C'255,80,90';
+      }
+      else if(isTestingNow)
+      {
+         double dist = (curBid - targetPrice) / _Point;
+         g_DTD_M1.statusText  = StringFormat("⚡ CF M1: 🔴 แท่งสด M1 กำลังทุบทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(targetPrice, _Digits), DoubleToString(dist, 0));
+         g_DTD_M1.statusColor = clrOrange;
       }
       else
       {
@@ -900,10 +915,16 @@ void DrawMultiverseVisuals()
    // 4. วาดเส้นเกณฑ์ CF M1, ป้ายภาษาไทย "ขึ้น"/"ลง", Entry Tick & Multi-Tier 1R, 2R, 3R
    if(InpUseDTD_CF_M1 && InpDrawM1Visuals && g_DTD_M1.shortestWickPrice > 0)
    {
-      int forwardBars = 12;
-      datetime tStart   = (g_DTD_M1.shortestWickTime > 0) ? g_DTD_M1.shortestWickTime : (TimeCurrent() - (tfSec * 6));
+      int forwardBars = 10;
+      if(_Period == PERIOD_M1)       forwardBars = 10;
+      else if(_Period <= PERIOD_M5)  forwardBars = 4;
+      else if(_Period <= PERIOD_M15) forwardBars = 3;
+      else if(_Period <= PERIOD_M30) forwardBars = 2;
+      else                           forwardBars = 2;
+
+      datetime tStart   = (g_DTD_M1.shortestWickTime > 0) ? g_DTD_M1.shortestWickTime : (TimeCurrent() - (tfSec * 4));
       datetime tEnd     = TimeCurrent() + (tfSec * forwardBars);
-      datetime tWickLbl = TimeCurrent() + (tfSec * 2);
+      datetime tWickLbl = tStart;
 
       // 4A. เส้นแนวนอนและป้ายภาษาไทย "ขึ้น" (Swing High M1)
       if(g_DTD_M1.m1SwingHighPrice > 0.0)
@@ -1021,7 +1042,7 @@ void DrawMultiverseVisuals()
          ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Semibold");
          ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, wickCol);
-         ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
+         ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
          ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
       }
       else

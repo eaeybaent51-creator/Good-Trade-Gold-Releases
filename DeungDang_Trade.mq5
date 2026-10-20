@@ -4238,7 +4238,8 @@ void ScanDTD_CF_M1()
       g_DTD.shortestWickTime  = targetWickTime;
 
       // ตรวจสอบการกลืนกิน: แท่ง M1 ปิดเนื้อเทียนเหนือเส้นปลายไส้สั้นสุดสำเร็จ
-      bool confirmed = (ratesM1[1].close > targetWickPrice || ratesM1[0].close > targetWickPrice);
+      bool confirmed = (ratesM1[1].close > targetWickPrice || ratesM1[2].close > targetWickPrice);
+      bool isTestingNow = (!confirmed && ratesM1[0].close > targetWickPrice);
       g_DTD.isEngulfConfirmed = confirmed;
 
       double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -4293,6 +4294,12 @@ void ScanDTD_CF_M1()
          g_DTD.statusText = StringFormat("🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(targetWickPrice, _Digits));
          g_DTD.statusColor = C'0,255,136';
       }
+      else if(isTestingNow)
+      {
+         double distToCF = (targetWickPrice - curAsk) / _Point;
+         g_DTD.statusText = StringFormat("⚡ CF M1: 🟢 แท่งสด M1 กำลังเบรกทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(targetWickPrice, _Digits), DoubleToString(distToCF, 0));
+         g_DTD.statusColor = clrOrange;
+      }
       else
       {
          double distToCF = (targetWickPrice - curAsk) / _Point;
@@ -4343,7 +4350,9 @@ void ScanDTD_CF_M1()
       g_DTD.shortestWickPrice = targetWickPrice;
       g_DTD.shortestWickTime  = targetWickTime;
 
-      bool confirmed = (ratesM1[1].close < targetWickPrice || ratesM1[0].close < targetWickPrice);
+      // CF M1 Engulfing confirmation (closed bars ratesM1[1] or [2] - no wick fakeout)
+      bool confirmed = (ratesM1[1].close < targetWickPrice || ratesM1[2].close < targetWickPrice);
+      bool isTestingNow = (!confirmed && ratesM1[0].close < targetWickPrice);
       g_DTD.isEngulfConfirmed = confirmed;
 
       double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -4397,6 +4406,12 @@ void ScanDTD_CF_M1()
          g_DTD.statusText = StringFormat("🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(targetWickPrice, _Digits));
          g_DTD.statusColor = C'255,80,90';
       }
+      else if(isTestingNow)
+      {
+         double distToCF = (curBid - targetWickPrice) / _Point;
+         g_DTD.statusText = StringFormat("⚡ CF M1: 🔴 แท่งสด M1 กำลังทุบทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(targetWickPrice, _Digits), DoubleToString(distToCF, 0));
+         g_DTD.statusColor = clrOrange;
+      }
       else
       {
          double distToCF = (curBid - targetWickPrice) / _Point;
@@ -4436,10 +4451,16 @@ void DrawDTD_M1_Visuals()
    }
 
    int tfSec = PeriodSeconds((ENUM_TIMEFRAMES)_Period);
-   int forwardBars = 12;
-   datetime tStart   = (g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : (TimeCurrent() - (tfSec * 6));
+   int forwardBars = 10;
+   if(_Period == PERIOD_M1)       forwardBars = 10;
+   else if(_Period <= PERIOD_M5)  forwardBars = 4;
+   else if(_Period <= PERIOD_M15) forwardBars = 3;
+   else if(_Period <= PERIOD_M30) forwardBars = 2;
+   else                           forwardBars = 2;
+
+   datetime tStart   = (g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : (TimeCurrent() - (tfSec * 4));
    datetime tEnd     = TimeCurrent() + (tfSec * forwardBars);
-   datetime tWickLbl = TimeCurrent() + (tfSec * 2);
+   datetime tWickLbl = tStart;
 
    // 1. เส้นแนวนอนและป้ายภาษาไทย "ขึ้น" (Swing High M1) สไตล์ชาร์ตอาจารย์เดช
    if(g_DTD.m1SwingHighPrice > 0.0)
@@ -4559,7 +4580,7 @@ void DrawDTD_M1_Visuals()
       ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Semibold");
       ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
       ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, wickCol);
-      ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
+      ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
       ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
    }
    else
@@ -6692,10 +6713,6 @@ void RenderDashboard()
          h2 += (StringLen(gannLatticeStr) > 56 ? 32 : 16);
          h2 += (StringLen(gannEnergyStr) > 56 ? 32 : 16);
       }
-      if(InpUseDTD_CF_M1)
-      {
-         h2 += (StringLen(g_DTD.statusText) > 56 ? 32 : 16);
-      }
       h2 += 10; // padding
       cardH2 = h2;
    }
@@ -6743,14 +6760,7 @@ void RenderDashboard()
          ObjectDelete(0, GUI_PREFIX + "C2_L_GANN2");
       }
 
-      if(InpUseDTD_CF_M1)
-      {
-         RenderWrappedLabel(GUI_PREFIX + "C2_L_DTD", baseX + 14, lineY, g_DTD.statusText, g_DTD.statusColor, 8, g_DTD.isEngulfConfirmed, 56, 16);
-      }
-      else
-      {
-         ObjectDelete(0, GUI_PREFIX + "C2_L_DTD");
-      }
+      ObjectDelete(0, GUI_PREFIX + "C2_L_DTD");
 
       cardH2 = (lineY - curY) + 8;
       if(ObjectGetInteger(0, GUI_PREFIX + "C2_BG", OBJPROP_YSIZE) != cardH2)
@@ -6954,8 +6964,8 @@ void RenderDashboard()
       double cfEntry = (g_DTD.confirmEntryPrice > 0) ? g_DTD.confirmEntryPrice : curBid;
       entryStr = StringFormat("🎯 จุดเข้า CF M1: %s (แท่งกลืนกินคอนเฟิร์ม)", DoubleToString(cfEntry, _Digits));
       double dtdSL_Dist = MathAbs(g_DTD.confirmSLPrice - curBid) / _Point;
-      slStr = StringFormat("🛑 SL 1R: %s (ระยะ -%s)", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(dtdSL_Dist));
-      tpStr = StringFormat("🏆 TP 1R: %s | 2R: %s | 3R: %s (+%.0f pts)", DoubleToString(g_DTD.confirmTP1RPrice, _Digits), DoubleToString(g_DTD.confirmTP2RPrice, _Digits), DoubleToString(g_DTD.confirmTP3RPrice, _Digits), g_DTD.tp3RDistPoints);
+      slStr = StringFormat("🛑 SL 1R: %s (ห่างราคาปัจจุบัน -%s | กรอบเสี่ยง %.0f pts)", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(dtdSL_Dist), g_DTD.slDistPoints);
+      tpStr = StringFormat("🏆 TP 1R: %s | 2R: %s | 3R: %s (เป้า 3R: +%.0f pts)", DoubleToString(g_DTD.confirmTP1RPrice, _Digits), DoubleToString(g_DTD.confirmTP2RPrice, _Digits), DoubleToString(g_DTD.confirmTP3RPrice, _Digits), g_DTD.tp3RDistPoints);
    }
    else if(InpUseDTD_CF_M1 && g_DTD.shortestWickPrice > 0.0)
    {
@@ -6963,7 +6973,7 @@ void RenderDashboard()
       if(g_DTD.confirmSLPrice > 0)
       {
          double dtdSL_Dist = MathAbs(g_DTD.confirmSLPrice - curBid) / _Point;
-         slStr = StringFormat("🛑 SL 1R: %s (ระยะ -%s)", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(dtdSL_Dist));
+         slStr = StringFormat("🛑 SL 1R: %s (ห่างราคาปัจจุบัน -%s | กรอบเสี่ยง %.0f pts)", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(dtdSL_Dist), g_DTD.slDistPoints);
       }
       else
       {
@@ -6971,7 +6981,7 @@ void RenderDashboard()
       }
 
       if(g_DTD.confirmTP3RPrice > 0)
-         tpStr = StringFormat("🏆 TP 1R: %s | 2R: %s | 3R: %s (+%.0f pts)", DoubleToString(g_DTD.confirmTP1RPrice, _Digits), DoubleToString(g_DTD.confirmTP2RPrice, _Digits), DoubleToString(g_DTD.confirmTP3RPrice, _Digits), g_DTD.tp3RDistPoints);
+         tpStr = StringFormat("🏆 TP 1R: %s | 2R: %s | 3R: %s (เป้า 3R: +%.0f pts)", DoubleToString(g_DTD.confirmTP1RPrice, _Digits), DoubleToString(g_DTD.confirmTP2RPrice, _Digits), DoubleToString(g_DTD.confirmTP3RPrice, _Digits), g_DTD.tp3RDistPoints);
       else
          tpStr = "🏆 เป้ากำไร: คำนวณอัตโนมัติ 1R:1R / 1R:2R / 1R:3R ตามระยะ SL";
    }
