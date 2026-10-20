@@ -4581,9 +4581,9 @@ void DrawDTD_M1_Visuals()
    {
       ObjectCreate(0, wickLbl, OBJ_TEXT, 0, tWickLbl, g_DTD.shortestWickPrice);
       ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-      ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Semibold");
+      ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
       ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
-      ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, wickCol);
+      ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
       ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
       ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
    }
@@ -4592,7 +4592,8 @@ void DrawDTD_M1_Visuals()
       ObjectSetInteger(0, wickLbl, OBJPROP_TIME, 0, tWickLbl);
       ObjectSetDouble(0, wickLbl, OBJPROP_PRICE, 0, g_DTD.shortestWickPrice);
       ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-      ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, wickCol);
+      ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
+      ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
    }
 
    // 5. สัญลักษณ์จุดลั่นไก (Entry Tick Mark สไตล์อาจารย์เดช)
@@ -4810,9 +4811,9 @@ void DrawDTD_M1_Visuals()
       {
          ObjectCreate(0, lblSL, OBJ_TEXT, 0, bEnd, g_DTD.confirmSLPrice);
          ObjectSetString(0, lblSL, OBJPROP_TEXT, slTxt);
-         ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, lblSL, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, lblSL, OBJPROP_COLOR, C'255,80,90');
+         ObjectSetInteger(0, lblSL, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, lblSL, OBJPROP_ANCHOR, ANCHOR_LEFT);
          ObjectSetInteger(0, lblSL, OBJPROP_BACK, false);
       }
@@ -4821,6 +4822,8 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lblSL, OBJPROP_TIME, 0, bEnd);
          ObjectSetDouble(0, lblSL, OBJPROP_PRICE, 0, g_DTD.confirmSLPrice);
          ObjectSetString(0, lblSL, OBJPROP_TEXT, slTxt);
+         ObjectSetInteger(0, lblSL, OBJPROP_COLOR, clrWhite);
+         ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Black");
       }
    }
    else

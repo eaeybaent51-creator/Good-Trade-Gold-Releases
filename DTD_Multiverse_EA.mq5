@@ -1043,9 +1043,9 @@ void DrawMultiverseVisuals()
       {
          ObjectCreate(0, wickLbl, OBJ_TEXT, 0, tWickLbl, g_DTD_M1.shortestWickPrice);
          ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-         ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, wickCol);
+         ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
          ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
       }
@@ -1054,7 +1054,8 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, wickLbl, OBJPROP_TIME, 0, tWickLbl);
          ObjectSetDouble(0, wickLbl, OBJPROP_PRICE, 0, g_DTD_M1.shortestWickPrice);
          ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-         ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, wickCol);
+         ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
+         ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
       }
 
       // 4D. สัญลักษณ์จุดลั่นไก (Entry Tick Mark สไตล์อาจารย์เดช)
@@ -1272,9 +1273,9 @@ void DrawMultiverseVisuals()
          {
             ObjectCreate(0, lblSL, OBJ_TEXT, 0, bEnd, g_DTD_M1.confirmSLPrice);
             ObjectSetString(0, lblSL, OBJPROP_TEXT, slTxt);
-            ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblSL, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblSL, OBJPROP_COLOR, C'255,80,90');
+            ObjectSetInteger(0, lblSL, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lblSL, OBJPROP_ANCHOR, ANCHOR_LEFT);
             ObjectSetInteger(0, lblSL, OBJPROP_BACK, false);
          }
@@ -1283,6 +1284,8 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lblSL, OBJPROP_TIME, 0, bEnd);
             ObjectSetDouble(0, lblSL, OBJPROP_PRICE, 0, g_DTD_M1.confirmSLPrice);
             ObjectSetString(0, lblSL, OBJPROP_TEXT, slTxt);
+            ObjectSetInteger(0, lblSL, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Black");
          }
       }
       else
