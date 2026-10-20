@@ -308,6 +308,29 @@ struct SDTD_ConfirmState
    string   statusText;         // ข้อความสถานะ CF M1 ภาษาไทยเข้าใจง่าย
    string   mmPlanText;         // ข้อความแผนความคุ้มค่า 3R & Lot แนะนำ
    color    statusColor;        // สีแสดงสถานะบนแดชบอร์ด
+
+   // Dual-Directional Tracking (สแกนทั้ง BUY และ SELL ขนานกันแบบเรียลไทม์)
+   bool     buyEngulfConfirmed;
+   double   buyShortestWickPrice;
+   datetime buyShortestWickTime;
+   double   buyConfirmEntryPrice;
+   double   buyConfirmSLPrice;
+   double   buyConfirmTP1RPrice;
+   double   buyConfirmTP2RPrice;
+   double   buyConfirmTP3RPrice;
+   double   buySlDistPoints;
+   double   buyRecommendedLot;
+
+   bool     sellEngulfConfirmed;
+   double   sellShortestWickPrice;
+   datetime sellShortestWickTime;
+   double   sellConfirmEntryPrice;
+   double   sellConfirmSLPrice;
+   double   sellConfirmTP1RPrice;
+   double   sellConfirmTP2RPrice;
+   double   sellConfirmTP3RPrice;
+   double   sellSlDistPoints;
+   double   sellRecommendedLot;
 };
 
 //+------------------------------------------------------------------+
@@ -492,6 +515,7 @@ void PreloadChartHistory();
 void CalculateGannWaveEnergy(const MqlRates &rates[], int copied);
 void DrawGannEquilibriumGrid();
 void CheckVelocityStopLockFloor();
+bool IsCentAccount();
 void ScanDTD_CF_M1();
 void DrawDTD_M1_Visuals();
 
@@ -754,6 +778,7 @@ void OnTick()
       ObjectDelete(0, GUI_PREFIX + "GANN_GRID");
       ObjectDelete(0, GUI_PREFIX + "GANN_ZERO_LINE");
       ObjectDelete(0, GUI_PREFIX + "GANN_ZERO_LBL");
+      ObjectsDeleteAll(0, GUI_PREFIX + "DTD_");
 
       g_HasUpSpeedline = false;
       g_HasDnSpeedline = false;
@@ -969,6 +994,24 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
          ChartRedraw();
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| 0B. IS CENT ACCOUNT DETECTOR                                     |
+//+------------------------------------------------------------------+
+bool IsCentAccount()
+{
+   string curr = AccountInfoString(ACCOUNT_CURRENCY);
+   StringToUpper(curr);
+   string sym = _Symbol;
+   StringToUpper(sym);
+   
+   if(StringFind(curr, "USC") >= 0 || StringFind(curr, "CENT") >= 0 || StringFind(curr, "EUX") >= 0 || 
+      StringFind(curr, "GBC") >= 0 || StringFind(curr, "EURC") >= 0 || StringFind(curr, "GBPC") >= 0 ||
+      StringFind(curr, "UST") >= 0 || StringFind(curr, "PROCENT") >= 0 || StringFind(curr, "CUSD") >= 0 ||
+      StringFind(sym, "C") == (StringLen(sym) - 1))
+      return true;
+   return false;
 }
 
 //+------------------------------------------------------------------+
@@ -4161,21 +4204,13 @@ void ScanDTD_CF_M1()
       return;
    }
 
-   // 1. ระบุทิศทางแผนเทรด (Setup Side: +1 = BUY, -1 = SELL)
-   int setupSide = 0;
-   if(g_WaveSide != 0) setupSide = g_WaveSide;
-   else if(g_SamuraiMTF.consensusDir != 0) setupSide = g_SamuraiMTF.consensusDir;
-   else setupSide = 1;
-
-   g_DTD.setupSide = setupSide;
-
-   // 2. ตรวจจับการเปลี่ยนโครงสร้างบน M1 ("ขึ้น" / "ลง") ใน 25 แท่งล่าสุด
+   // 1. ตรวจจับโครงสร้างสวิงไฮ/โลว์บน M1 ("ขึ้น" / "ลง") ใน 25 แท่งล่าสุด
    int highestM1Bar = 1;
    int lowestM1Bar = 1;
    double highestM1High = ratesM1[1].high;
    double lowestM1Low = ratesM1[1].low;
 
-   for(int i = 1; i < 25; i++)
+   for(int i = 1; i < 25 && i < copiedM1; i++)
    {
       if(ratesM1[i].high > highestM1High)
       {
@@ -4194,232 +4229,298 @@ void ScanDTD_CF_M1()
    g_DTD.m1SwingLowPrice  = lowestM1Low;
    g_DTD.m1SwingLowTime   = ratesM1[lowestM1Bar].time;
 
-   // 3. แผน BUY:
-   // โครงสร้าง M1 เปลี่ยนเป็น "ขึ้น" จากนั้นช่วงย่อตัว (Pullback)
-   // ค้นหาแท่งที่มีไส้บนที่สั้นที่สุด (Shortest Upper Wick)
-   if(setupSide == 1)
+   double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(curBid <= 0) curBid = ratesM1[0].close;
+   if(curAsk <= 0) curAsk = curBid;
+
+   double tickVal = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   if(tickVal <= 0.0 || tickSize <= 0.0) { tickVal = 1.0; tickSize = _Point; }
+   double ptValPerLot = (tickVal / tickSize) * _Point;
+
+   double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   double stepLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   if(minLot <= 0.0) minLot = 0.01;
+   if(maxLot <= 0.0) maxLot = 100.0;
+   if(stepLot <= 0.0) stepLot = 0.01;
+
+   double buffer = InpDTD_SL_BufferPts * _Point;
+   string moneyUnit = IsCentAccount() ? "USC" : "$";
+
+   // =========================================================================
+   // 2. คำนวณแผน BUY อิสระ (Bullish DTD Candidate)
+   // =========================================================================
+   bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
+   int buyStartBar = 1;
+   int buyEndBar = MathMin(highestM1Bar, 15);
+   if(buyEndBar <= buyStartBar) buyEndBar = MathMin(10, copiedM1 - 1);
+
+   double buyShortestWickLen = 999999.0;
+   double buyTargetWickPrice = 0.0;
+   datetime buyTargetWickTime = 0;
+   double lowestPullbackPrice = ratesM1[1].low;
+
+   for(int b = buyStartBar; b <= buyEndBar; b++)
    {
-      bool hasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
-      g_DTD.hasM1Shift = hasShift;
-      g_DTD.m1StructDir = 1;
-      g_DTD.m1ShiftBreakPrice = highestM1High;
-      g_DTD.m1ShiftTime = ratesM1[highestM1Bar].time;
+      double bodyTop = MathMax(ratesM1[b].open, ratesM1[b].close);
+      double upperWick = ratesM1[b].high - bodyTop;
+      if(ratesM1[b].low < lowestPullbackPrice) lowestPullbackPrice = ratesM1[b].low;
 
-      int startBar = 1;
-      int endBar = MathMin(highestM1Bar, 15);
-      if(endBar <= startBar) endBar = MathMin(10, copiedM1 - 1);
-
-      double shortestWickLen = 999999.0;
-      double targetWickPrice = 0.0;
-      datetime targetWickTime = 0;
-      double lowestPullbackPrice = ratesM1[1].low;
-
-      for(int b = startBar; b <= endBar; b++)
+      if(upperWick < buyShortestWickLen && upperWick >= 0.0)
       {
-         double bodyTop = MathMax(ratesM1[b].open, ratesM1[b].close);
-         double upperWick = ratesM1[b].high - bodyTop;
-         if(ratesM1[b].low < lowestPullbackPrice) lowestPullbackPrice = ratesM1[b].low;
-
-         if(upperWick < shortestWickLen && upperWick >= 0.0)
-         {
-            shortestWickLen = upperWick;
-            targetWickPrice = ratesM1[b].high;
-            targetWickTime = ratesM1[b].time;
-         }
+         buyShortestWickLen = upperWick;
+         buyTargetWickPrice = ratesM1[b].high;
+         buyTargetWickTime = ratesM1[b].time;
       }
+   }
+   if(buyTargetWickPrice <= 0.0)
+   {
+      buyTargetWickPrice = ratesM1[1].high;
+      buyTargetWickTime = ratesM1[1].time;
+   }
 
-      if(targetWickPrice <= 0.0)
+   bool buyConfirmed = (ratesM1[1].close > buyTargetWickPrice || ratesM1[2].close > buyTargetWickPrice);
+   bool buyIsTestingNow = (!buyConfirmed && ratesM1[0].close > buyTargetWickPrice);
+
+   double buyEntryPrice = curAsk;
+   double buySLPrice = lowestPullbackPrice - buffer;
+   if((buyEntryPrice - buySLPrice) < 80.0 * _Point)
+      buySLPrice = buyEntryPrice - (80.0 * _Point);
+
+   double buySLDist = (buyEntryPrice - buySLPrice) / _Point;
+   if(buySLDist <= 0.0) buySLDist = 100.0;
+
+   double buyTP1RPrice = buyEntryPrice + (buySLDist * _Point * 1.0);
+   double buyTP2RPrice = buyEntryPrice + (buySLDist * _Point * 2.0);
+   double buyTP3RPrice = buyEntryPrice + (buySLDist * _Point * InpDTD_TargetRR);
+
+   double buyLossPerLot = buySLDist * ptValPerLot;
+   double buyCalcLot = InpDefaultLot;
+   if(buyLossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
+      buyCalcLot = InpDTD_RiskMoney / buyLossPerLot;
+   buyCalcLot = MathFloor(buyCalcLot / stepLot) * stepLot;
+   if(buyCalcLot < minLot) buyCalcLot = minLot;
+   if(buyCalcLot > maxLot) buyCalcLot = maxLot;
+   double buyRecommendedLot = NormalizeDouble(buyCalcLot, 2);
+
+   g_DTD.buyEngulfConfirmed   = buyConfirmed;
+   g_DTD.buyShortestWickPrice = buyTargetWickPrice;
+   g_DTD.buyShortestWickTime  = buyTargetWickTime;
+   g_DTD.buyConfirmEntryPrice = buyEntryPrice;
+   g_DTD.buyConfirmSLPrice    = buySLPrice;
+   g_DTD.buyConfirmTP1RPrice  = buyTP1RPrice;
+   g_DTD.buyConfirmTP2RPrice  = buyTP2RPrice;
+   g_DTD.buyConfirmTP3RPrice  = buyTP3RPrice;
+   g_DTD.buySlDistPoints      = buySLDist;
+   g_DTD.buyRecommendedLot    = buyRecommendedLot;
+
+   // =========================================================================
+   // 3. คำนวณแผน SELL อิสระ (Bearish DTD Candidate)
+   // =========================================================================
+   bool sellHasShift = (ratesM1[0].close <= lowestM1Low || ratesM1[1].close <= lowestM1Low || lowestM1Bar >= 3);
+   int sellStartBar = 1;
+   int sellEndBar = MathMin(lowestM1Bar, 15);
+   if(sellEndBar <= sellStartBar) sellEndBar = MathMin(10, copiedM1 - 1);
+
+   double sellShortestWickLen = 999999.0;
+   double sellTargetWickPrice = 0.0;
+   datetime sellTargetWickTime = 0;
+   double highestPullbackPrice = ratesM1[1].high;
+
+   for(int b = sellStartBar; b <= sellEndBar; b++)
+   {
+      double bodyBottom = MathMin(ratesM1[b].open, ratesM1[b].close);
+      double lowerWick = bodyBottom - ratesM1[b].low;
+      if(ratesM1[b].high > highestPullbackPrice) highestPullbackPrice = ratesM1[b].high;
+
+      if(lowerWick < sellShortestWickLen && lowerWick >= 0.0)
       {
-         targetWickPrice = ratesM1[1].high;
-         targetWickTime = ratesM1[1].time;
+         sellShortestWickLen = lowerWick;
+         sellTargetWickPrice = ratesM1[b].low;
+         sellTargetWickTime = ratesM1[b].time;
       }
+   }
+   if(sellTargetWickPrice <= 0.0)
+   {
+      sellTargetWickPrice = ratesM1[1].low;
+      sellTargetWickTime = ratesM1[1].time;
+   }
 
-      g_DTD.shortestWickPrice = targetWickPrice;
-      g_DTD.shortestWickTime  = targetWickTime;
+   bool sellConfirmed = (ratesM1[1].close < sellTargetWickPrice || ratesM1[2].close < sellTargetWickPrice);
+   bool sellIsTestingNow = (!sellConfirmed && ratesM1[0].close < sellTargetWickPrice);
 
-      // ตรวจสอบการกลืนกิน: แท่ง M1 ปิดเนื้อเทียนเหนือเส้นปลายไส้สั้นสุดสำเร็จ
-      bool confirmed = (ratesM1[1].close > targetWickPrice || ratesM1[2].close > targetWickPrice);
-      bool isTestingNow = (!confirmed && ratesM1[0].close > targetWickPrice);
-      g_DTD.isEngulfConfirmed = confirmed;
+   double sellEntryPrice = curBid;
+   double sellSLPrice = highestPullbackPrice + buffer;
+   if((sellSLPrice - sellEntryPrice) < 80.0 * _Point)
+      sellSLPrice = sellEntryPrice + (80.0 * _Point);
 
-      double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      if(curBid <= 0) curBid = ratesM1[0].close;
-      if(curAsk <= 0) curAsk = curBid;
+   double sellSLDist = (sellSLPrice - sellEntryPrice) / _Point;
+   if(sellSLDist <= 0.0) sellSLDist = 100.0;
 
-      g_DTD.confirmEntryPrice = curAsk;
-      double buffer = InpDTD_SL_BufferPts * _Point;
-      g_DTD.confirmSLPrice = lowestPullbackPrice - buffer;
+   double sellTP1RPrice = sellEntryPrice - (sellSLDist * _Point * 1.0);
+   double sellTP2RPrice = sellEntryPrice - (sellSLDist * _Point * 2.0);
+   double sellTP3RPrice = sellEntryPrice - (sellSLDist * _Point * InpDTD_TargetRR);
 
-      if((g_DTD.confirmEntryPrice - g_DTD.confirmSLPrice) < 80.0 * _Point)
-         g_DTD.confirmSLPrice = g_DTD.confirmEntryPrice - (80.0 * _Point);
+   double sellLossPerLot = sellSLDist * ptValPerLot;
+   double sellCalcLot = InpDefaultLot;
+   if(sellLossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
+      sellCalcLot = InpDTD_RiskMoney / sellLossPerLot;
+   sellCalcLot = MathFloor(sellCalcLot / stepLot) * stepLot;
+   if(sellCalcLot < minLot) sellCalcLot = minLot;
+   if(sellCalcLot > maxLot) sellCalcLot = maxLot;
+   double sellRecommendedLot = NormalizeDouble(sellCalcLot, 2);
 
-      g_DTD.slDistPoints = (g_DTD.confirmEntryPrice - g_DTD.confirmSLPrice) / _Point;
-      if(g_DTD.slDistPoints <= 0.0) g_DTD.slDistPoints = 100.0;
+   g_DTD.sellEngulfConfirmed   = sellConfirmed;
+   g_DTD.sellShortestWickPrice = sellTargetWickPrice;
+   g_DTD.sellShortestWickTime  = sellTargetWickTime;
+   g_DTD.sellConfirmEntryPrice = sellEntryPrice;
+   g_DTD.sellConfirmSLPrice    = sellSLPrice;
+   g_DTD.sellConfirmTP1RPrice  = sellTP1RPrice;
+   g_DTD.sellConfirmTP2RPrice  = sellTP2RPrice;
+   g_DTD.sellConfirmTP3RPrice  = sellTP3RPrice;
+   g_DTD.sellSlDistPoints      = sellSLDist;
+   g_DTD.sellRecommendedLot    = sellRecommendedLot;
 
-      g_DTD.confirmTP1RPrice = g_DTD.confirmEntryPrice + (g_DTD.slDistPoints * _Point * 1.0);
-      g_DTD.confirmTP2RPrice = g_DTD.confirmEntryPrice + (g_DTD.slDistPoints * _Point * 2.0);
-      g_DTD.tp1RDistPoints   = g_DTD.slDistPoints * 1.0;
-      g_DTD.tp2RDistPoints   = g_DTD.slDistPoints * 2.0;
-      bool isRetest = (ratesM1[1].low <= highestM1High + (35 * _Point) || ratesM1[2].low <= highestM1High + (35 * _Point));
-      g_DTD.isRetestConfirmed = isRetest;
-      g_DTD.confirmTP3RPrice = g_DTD.confirmEntryPrice + (g_DTD.slDistPoints * _Point * InpDTD_TargetRR);
-      g_DTD.tp3RDistPoints   = g_DTD.slDistPoints * InpDTD_TargetRR;
+   // =========================================================================
+   // 4. SMART CONTEXT ARBITRATOR (POI Demand/Supply & Liquidity Sweep Confluence)
+   // =========================================================================
+   double zoneTol = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.003) : (g_Asset.assetType == ASSET_GOLD ? (100.0 * _Point) : (25.0 * _Point));
 
-      // คำนวณ Lot (ความเสี่ยง $ ÷ ระยะ SL จุด)
-      double tickVal = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-      double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-      if(tickVal <= 0.0 || tickSize <= 0.0) { tickVal = 1.0; tickSize = _Point; }
-      double ptValPerLot = (tickVal / tickSize) * _Point;
-      double lossPerLot = g_DTD.slDistPoints * ptValPerLot;
-
-      double calcLot = InpDefaultLot;
-      if(lossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
-         calcLot = InpDTD_RiskMoney / lossPerLot;
-
-      double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-      double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-      double stepLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-      if(minLot <= 0.0) minLot = 0.01;
-      if(maxLot <= 0.0) maxLot = 100.0;
-      if(stepLot <= 0.0) stepLot = 0.01;
-
-      calcLot = MathFloor(calcLot / stepLot) * stepLot;
-      if(calcLot < minLot) calcLot = minLot;
-      if(calcLot > maxLot) calcLot = maxLot;
-      g_DTD.recommendedLot = NormalizeDouble(calcLot, 2);
-
-      if(confirmed)
+   double distDZ = 9999999.0;
+   double distSZ = 9999999.0;
+   for(int z = 0; z < g_ZoneCount; z++)
+   {
+      if(!g_Zones[z].isActive) continue;
+      if(g_Zones[z].isDemand)
       {
-         g_DTD.statusText = StringFormat("🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(targetWickPrice, _Digits));
-         g_DTD.statusColor = C'0,255,136';
-      }
-      else if(isTestingNow)
-      {
-         double distToCF = (targetWickPrice - curAsk) / _Point;
-         g_DTD.statusText = StringFormat("⚡ CF M1: 🟢 แท่งสด M1 กำลังเบรกทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(targetWickPrice, _Digits), DoubleToString(distToCF, 0));
-         g_DTD.statusColor = clrOrange;
+         double d = (curBid >= g_Zones[z].low && curBid <= g_Zones[z].high) ? 0.0 : MathAbs(curBid - g_Zones[z].high);
+         if(d < distDZ) distDZ = d;
       }
       else
       {
-         double distToCF = (targetWickPrice - curAsk) / _Point;
-         g_DTD.statusText = (hasShift ? StringFormat("🎯 CF M1: 🟢 ทะลุ 'ขึ้น' แล้ว ➔ รอ M1 รีเทสต์+กลืนกิน %s (ห่าง %s จุด)", DoubleToString(targetWickPrice, _Digits), DoubleToString(distToCF, 0)) : StringFormat("🎯 CF M1: ⏳ รอแท่ง M1 เบรกทะลุเส้น 'ขึ้น' %s", DoubleToString(highestM1High, _Digits)));
-         g_DTD.statusColor = clrGold;
+         double d = (curAsk >= g_Zones[z].low && curAsk <= g_Zones[z].high) ? 0.0 : MathAbs(g_Zones[z].low - curAsk);
+         if(d < distSZ) distSZ = d;
       }
-
-      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง $%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, InpDTD_RiskMoney);
    }
-   // 4. แผน SELL:
+
+   bool inDZ = (distDZ <= zoneTol);
+   bool inSZ = (distSZ <= zoneTol);
+   bool sweepSSL = (g_IsFakeoutTrap && g_FakeoutSide == 1);
+   bool sweepBSL = (g_IsFakeoutTrap && g_FakeoutSide == -1);
+
+   int activeSide = 0;
+   if(inDZ || sweepSSL)
+   {
+      activeSide = 1;
+   }
+   else if(inSZ || sweepBSL)
+   {
+      activeSide = -1;
+   }
    else
    {
-      bool hasShift = (ratesM1[0].close <= lowestM1Low || ratesM1[1].close <= lowestM1Low || lowestM1Bar >= 3);
-      g_DTD.hasM1Shift = hasShift;
-      g_DTD.m1StructDir = -1;
-      g_DTD.m1ShiftBreakPrice = lowestM1Low;
-      g_DTD.m1ShiftTime = ratesM1[lowestM1Bar].time;
-
-      int startBar = 1;
-      int endBar = MathMin(lowestM1Bar, 15);
-      if(endBar <= startBar) endBar = MathMin(10, copiedM1 - 1);
-
-      double shortestWickLen = 999999.0;
-      double targetWickPrice = 0.0;
-      datetime targetWickTime = 0;
-      double highestPullbackPrice = ratesM1[1].high;
-
-      for(int b = startBar; b <= endBar; b++)
+      if(buyConfirmed && !sellConfirmed)
+         activeSide = 1;
+      else if(sellConfirmed && !buyConfirmed)
+         activeSide = -1;
+      else if(buyConfirmed && sellConfirmed)
+         activeSide = (buyTargetWickTime >= sellTargetWickTime) ? 1 : -1;
+      else
       {
-         double bodyBottom = MathMin(ratesM1[b].open, ratesM1[b].close);
-         double lowerWick = bodyBottom - ratesM1[b].low;
-         if(ratesM1[b].high > highestPullbackPrice) highestPullbackPrice = ratesM1[b].high;
-
-         if(lowerWick < shortestWickLen && lowerWick >= 0.0)
-         {
-            shortestWickLen = lowerWick;
-            targetWickPrice = ratesM1[b].low;
-            targetWickTime = ratesM1[b].time;
-         }
+         if(distDZ < distSZ) activeSide = 1;
+         else if(distSZ < distDZ) activeSide = -1;
+         else if(g_WaveSide != 0) activeSide = g_WaveSide;
+         else if(g_SamuraiMTF.consensusDir != 0) activeSide = g_SamuraiMTF.consensusDir;
+         else activeSide = 1;
       }
+   }
 
-      if(targetWickPrice <= 0.0)
+   g_DTD.setupSide = activeSide;
+
+   // =========================================================================
+   // 5. ซิงค์ค่าของฝั่งที่แอคทีฟเข้าสู่โครงสร้างหลัก g_DTD
+   // =========================================================================
+   if(activeSide == 1)
+   {
+      g_DTD.hasM1Shift        = buyHasShift;
+      g_DTD.m1StructDir       = 1;
+      g_DTD.m1ShiftBreakPrice = highestM1High;
+      g_DTD.m1ShiftTime       = ratesM1[highestM1Bar].time;
+      g_DTD.shortestWickPrice = buyTargetWickPrice;
+      g_DTD.shortestWickTime  = buyTargetWickTime;
+      g_DTD.isEngulfConfirmed = buyConfirmed;
+      g_DTD.confirmEntryPrice = buyEntryPrice;
+      g_DTD.confirmSLPrice    = buySLPrice;
+      g_DTD.slDistPoints      = buySLDist;
+      g_DTD.confirmTP1RPrice  = buyTP1RPrice;
+      g_DTD.confirmTP2RPrice  = buyTP2RPrice;
+      g_DTD.confirmTP3RPrice  = buyTP3RPrice;
+      g_DTD.tp1RDistPoints    = buySLDist * 1.0;
+      g_DTD.tp2RDistPoints    = buySLDist * 2.0;
+      g_DTD.tp3RDistPoints    = buySLDist * InpDTD_TargetRR;
+      g_DTD.recommendedLot    = buyRecommendedLot;
+
+      if(buyConfirmed)
       {
-         targetWickPrice = ratesM1[1].low;
-         targetWickTime = ratesM1[1].time;
+         g_DTD.statusText  = StringFormat("🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(buyTargetWickPrice, _Digits));
+         g_DTD.statusColor = C'0,255,136';
       }
-
-      g_DTD.shortestWickPrice = targetWickPrice;
-      g_DTD.shortestWickTime  = targetWickTime;
-
-      // CF M1 Engulfing confirmation (closed bars ratesM1[1] or [2] - no wick fakeout)
-      bool confirmed = (ratesM1[1].close < targetWickPrice || ratesM1[2].close < targetWickPrice);
-      bool isTestingNow = (!confirmed && ratesM1[0].close < targetWickPrice);
-      g_DTD.isEngulfConfirmed = confirmed;
-
-      double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      if(curBid <= 0) curBid = ratesM1[0].close;
-      if(curAsk <= 0) curAsk = curBid;
-
-      g_DTD.confirmEntryPrice = curBid;
-      double buffer = InpDTD_SL_BufferPts * _Point;
-      g_DTD.confirmSLPrice = highestPullbackPrice + buffer;
-
-      if((g_DTD.confirmSLPrice - g_DTD.confirmEntryPrice) < 80.0 * _Point)
-         g_DTD.confirmSLPrice = g_DTD.confirmEntryPrice + (80.0 * _Point);
-
-      g_DTD.slDistPoints = (g_DTD.confirmSLPrice - g_DTD.confirmEntryPrice) / _Point;
-      if(g_DTD.slDistPoints <= 0.0) g_DTD.slDistPoints = 100.0;
-
-      g_DTD.confirmTP1RPrice = g_DTD.confirmEntryPrice - (g_DTD.slDistPoints * _Point * 1.0);
-      g_DTD.confirmTP2RPrice = g_DTD.confirmEntryPrice - (g_DTD.slDistPoints * _Point * 2.0);
-      g_DTD.confirmTP3RPrice = g_DTD.confirmEntryPrice - (g_DTD.slDistPoints * _Point * InpDTD_TargetRR);
-      g_DTD.tp1RDistPoints   = g_DTD.slDistPoints * 1.0;
-      g_DTD.tp2RDistPoints   = g_DTD.slDistPoints * 2.0;
-      g_DTD.tp3RDistPoints   = g_DTD.slDistPoints * InpDTD_TargetRR;
-      bool isRetest = (ratesM1[1].high >= lowestM1Low - (35 * _Point) || ratesM1[2].high >= lowestM1Low - (35 * _Point));
-      g_DTD.isRetestConfirmed = isRetest;
-
-      double tickVal = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-      double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-      if(tickVal <= 0.0 || tickSize <= 0.0) { tickVal = 1.0; tickSize = _Point; }
-      double ptValPerLot = (tickVal / tickSize) * _Point;
-      double lossPerLot = g_DTD.slDistPoints * ptValPerLot;
-
-      double calcLot = InpDefaultLot;
-      if(lossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
-         calcLot = InpDTD_RiskMoney / lossPerLot;
-
-      double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-      double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-      double stepLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-      if(minLot <= 0.0) minLot = 0.01;
-      if(maxLot <= 0.0) maxLot = 100.0;
-      if(stepLot <= 0.0) stepLot = 0.01;
-
-      calcLot = MathFloor(calcLot / stepLot) * stepLot;
-      if(calcLot < minLot) calcLot = minLot;
-      if(calcLot > maxLot) calcLot = maxLot;
-      g_DTD.recommendedLot = NormalizeDouble(calcLot, 2);
-
-      if(confirmed)
+      else if(buyIsTestingNow)
       {
-         g_DTD.statusText = StringFormat("🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(targetWickPrice, _Digits));
-         g_DTD.statusColor = C'255,80,90';
-      }
-      else if(isTestingNow)
-      {
-         double distToCF = (curBid - targetWickPrice) / _Point;
-         g_DTD.statusText = StringFormat("⚡ CF M1: 🔴 แท่งสด M1 กำลังทุบทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(targetWickPrice, _Digits), DoubleToString(distToCF, 0));
+         double distToCF = (buyTargetWickPrice - curAsk) / _Point;
+         g_DTD.statusText  = StringFormat("⚡ CF M1: 🟢 แท่งสด M1 กำลังเบรกทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(buyTargetWickPrice, _Digits), DoubleToString(distToCF, 0));
          g_DTD.statusColor = clrOrange;
       }
       else
       {
-         double distToCF = (curBid - targetWickPrice) / _Point;
-         g_DTD.statusText = (hasShift ? StringFormat("🎯 CF M1: 🔴 หลุด 'ลง' แล้ว ➔ รอ M1 รีเทสต์+กลืนกิน %s (ห่าง %s จุด)", DoubleToString(targetWickPrice, _Digits), DoubleToString(distToCF, 0)) : StringFormat("🎯 CF M1: ⏳ รอแท่ง M1 หลุดทะลุเส้น 'ลง' %s", DoubleToString(lowestM1Low, _Digits)));
+         double distToCF = (buyTargetWickPrice - curAsk) / _Point;
+         g_DTD.statusText  = (buyHasShift ? StringFormat("🎯 CF M1: 🟢 ทะลุ 'ขึ้น' แล้ว ➔ รอ M1 รีเทสต์+กลืนกิน %s (ห่าง %s จุด)", DoubleToString(buyTargetWickPrice, _Digits), DoubleToString(distToCF, 0)) : StringFormat("🎯 CF M1: ⏳ รอแท่ง M1 เบรกทะลุเส้น 'ขึ้น' %s", DoubleToString(highestM1High, _Digits)));
          g_DTD.statusColor = clrGold;
       }
 
-      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง $%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, InpDTD_RiskMoney);
+      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
+   }
+   else
+   {
+      g_DTD.hasM1Shift        = sellHasShift;
+      g_DTD.m1StructDir       = -1;
+      g_DTD.m1ShiftBreakPrice = lowestM1Low;
+      g_DTD.m1ShiftTime       = ratesM1[lowestM1Bar].time;
+      g_DTD.shortestWickPrice = sellTargetWickPrice;
+      g_DTD.shortestWickTime  = sellTargetWickTime;
+      g_DTD.isEngulfConfirmed = sellConfirmed;
+      g_DTD.confirmEntryPrice = sellEntryPrice;
+      g_DTD.confirmSLPrice    = sellSLPrice;
+      g_DTD.slDistPoints      = sellSLDist;
+      g_DTD.confirmTP1RPrice  = sellTP1RPrice;
+      g_DTD.confirmTP2RPrice  = sellTP2RPrice;
+      g_DTD.confirmTP3RPrice  = sellTP3RPrice;
+      g_DTD.tp1RDistPoints    = sellSLDist * 1.0;
+      g_DTD.tp2RDistPoints    = sellSLDist * 2.0;
+      g_DTD.tp3RDistPoints    = sellSLDist * InpDTD_TargetRR;
+      g_DTD.recommendedLot    = sellRecommendedLot;
+
+      if(sellConfirmed)
+      {
+         g_DTD.statusText  = StringFormat("🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(sellTargetWickPrice, _Digits));
+         g_DTD.statusColor = C'255,80,90';
+      }
+      else if(sellIsTestingNow)
+      {
+         double distToCF = (curBid - sellTargetWickPrice) / _Point;
+         g_DTD.statusText  = StringFormat("⚡ CF M1: 🔴 แท่งสด M1 กำลังทุบทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(sellTargetWickPrice, _Digits), DoubleToString(distToCF, 0));
+         g_DTD.statusColor = clrOrange;
+      }
+      else
+      {
+         double distToCF = (curBid - sellTargetWickPrice) / _Point;
+         g_DTD.statusText  = (sellHasShift ? StringFormat("🎯 CF M1: 🔴 หลุด 'ลง' แล้ว ➔ รอ M1 รีเทสต์+กลืนกิน %s (ห่าง %s จุด)", DoubleToString(sellTargetWickPrice, _Digits), DoubleToString(distToCF, 0)) : StringFormat("🎯 CF M1: ⏳ รอแท่ง M1 หลุดทะลุเส้น 'ลง' %s", DoubleToString(lowestM1Low, _Digits)));
+         g_DTD.statusColor = clrGold;
+      }
+
+      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
    }
 }
 
@@ -4693,9 +4794,9 @@ void DrawDTD_M1_Visuals()
          {
             ObjectCreate(0, lblTP1, OBJ_TEXT, 0, bEnd, g_DTD.confirmTP1RPrice);
             ObjectSetString(0, lblTP1, OBJPROP_TEXT, tp1Txt);
-            ObjectSetString(0, lblTP1, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetString(0, lblTP1, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblTP1, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblTP1, OBJPROP_COLOR, C'100,210,140');
+            ObjectSetInteger(0, lblTP1, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lblTP1, OBJPROP_ANCHOR, ANCHOR_LEFT);
             ObjectSetInteger(0, lblTP1, OBJPROP_BACK, false);
          }
@@ -4704,6 +4805,8 @@ void DrawDTD_M1_Visuals()
             ObjectSetInteger(0, lblTP1, OBJPROP_TIME, 0, bEnd);
             ObjectSetDouble(0, lblTP1, OBJPROP_PRICE, 0, g_DTD.confirmTP1RPrice);
             ObjectSetString(0, lblTP1, OBJPROP_TEXT, tp1Txt);
+            ObjectSetInteger(0, lblTP1, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, lblTP1, OBJPROP_FONT, "Segoe UI Black");
          }
       }
 
@@ -4734,9 +4837,9 @@ void DrawDTD_M1_Visuals()
          {
             ObjectCreate(0, lblTP2, OBJ_TEXT, 0, bEnd, g_DTD.confirmTP2RPrice);
             ObjectSetString(0, lblTP2, OBJPROP_TEXT, tp2Txt);
-            ObjectSetString(0, lblTP2, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetString(0, lblTP2, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblTP2, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, C'70,235,160');
+            ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lblTP2, OBJPROP_ANCHOR, ANCHOR_LEFT);
             ObjectSetInteger(0, lblTP2, OBJPROP_BACK, false);
          }
@@ -4745,6 +4848,8 @@ void DrawDTD_M1_Visuals()
             ObjectSetInteger(0, lblTP2, OBJPROP_TIME, 0, bEnd);
             ObjectSetDouble(0, lblTP2, OBJPROP_PRICE, 0, g_DTD.confirmTP2RPrice);
             ObjectSetString(0, lblTP2, OBJPROP_TEXT, tp2Txt);
+            ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, lblTP2, OBJPROP_FONT, "Segoe UI Black");
          }
       }
 
@@ -4773,9 +4878,9 @@ void DrawDTD_M1_Visuals()
       {
          ObjectCreate(0, lblTP3, OBJ_TEXT, 0, bEnd, g_DTD.confirmTP3RPrice);
          ObjectSetString(0, lblTP3, OBJPROP_TEXT, tpTxt);
-         ObjectSetString(0, lblTP3, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblTP3, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, lblTP3, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, C'50,255,130');
+            ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, lblTP3, OBJPROP_ANCHOR, ANCHOR_LEFT);
          ObjectSetInteger(0, lblTP3, OBJPROP_BACK, false);
       }
@@ -4784,6 +4889,8 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lblTP3, OBJPROP_TIME, 0, bEnd);
          ObjectSetDouble(0, lblTP3, OBJPROP_PRICE, 0, g_DTD.confirmTP3RPrice);
          ObjectSetString(0, lblTP3, OBJPROP_TEXT, tpTxt);
+         ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, clrWhite);
+         ObjectSetString(0, lblTP3, OBJPROP_FONT, "Segoe UI Black");
       }
 
       // เส้น & ป้าย SL (1R)
@@ -4918,7 +5025,9 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       price = ask;
 
       // 1. ตรวจสอบ SL สำหรับ BUY (ต้องอยู่ใต้ราคา Bid เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed && g_DTD.setupSide == 1 && g_DTD.confirmSLPrice > 0.0 && g_DTD.confirmSLPrice < bid - minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.buyEngulfConfirmed && g_DTD.buyConfirmSLPrice > 0.0 && g_DTD.buyConfirmSLPrice < bid - minStopDist)
+         sl = g_DTD.buyConfirmSLPrice;
+      else if(InpUseDTD_CF_M1 && g_DTD.setupSide == 1 && g_DTD.confirmSLPrice > 0.0 && g_DTD.confirmSLPrice < bid - minStopDist)
          sl = g_DTD.confirmSLPrice;
       else if(g_WaveSide == 1 && g_TargetSL > 0.0 && g_TargetSL < bid - minStopDist)
          sl = g_TargetSL;
@@ -4926,7 +5035,9 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
          sl = bid - (g_Asset.slPoints * _Point);
 
       // 2. ตรวจสอบ TP สำหรับ BUY (ต้องอยู่เหนือราคา Ask เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed && g_DTD.setupSide == 1 && g_DTD.confirmTP3RPrice > ask + minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.buyEngulfConfirmed && g_DTD.buyConfirmTP3RPrice > ask + minStopDist)
+         tp = g_DTD.buyConfirmTP3RPrice;
+      else if(InpUseDTD_CF_M1 && g_DTD.setupSide == 1 && g_DTD.confirmTP3RPrice > ask + minStopDist)
          tp = g_DTD.confirmTP3RPrice;
       else if(g_WaveSide == 1 && g_TargetTP1 > ask + minStopDist)
          tp = g_TargetTP1;
@@ -4966,7 +5077,9 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       price = bid;
 
       // 1. ตรวจสอบ SL สำหรับ SELL (ต้องอยู่เหนือราคา Ask เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed && g_DTD.setupSide == -1 && g_DTD.confirmSLPrice > ask + minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.sellEngulfConfirmed && g_DTD.sellConfirmSLPrice > ask + minStopDist)
+         sl = g_DTD.sellConfirmSLPrice;
+      else if(InpUseDTD_CF_M1 && g_DTD.setupSide == -1 && g_DTD.confirmSLPrice > ask + minStopDist)
          sl = g_DTD.confirmSLPrice;
       else if(g_WaveSide == -1 && g_TargetSL > ask + minStopDist)
          sl = g_TargetSL;
@@ -4974,7 +5087,9 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
          sl = ask + (g_Asset.slPoints * _Point);
 
       // 2. ตรวจสอบ TP สำหรับ SELL (ต้องอยู่ใต้ราคา Bid เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed && g_DTD.setupSide == -1 && g_DTD.confirmTP3RPrice > 0.0 && g_DTD.confirmTP3RPrice < bid - minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.sellEngulfConfirmed && g_DTD.sellConfirmTP3RPrice > 0.0 && g_DTD.sellConfirmTP3RPrice < bid - minStopDist)
+         tp = g_DTD.sellConfirmTP3RPrice;
+      else if(InpUseDTD_CF_M1 && g_DTD.setupSide == -1 && g_DTD.confirmTP3RPrice > 0.0 && g_DTD.confirmTP3RPrice < bid - minStopDist)
          tp = g_DTD.confirmTP3RPrice;
       else if(g_WaveSide == -1 && g_TargetTP1 > 0.0 && g_TargetTP1 < bid - minStopDist)
          tp = g_TargetTP1;
@@ -7027,8 +7142,9 @@ void RenderDashboard()
 
    if(InpUseDTD_CF_M1)
    {
+      double zoneTol    = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.003) : (g_Asset.assetType == ASSET_GOLD ? (100.0 * _Point) : (25.0 * _Point));
       bool isBuySetup   = (g_DTD.setupSide == 1);
-      bool inTargetZone = isBuySetup ? (minDZDist <= 100 * _Point) : (minSZDist <= 100 * _Point);
+      bool inTargetZone = isBuySetup ? (minDZDist <= zoneTol) : (minSZDist <= zoneTol);
       bool isLQSwept    = isBuySetup ? (g_IsFakeoutTrap && g_FakeoutSide == 1) : (g_IsFakeoutTrap && g_FakeoutSide == -1);
       bool isEngulfCF   = g_DTD.isEngulfConfirmed;
 
