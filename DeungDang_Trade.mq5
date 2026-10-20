@@ -4490,9 +4490,9 @@ void DrawDTD_M1_Visuals()
       {
          ObjectCreate(0, lblUp, OBJ_TEXT, 0, tUpStart, g_DTD.m1SwingHighPrice);
          ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
-         ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, lblUp, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, lblUp, OBJPROP_COLOR, C'255,100,120');
+         ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_LOWER);
          ObjectSetInteger(0, lblUp, OBJPROP_BACK, false);
       }
@@ -4501,6 +4501,8 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lblUp, OBJPROP_TIME, 0, tUpStart);
          ObjectSetDouble(0, lblUp, OBJPROP_PRICE, 0, g_DTD.m1SwingHighPrice);
          ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
+         ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
+         ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
       }
    }
 
@@ -4532,9 +4534,9 @@ void DrawDTD_M1_Visuals()
       {
          ObjectCreate(0, lblDn, OBJ_TEXT, 0, tDnStart, g_DTD.m1SwingLowPrice);
          ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
-         ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, lblDn, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, lblDn, OBJPROP_COLOR, C'255,100,120');
+         ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_UPPER);
          ObjectSetInteger(0, lblDn, OBJPROP_BACK, false);
       }
@@ -4543,6 +4545,8 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lblDn, OBJPROP_TIME, 0, tDnStart);
          ObjectSetDouble(0, lblDn, OBJPROP_PRICE, 0, g_DTD.m1SwingLowPrice);
          ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
+         ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
+         ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
       }
    }
 
@@ -7013,11 +7017,66 @@ void RenderDashboard()
    }
    string posInfo = StringFormat("📊 ถือ: %d ไม้ | กำไรรวม: $%.2f%s", totalPos, totalProfit, (g_ZoneSharedSL > 0 ? " | Shared SL: " + DoubleToString(g_ZoneSharedSL, _Digits) : ""));
 
+   // คำนวณเกรดคุณภาพสัญญาณ DTD ตามหลักการ อ.เดช (Location DZ/SZ + Liquidity Sweep + M1 CF)
+   string dtdGradeStr  = "";
+   color  dtdGradeCol  = clrSilver;
+   string dtdChecklist = "";
+
+   if(InpUseDTD_CF_M1)
+   {
+      bool isBuySetup   = (g_DTD.setupSide == 1);
+      bool inTargetZone = isBuySetup ? (minDZDist <= 100 * _Point) : (minSZDist <= 100 * _Point);
+      bool isLQSwept    = isBuySetup ? (g_IsFakeoutTrap && g_FakeoutSide == 1) : (g_IsFakeoutTrap && g_FakeoutSide == -1);
+      bool isEngulfCF   = g_DTD.isEngulfConfirmed;
+
+      if(inTargetZone && isLQSwept && isEngulfCF)
+      {
+         dtdGradeStr  = "⭐ เกรดสัญญาณ: [ A+ ★★★★★ สถาบันครบสูตร! ]";
+         dtdGradeCol  = C'0,255,136';
+         dtdChecklist = isBuySetup ? "✅ แตะ Demand + ✅ Sweep SSL ล้าง SL + ✅ M1 กลืนกิน (3R!)" : "✅ แตะ Supply + ✅ Sweep BSL ล้าง SL + ✅ M1 กลืนกิน (3R!)";
+      }
+      else if(inTargetZone && isEngulfCF)
+      {
+         dtdGradeStr  = "⭐ เกรดสัญญาณ: [ A ★★★★ สวยงามเข้าโซนหลัก ]";
+         dtdGradeCol  = C'50,230,150';
+         dtdChecklist = isBuySetup ? "✅ แตะ Demand + [—] รอจังหวะ Sweep + ✅ M1 กลืนกิน (เทรดได้)" : "✅ แตะ Supply + [—] รอจังหวะ Sweep + ✅ M1 กลืนกิน (เทรดได้)";
+      }
+      else if(isLQSwept && isEngulfCF)
+      {
+         dtdGradeStr  = "⭐ เกรดสัญญาณ: [ A ★★★★ จังหวะดักกินเจ้ามือ ]";
+         dtdGradeCol  = clrGold;
+         dtdChecklist = isBuySetup ? "[—] นอก Demand + ✅ Sweep SSL ล้าง SL + ✅ M1 กลืนกิน (สไนเปอร์)" : "[—] นอก Supply + ✅ Sweep BSL ล้าง SL + ✅ M1 กลืนกิน (สไนเปอร์)";
+      }
+      else if(isEngulfCF)
+      {
+         dtdGradeStr  = "⭐ เกรดสัญญาณ: [ B ⚠️ กลืนกินนอกโซน ระวังเด้งสั้น ]";
+         dtdGradeCol  = clrOrange;
+         dtdChecklist = isBuySetup ? "⚠️ อยู่นอก Demand (เสี่ยงเด้งหลอก รอย่อเข้าโซนจะปลอดภัยกว่า)" : "⚠️ อยู่นอก Supply (เสี่ยงเด้งหลอก รอเด้งเข้าโซนจะปลอดภัยกว่า)";
+      }
+      else if(inTargetZone)
+      {
+         dtdGradeStr  = "⏳ เกรดสัญญาณ: [ รอ M1 ปิดกลืนกินคอนเฟิร์ม ]";
+         dtdGradeCol  = clrGold;
+         dtdChecklist = isBuySetup ? "✅ แตะ Demand แล้ว ➔ รอแท่ง M1 ปิดเนื้อเหนือไส้สั้นสุด" : "✅ แตะ Supply แล้ว ➔ รอแท่ง M1 ปิดเนื้อใต้ไส้สั้นสุด";
+      }
+      else
+      {
+         dtdGradeStr  = "⏳ เกรดสัญญาณ: [ รอกราฟเข้าโซนต้นน้ำ DZ/SZ ]";
+         dtdGradeCol  = clrSilver;
+         dtdChecklist = "👀 ตลาดยังลอยอยู่กลางทาง ➔ อดทนรอย่อเข้า Demand หรือเด้งแตะ Supply";
+      }
+   }
+
    int cardH3 = 24;
    if(g_Card3_Expanded)
    {
       int h3 = 24; // title
       h3 += (StringLen(card3SigDesc) > 56 ? 32 : 16);
+      if(InpUseDTD_CF_M1)
+      {
+         h3 += (StringLen(dtdGradeStr) > 56 ? 32 : 16);
+         h3 += (StringLen(dtdChecklist) > 56 ? 32 : 16);
+      }
       h3 += (StringLen(entryStr) > 56 ? 32 : 16);
       h3 += (StringLen(slStr) > 56 ? 32 : 16);
       h3 += (StringLen(tpStr) > 56 ? 32 : 16);
@@ -7057,10 +7116,14 @@ void RenderDashboard()
 
       if(InpUseDTD_CF_M1)
       {
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_GRADE", baseX + 14, lineY, dtdGradeStr, dtdGradeCol, 8, true, 56, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_CHK", baseX + 14, lineY, dtdChecklist, clrWhite, 8, false, 56, 16);
          RenderWrappedLabel(GUI_PREFIX + "C3_L_DTD", baseX + 14, lineY, g_DTD.mmPlanText, clrGold, 8, true, 56, 16);
       }
       else
       {
+         ObjectDelete(0, GUI_PREFIX + "C3_L_GRADE");
+         ObjectDelete(0, GUI_PREFIX + "C3_L_CHK");
          ObjectDelete(0, GUI_PREFIX + "C3_L_DTD");
       }
 

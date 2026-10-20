@@ -954,9 +954,9 @@ void DrawMultiverseVisuals()
          {
             ObjectCreate(0, lblUp, OBJ_TEXT, 0, tUpStart, g_DTD_M1.m1SwingHighPrice);
             ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
-            ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblUp, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, C'255,100,120');
+            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_LOWER);
             ObjectSetInteger(0, lblUp, OBJPROP_BACK, false);
          }
@@ -965,6 +965,8 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lblUp, OBJPROP_TIME, 0, tUpStart);
             ObjectSetDouble(0, lblUp, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingHighPrice);
             ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
+            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
          }
       }
 
@@ -996,9 +998,9 @@ void DrawMultiverseVisuals()
          {
             ObjectCreate(0, lblDn, OBJ_TEXT, 0, tDnStart, g_DTD_M1.m1SwingLowPrice);
             ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
-            ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblDn, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, C'255,100,120');
+            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_UPPER);
             ObjectSetInteger(0, lblDn, OBJPROP_BACK, false);
          }
@@ -1007,6 +1009,8 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lblDn, OBJPROP_TIME, 0, tDnStart);
             ObjectSetDouble(0, lblDn, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingLowPrice);
             ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
+            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
          }
       }
 
