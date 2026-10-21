@@ -596,6 +596,16 @@ int OnInit()
    // Clean up any legacy visual objects on startup to ensure perfect Z-order hierarchy
    CleanupVisuals();
 
+   // ปลดระวางและลบวัตถุตาข่ายแกนน์ทั้งหมดออกถาวรทันที
+   ObjectDelete(0, GUI_PREFIX + "GANN_GRID");
+   ObjectDelete(0, GUI_PREFIX + "GANN_ZERO_LINE");
+   ObjectDelete(0, GUI_PREFIX + "GANN_ZERO_LBL");
+   for(int i = ObjectsTotal(0, 0, OBJ_GANNGRID) - 1; i >= 0; i--)
+   {
+      string gName = ObjectName(0, i, 0, OBJ_GANNGRID);
+      ObjectDelete(0, gName);
+   }
+
    // Ensure Samurai Multi-TF Strip in Subwindow 1
    if(InpUseSamuraiMTFStrip)
    {
@@ -4040,90 +4050,22 @@ void CalculateGannWaveEnergy(const MqlRates &rates[], int copied)
 //+------------------------------------------------------------------+
 void DrawGannEquilibriumGrid()
 {
-   // 1. Draw Native Gann Diamond Lattice
+   // ตาข่ายสมดุลแกนน์ (Gann Grid) และเส้นสมดุล - ปลดระวางและลบออกถาวรตามคำสั่งของคุณเอ้ เพื่อชาร์ตสะอาด สบายตา ไร้การบดบัง
    string gridName = GUI_PREFIX + "GANN_GRID";
-   if(InpUseGannEquilibriumGrid && g_GannEnergy.zeroPrice > 0.0)
-   {
-      datetime t1 = g_GannEnergy.anchorTime;
-      datetime t2 = t1 + (PeriodSeconds() * 10);
-      double   p1 = g_GannEnergy.zeroPrice;
-      double   scale = g_GannEnergy.gridScale;
+   ObjectDelete(0, gridName);
 
-      if(ObjectFind(0, gridName) < 0)
-      {
-         ObjectCreate(0, gridName, OBJ_GANNGRID, 0, t1, p1, t2, 0.0);
-         ObjectSetDouble(0, gridName, OBJPROP_SCALE, scale);
-         ObjectSetInteger(0, gridName, OBJPROP_COLOR, InpColorGannGrid);
-         ObjectSetInteger(0, gridName, OBJPROP_STYLE, InpStyleGannGrid);
-         ObjectSetInteger(0, gridName, OBJPROP_WIDTH, 1);
-         ObjectSetInteger(0, gridName, OBJPROP_BACK, true);
-         ObjectSetInteger(0, gridName, OBJPROP_SELECTABLE, false);
-         ObjectSetInteger(0, gridName, OBJPROP_SELECTED, false);
-      }
-      else
-      {
-         if(ObjectGetInteger(0, gridName, OBJPROP_TIME, 0) != t1) ObjectSetInteger(0, gridName, OBJPROP_TIME, 0, t1);
-         if(ObjectGetDouble(0, gridName, OBJPROP_PRICE, 0) != p1) ObjectSetDouble(0, gridName, OBJPROP_PRICE, 0, p1);
-         if(ObjectGetInteger(0, gridName, OBJPROP_TIME, 1) != t2) ObjectSetInteger(0, gridName, OBJPROP_TIME, 1, t2);
-         if(ObjectGetDouble(0, gridName, OBJPROP_SCALE) != scale) ObjectSetDouble(0, gridName, OBJPROP_SCALE, scale);
-         if((color)ObjectGetInteger(0, gridName, OBJPROP_COLOR) != InpColorGannGrid) ObjectSetInteger(0, gridName, OBJPROP_COLOR, InpColorGannGrid);
-         if((ENUM_LINE_STYLE)ObjectGetInteger(0, gridName, OBJPROP_STYLE) != InpStyleGannGrid) ObjectSetInteger(0, gridName, OBJPROP_STYLE, InpStyleGannGrid);
-      }
-   }
-   else
-   {
-      ObjectDelete(0, gridName);
-   }
-
-   // 2. Draw Zero Origin Horizontal Equilibrium Line & Label
    string lineName = GUI_PREFIX + "GANN_ZERO_LINE";
    string lblName  = GUI_PREFIX + "GANN_ZERO_LBL";
+   ObjectDelete(0, lineName);
+   ObjectDelete(0, lblName);
 
-   if(InpShowGannZeroLine && g_GannEnergy.zeroPrice > 0.0)
+   // ตรวจสอบและลบวัตถุประเภท OBJ_GANNGRID ทั้งหมดบนชาร์ตทันที
+   for(int i = ObjectsTotal(0, 0, OBJ_GANNGRID) - 1; i >= 0; i--)
    {
-      double p0 = g_GannEnergy.zeroPrice;
-      if(ObjectFind(0, lineName) < 0)
-      {
-         ObjectCreate(0, lineName, OBJ_HLINE, 0, 0, p0);
-         ObjectSetInteger(0, lineName, OBJPROP_COLOR, InpColorGannZeroLine);
-         ObjectSetInteger(0, lineName, OBJPROP_STYLE, STYLE_DASHDOT);
-         ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 1);
-         ObjectSetInteger(0, lineName, OBJPROP_BACK, true);
-         ObjectSetInteger(0, lineName, OBJPROP_SELECTABLE, false);
-      }
-      else
-      {
-         if(ObjectGetDouble(0, lineName, OBJPROP_PRICE, 0) != p0) ObjectSetDouble(0, lineName, OBJPROP_PRICE, 0, p0);
-         if((color)ObjectGetInteger(0, lineName, OBJPROP_COLOR) != InpColorGannZeroLine) ObjectSetInteger(0, lineName, OBJPROP_COLOR, InpColorGannZeroLine);
-      }
-
-      datetime tLbl = iTime(_Symbol, _Period, 2);
-      string zeroText = StringFormat("⚖️ จุดสมดุลเลขกลม: %s", DoubleToString(p0, _Digits));
-
-      if(ObjectFind(0, lblName) < 0)
-      {
-         ObjectCreate(0, lblName, OBJ_TEXT, 0, tLbl, p0);
-         ObjectSetString(0, lblName, OBJPROP_TEXT, zeroText);
-         ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpColorGannZeroLine);
-         ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
-         ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_LOWER);
-         ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
-      }
-      else
-      {
-         if(ObjectGetInteger(0, lblName, OBJPROP_TIME, 0) != tLbl) ObjectSetInteger(0, lblName, OBJPROP_TIME, 0, tLbl);
-         if(ObjectGetDouble(0, lblName, OBJPROP_PRICE, 0) != p0) ObjectSetDouble(0, lblName, OBJPROP_PRICE, 0, p0);
-         if(ObjectGetString(0, lblName, OBJPROP_TEXT) != zeroText) ObjectSetString(0, lblName, OBJPROP_TEXT, zeroText);
-      }
-   }
-   else
-   {
-      ObjectDelete(0, lineName);
-      ObjectDelete(0, lblName);
+      string name = ObjectName(0, i, 0, OBJ_GANNGRID);
+      ObjectDelete(0, name);
    }
 }
-
 //+------------------------------------------------------------------+
 //| 14D. VELOCITY STOP-LOCK FLOOR (+10 PTS ON STATION POINT)         |
 //+------------------------------------------------------------------+
@@ -6819,7 +6761,7 @@ void RenderDashboard()
    if(InpUseWaveEnergyRadar)
    {
       string signDisp = (g_GannEnergy.displacementPts >= 0) ? "+" : "";
-      gannLatticeStr = StringFormat("🌐 ตาข่ายสมดุล: เลขกลม %s | ยืด %s%s | สปีด %.1f จุด/วิ", 
+      gannLatticeStr = StringFormat("🌐 จุดสมดุลคลื่น: เลขกลม %s | ยืด %s%s | สปีด %.1f จุด/วิ", 
                                     DoubleToString(g_GannEnergy.zeroPrice, _Digits), 
                                     signDisp, FormatMoneyOrPoints(MathAbs(g_GannEnergy.displacementPts)), 
                                     g_GannEnergy.velocityPtsSec);
@@ -6849,7 +6791,7 @@ void RenderDashboard()
    CreateRect(GUI_PREFIX + "C2_BG", baseX, curY, w, cardH2, C'12,24,24', C'25,55,55');
 
    // 2. CREATE TITLE & BUTTON ON TOP
-   CreateLabel(GUI_PREFIX + "C2_TITLE", baseX + 12, curY + 5, "⚔️ 2. SAMURAI CHANNEL, CME OI & ตาข่ายสมดุล (GANN)", C'100,240,180', 8, true);
+   CreateLabel(GUI_PREFIX + "C2_TITLE", baseX + 12, curY + 5, "⚔️ 2. SAMURAI CHANNEL, CME OI & พลังงานคลื่น (QUANT)", C'100,240,180', 8, true);
    CreateButton(GUI_PREFIX + "BTN_MIN_C2", baseX + w - 24, curY + 3, 18, 18, (g_Card2_Expanded ? "—" : "+"), C'35,50,70', clrSilver, 8);
 
    if(g_Card2_Expanded)
