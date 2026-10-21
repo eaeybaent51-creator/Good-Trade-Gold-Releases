@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.98"
-#property description "DeungDang_Trade V1.98 - Dual M1 & M15 Directional Harmony Engine & Setup Latch Suite"
+#property version     "1.99"
+#property description "DeungDang_Trade V1.99 - Anti-Chasing Dynamic Guard & Clean Visual Architecture Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -4693,16 +4693,16 @@ void DrawDTD_M1_Visuals()
    }
 
    int tfSec = PeriodSeconds((ENUM_TIMEFRAMES)_Period);
-   int forwardBars = 10;
-   if(_Period == PERIOD_M1)       forwardBars = 10;
-   else if(_Period <= PERIOD_M5)  forwardBars = 4;
-   else if(_Period <= PERIOD_M15) forwardBars = 3;
-   else if(_Period <= PERIOD_M30) forwardBars = 2;
-   else                           forwardBars = 2;
+   int forwardBars = 12;
+   if(_Period == PERIOD_M1)       forwardBars = 15;
+   else if(_Period <= PERIOD_M5)  forwardBars = 8;
+   else if(_Period <= PERIOD_M15) forwardBars = 6;
+   else if(_Period <= PERIOD_M30) forwardBars = 5;
+   else                           forwardBars = 4;
 
-   datetime tStart   = (g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : (TimeCurrent() - (tfSec * 4));
+   datetime tStart   = (g_DTD.isLatched && g_DTD.latchedTime > 0) ? g_DTD.latchedTime : ((g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : (TimeCurrent() - (tfSec * 4)));
    datetime tEnd     = TimeCurrent() + (tfSec * forwardBars);
-   datetime tWickLbl = tStart;
+   datetime tWickLbl = tEnd;
 
    // 1. เส้นแนวนอนและป้ายภาษาไทย "ขึ้น" (Swing High M1) สไตล์ชาร์ตอาจารย์เดช
    if(g_DTD.m1SwingHighPrice > 0.0)
@@ -4828,7 +4828,7 @@ void DrawDTD_M1_Visuals()
       ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
       ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
       ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
-      ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
+      ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
       ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
    }
    else
@@ -4838,6 +4838,7 @@ void DrawDTD_M1_Visuals()
       ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
       ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
       ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
+      ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
    }
 
    // 5. สัญลักษณ์จุดลั่นไก (Entry Tick Mark สไตล์อาจารย์เดช)
@@ -4865,7 +4866,7 @@ void DrawDTD_M1_Visuals()
    // 6. กล่อง TradingView Style 1R : 3R & เส้น Multi-Tier 1R, 2R, 3R
    if(g_DTD.confirmSLPrice > 0.0 && g_DTD.confirmTP3RPrice > 0.0)
    {
-      datetime bStart = (g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : TimeCurrent();
+      datetime bStart = (g_DTD.isLatched && g_DTD.latchedTime > 0) ? g_DTD.latchedTime : ((g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : TimeCurrent());
       datetime bEnd   = TimeCurrent() + (tfSec * forwardBars);
       double curBidPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       if(curBidPrice <= 0) curBidPrice = iClose(_Symbol, _Period, 0);
@@ -5056,7 +5057,7 @@ void DrawDTD_M1_Visuals()
 
       string lblSL = GUI_PREFIX + "DTD_LBL_SL";
       double slDist = MathAbs(g_DTD.confirmSLPrice - curBidPrice) / _Point;
-      string slTxt  = StringFormat(" 🛑 SL 1R: %s (-%s) ", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist));
+      string slTxt  = StringFormat(" 🛑 SL 1R: %s (-%s) [ใต้ชุดคอนเฟิร์ม] ", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist));
       if(ObjectFind(0, lblSL) < 0)
       {
          ObjectCreate(0, lblSL, OBJ_TEXT, 0, bEnd, g_DTD.confirmSLPrice);
@@ -5180,6 +5181,35 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
          return;
       }
    }
+   // ตรวจสอบ Anti-Chasing Guard (ห้ามไล่ราคาเมื่อวิ่งเกิน 80 จุดตามคำสอน อ.เดช)
+   if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
+   {
+      double entryRef = (g_DTD.confirmEntryPrice > 0.0) ? g_DTD.confirmEntryPrice : g_DTD.latchedEntryPrice;
+      if(entryRef > 0.0)
+      {
+         if(orderType == ORDER_TYPE_BUY)
+         {
+            double distRun = (ask - entryRef) / _Point;
+            if(distRun > 80.0)
+            {
+               Print(">>> [DeungDang_Trade] ⛔ สกัดกั้นการไล่ราคา: ราคาวิ่งบวกไปแล้ว +", (int)distRun, " จุดจากจุดเข้า (ห้ามไล่ยอดดอยตามคำสอน อ.เดช ➔ รอย่อรีเทสต์เส้นไส้สั้นสุด)");
+               Alert(StringFormat("⛔ [ห้ามไล่ราคาตามสูตร อ.เดช]\nราคาวิ่งพุ่งเลยจุดเข้าแล้ว +%d จุด!\nไม่ควรเปิดไม้ที่ยอดดอยเด็ดขาด\nกรุณารอย่อรีเทสต์ที่แนวเส้นไส้สั้นสุดก่อนครับ", (int)distRun));
+               return;
+            }
+         }
+         else if(orderType == ORDER_TYPE_SELL)
+         {
+            double distRun = (entryRef - bid) / _Point;
+            if(distRun > 80.0)
+            {
+               Print(">>> [DeungDang_Trade] ⛔ สกัดกั้นการไล่ราคา: ราคาทุบดิ่งไปแล้ว +", (int)distRun, " จุดจากจุดเข้า (ห้ามไล่ก้นเหวตามคำสอน อ.เดช ➔ รอดีดรีเทสต์เส้นไส้สั้นสุด)");
+               Alert(StringFormat("⛔ [ห้ามไล่ราคาตามสูตร อ.เดช]\nราคาทุบดิ่งเลยจุดเข้าแล้ว +%d จุด!\nไม่ควรเปิดไม้ที่ก้นเหวเด็ดขาด\nกรุณารอดีดรีเทสต์ที่แนวเส้นไส้สั้นสุดก่อนครับ", (int)distRun));
+               return;
+            }
+         }
+      }
+   }
+
    if(orderType == ORDER_TYPE_BUY)
    {
       price = ask;
@@ -7069,25 +7099,149 @@ void RenderDashboard()
    bool isSell    = (g_IsFakeoutTrap && g_FakeoutSide == -1) || ((!isSideway) && (g_WaveSide == -1 || (g_WaveSide == 0 && g_SamuraiMTF.consensusDir == -1)));
    bool isBuy     = (g_IsFakeoutTrap && g_FakeoutSide == 1)  || ((!isSideway) && (g_WaveSide == 1  || (g_WaveSide == 0 && g_SamuraiMTF.consensusDir == 1)));
 
+   curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(curBid <= 0) curBid = iClose(_Symbol, _Period, 0);
+   if(curAsk <= 0) curAsk = curBid;
+
    if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
    {
-      if(g_DTD.setupSide == -1)
+      double entryRef = (g_DTD.confirmEntryPrice > 0.0) ? g_DTD.confirmEntryPrice : g_DTD.latchedEntryPrice;
+      double slRef    = (g_DTD.confirmSLPrice > 0.0) ? g_DTD.confirmSLPrice : g_DTD.latchedSLPrice;
+      double tp1Ref   = (g_DTD.confirmTP1RPrice > 0.0) ? g_DTD.confirmTP1RPrice : g_DTD.latchedTP1Price;
+      double tp2Ref   = (g_DTD.confirmTP2RPrice > 0.0) ? g_DTD.confirmTP2RPrice : g_DTD.latchedTP2Price;
+      double tp3Ref   = (g_DTD.confirmTP3RPrice > 0.0) ? g_DTD.confirmTP3RPrice : g_DTD.latchedTP3Price;
+      double wickRef  = (g_DTD.shortestWickPrice > 0.0) ? g_DTD.shortestWickPrice : g_DTD.latchedShortestWick;
+
+      if(g_DTD.setupSide == 1) // BUY
       {
-         card3BgCol     = C'38,12,18';
-         card3BorderCol = C'255,50,90';
-         card3TitleCol  = C'255,80,110';
-         card3Title     = "🔴 3. ซิกแนลเทรด: [ CF M1 กลืนกิน SELL • 1R/2R/3R พร้อมลั่นไก! ]";
-         card3SigDesc   = "🔥 ซิกแนล อ.เดช: จบแท่งกลืนกิน M1 ทรงพลัง ➔ ลั่นไก 🔴 SELL แผน 1:3R!";
-         card3SigCol    = C'255,80,90';
+         double pnlPts     = (curBid - entryRef) / _Point;
+         double retestDist = (curBid - wickRef) / _Point;
+         bool isHitTP3     = (tp3Ref > 0.0 && curBid >= tp3Ref);
+         bool isHitTP2     = (tp2Ref > 0.0 && curBid >= tp2Ref);
+         bool isHitTP1     = (tp1Ref > 0.0 && curBid >= tp1Ref);
+         bool isRetesting  = (MathAbs(retestDist) <= 40.0);
+         bool isRunaway    = (pnlPts > 80.0 && !isHitTP1);
+
+         if(isHitTP3)
+         {
+            card3BgCol     = C'10,35,25';
+            card3BorderCol = C'0,255,180';
+            card3TitleCol  = C'0,255,200';
+            card3Title     = StringFormat("🏆 3. ซิกแนลเทรด: [ บรรลุเป้าหมาย 3R สำเร็จ! (+%.0f pts) ]", pnlPts);
+            card3SigDesc   = "🎉 ซิกแนล อ.เดช: ชนเป้าหลัก 3R ครบสูตร! ➔ พิจารณาปิดทำกำไรเข้าพอร์ต หรือล็อกรันเทรนด์";
+            card3SigCol    = C'0,255,136';
+         }
+         else if(isHitTP2)
+         {
+            card3BgCol     = C'10,32,22';
+            card3BorderCol = C'0,230,160';
+            card3TitleCol  = C'50,255,180';
+            card3Title     = StringFormat("🎯 3. ซิกแนลเทรด: [ บรรลุเป้า TP 2R (+%.0f pts) ➔ ล็อกกำไรใต้ 1R ]", pnlPts);
+            card3SigDesc   = "🚀 ซิกแนล อ.เดช: กำไร 2R แล้ว! ➔ เลื่อน SL ล็อกกำไรใต้ฐาน TP1 รันสู่ TP3";
+            card3SigCol    = C'50,255,180';
+         }
+         else if(isHitTP1)
+         {
+            card3BgCol     = C'12,28,20';
+            card3BorderCol = C'40,210,120';
+            card3TitleCol  = C'100,245,160';
+            card3Title     = StringFormat("🛡️ 3. ซิกแนลเทรด: [ บรรลุเป้า TP 1R (+%.0f pts) ➔ บังหน้าทุนทันที! ]", pnlPts);
+            card3SigDesc   = "💎 ซิกแนล อ.เดช: แตะ 1:1R แล้ว! ➔ กด [ 🛡️ บังทุน ] ล็อกกำไรหน้าทุน ตัดความเสี่ยงเหลือ 0!";
+            card3SigCol    = C'100,255,160';
+         }
+         else if(isRetesting)
+         {
+            card3BgCol     = C'10,35,28';
+            card3BorderCol = C'0,255,200';
+            card3TitleCol  = C'0,255,220';
+            card3Title     = "🎯 3. ซิกแนลเทรด: [ 🟢 จังหวะย่อรีเทสต์! • จุดขึ้นรถ BUY ราคาดีที่สุด ]";
+            card3SigDesc   = StringFormat("🔥 ซิกแนล อ.เดช: ราคาย่อแตะแนวไส้สั้นสุด %s ➔ ได้เปรียบระยะ SL สั้นมาก ลั่นไก BUY ได้!", DoubleToString(wickRef, _Digits));
+            card3SigCol    = C'0,255,200';
+         }
+         else if(isRunaway)
+         {
+            card3BgCol     = C'32,24,12';
+            card3BorderCol = C'220,160,40';
+            card3TitleCol  = clrGold;
+            card3Title     = StringFormat("⚠️ 3. ซิกแนลเทรด: [ แผน BUY วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคา! ]", pnlPts);
+            card3SigDesc   = "✋ คำสอน อ.เดช: ราคาวิ่งพุ่งเลยจุดเข้าแล้ว ➔ ห้ามไล่ยอดดอย! รอย่อรีเทสต์เส้นไส้สั้นสุด หรือถือรันกำไร";
+            card3SigCol    = clrGold;
+         }
+         else // Fresh
+         {
+            card3BgCol     = C'10,32,22';
+            card3BorderCol = C'0,255,180';
+            card3TitleCol  = C'0,255,200';
+            card3Title     = "🟢 3. ซิกแนลเทรด: [ จบแท่งกลืนกิน BUY • พร้อมลั่นไก 1:3R! ]";
+            card3SigDesc   = "🚀 ซิกแนล อ.เดช: จบแท่งกลืนกิน M1 คอนเฟิร์ม ➔ เข้า BUY ที่ราคาปิดแท่ง SL ใต้ชุดคอนเฟิร์ม!";
+            card3SigCol    = C'50,255,180';
+         }
       }
-      else
+      else // SELL
       {
-         card3BgCol     = C'10,32,22';
-         card3BorderCol = C'0,255,180';
-         card3TitleCol  = C'0,255,200';
-         card3Title     = "🟢 3. ซิกแนลเทรด: [ CF M1 กลืนกิน BUY • 1R/2R/3R พร้อมลั่นไก! ]";
-         card3SigDesc   = "🚀 ซิกแนล อ.เดช: จบแท่งกลืนกิน M1 ทรงพลัง ➔ ลั่นไก 🟢 BUY แผน 1:3R!";
-         card3SigCol    = C'50,255,180';
+         double pnlPts     = (entryRef - curAsk) / _Point;
+         double retestDist = (wickRef - curAsk) / _Point;
+         bool isHitTP3     = (tp3Ref > 0.0 && curAsk <= tp3Ref);
+         bool isHitTP2     = (tp2Ref > 0.0 && curAsk <= tp2Ref);
+         bool isHitTP1     = (tp1Ref > 0.0 && curAsk <= tp1Ref);
+         bool isRetesting  = (MathAbs(retestDist) <= 40.0);
+         bool isRunaway    = (pnlPts > 80.0 && !isHitTP1);
+
+         if(isHitTP3)
+         {
+            card3BgCol     = C'38,12,18';
+            card3BorderCol = C'255,50,90';
+            card3TitleCol  = C'255,80,110';
+            card3Title     = StringFormat("🏆 3. ซิกแนลเทรด: [ บรรลุเป้าหมาย 3R สำเร็จ! (+%.0f pts) ]", pnlPts);
+            card3SigDesc   = "🎉 ซิกแนล อ.เดช: ชนเป้าหลัก 3R ครบสูตร! ➔ พิจารณาปิดทำกำไรเข้าพอร์ต หรือล็อกรันเทรนด์";
+            card3SigCol    = C'255,80,90';
+         }
+         else if(isHitTP2)
+         {
+            card3BgCol     = C'35,12,18';
+            card3BorderCol = C'240,60,85';
+            card3TitleCol  = C'255,100,120';
+            card3Title     = StringFormat("🎯 3. ซิกแนลเทรด: [ บรรลุเป้า TP 2R (+%.0f pts) ➔ ล็อกกำไรเหนือ 1R ]", pnlPts);
+            card3SigDesc   = "🚀 ซิกแนล อ.เดช: กำไร 2R แล้ว! ➔ เลื่อน SL ล็อกกำไรเหนือฐาน TP1 รันสู่ TP3";
+            card3SigCol    = C'255,100,120';
+         }
+         else if(isHitTP1)
+         {
+            card3BgCol     = C'32,14,18';
+            card3BorderCol = C'220,70,85';
+            card3TitleCol  = C'255,120,135';
+            card3Title     = StringFormat("🛡️ 3. ซิกแนลเทรด: [ บรรลุเป้า TP 1R (+%.0f pts) ➔ บังหน้าทุนทันที! ]", pnlPts);
+            card3SigDesc   = "💎 ซิกแนล อ.เดช: แตะ 1:1R แล้ว! ➔ กด [ 🛡️ บังทุน ] ล็อกกำไรหน้าทุน ตัดความเสี่ยงเหลือ 0!";
+            card3SigCol    = C'255,120,135';
+         }
+         else if(isRetesting)
+         {
+            card3BgCol     = C'36,20,15';
+            card3BorderCol = C'255,140,50';
+            card3TitleCol  = C'255,160,80';
+            card3Title     = "🎯 3. ซิกแนลเทรด: [ 🔴 จังหวะดีดรีเทสต์! • จุดขึ้นรถ SELL ราคาดีที่สุด ]";
+            card3SigDesc   = StringFormat("🔥 ซิกแนล อ.เดช: ราคาดีดแตะแนวไส้สั้นสุด %s ➔ ได้เปรียบระยะ SL สั้นมาก ลั่นไก SELL ได้!", DoubleToString(wickRef, _Digits));
+            card3SigCol    = C'255,160,80';
+         }
+         else if(isRunaway)
+         {
+            card3BgCol     = C'32,24,12';
+            card3BorderCol = C'220,160,40';
+            card3TitleCol  = clrGold;
+            card3Title     = StringFormat("⚠️ 3. ซิกแนลเทรด: [ แผน SELL วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคา! ]", pnlPts);
+            card3SigDesc   = "✋ คำสอน อ.เดช: ราคาทุบดิ่งเลยจุดเข้าแล้ว ➔ ห้ามไล่ก้นเหว! รอดีดรีเทสต์เส้นไส้สั้นสุด หรือถือรันกำไร";
+            card3SigCol    = clrGold;
+         }
+         else // Fresh
+         {
+            card3BgCol     = C'38,12,18';
+            card3BorderCol = C'255,50,90';
+            card3TitleCol  = C'255,80,110';
+            card3Title     = "🔴 3. ซิกแนลเทรด: [ จบแท่งกลืนกิน SELL • พร้อมลั่นไก 1:3R! ]";
+            card3SigDesc   = "🚀 ซิกแนล อ.เดช: จบแท่งกลืนกิน M1 คอนเฟิร์ม ➔ เข้า SELL ที่ราคาปิดแท่ง SL เหนือชุดคอนเฟิร์ม!";
+            card3SigCol    = C'255,80,90';
+         }
       }
    }
    else if(InpUseDTD_CF_M1 && g_DTD.shortestWickPrice > 0.0)
@@ -7429,8 +7583,36 @@ void RenderDashboard()
          btnY2 = btnY1 + 34;
       }
 
-      CreateButton(GUI_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, "🟢 กด BUY", C'30,120,60', clrWhite, 11);
-      CreateButton(GUI_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, "🔴 กด SELL", C'150,40,40', clrWhite, 11);
+      string btnBuyTxt  = "🟢 กด BUY";
+      color  btnBuyBg   = C'30,120,60';
+      string btnSellTxt = "🔴 กด SELL";
+      color  btnSellBg  = C'150,40,40';
+
+      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
+      {
+         double entryRef = (g_DTD.confirmEntryPrice > 0.0) ? g_DTD.confirmEntryPrice : g_DTD.latchedEntryPrice;
+         if(g_DTD.setupSide == 1 && entryRef > 0.0)
+         {
+            double pnlPts = (curBid - entryRef) / _Point;
+            if(pnlPts > 80.0)
+            {
+               btnBuyTxt = "⚠️ วิ่งเลยจุดเข้า (ห้ามไล่ราคา)";
+               btnBuyBg  = C'85,65,30';
+            }
+         }
+         else if(g_DTD.setupSide == -1 && entryRef > 0.0)
+         {
+            double pnlPts = (entryRef - curAsk) / _Point;
+            if(pnlPts > 80.0)
+            {
+               btnSellTxt = "⚠️ ทุบเลยจุดเข้า (ห้ามไล่ราคา)";
+               btnSellBg  = C'85,65,30';
+            }
+         }
+      }
+
+      CreateButton(GUI_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, btnBuyTxt, btnBuyBg, clrWhite, (StringLen(btnBuyTxt) > 12 ? 8 : 11));
+      CreateButton(GUI_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, btnSellTxt, btnSellBg, clrWhite, (StringLen(btnSellTxt) > 12 ? 8 : 11));
 
       cardH3 = (btnY2 + 38 - curY) + 10;
       if(ObjectGetInteger(0, GUI_PREFIX + "C3_BG", OBJPROP_YSIZE) != cardH3)
