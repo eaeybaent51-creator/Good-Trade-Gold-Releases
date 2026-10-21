@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.00"
+#property version     "1.01"
 #property description "DTD Multiverse Training & Manual Execution Cockpit"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
@@ -1056,7 +1056,7 @@ void DrawMultiverseVisuals()
          if(ObjectFind(0, lineUp) < 0)
          {
             ObjectCreate(0, lineUp, OBJ_TREND, 0, tUpStart, g_DTD_M1.m1SwingHighPrice, tEnd, g_DTD_M1.m1SwingHighPrice);
-            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, C'255,85,95');
+            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lineUp, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineUp, OBJPROP_WIDTH, 1);
             ObjectSetInteger(0, lineUp, OBJPROP_RAY_RIGHT, false);
@@ -1068,6 +1068,7 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lineUp, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingHighPrice);
             ObjectSetInteger(0, lineUp, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineUp, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingHighPrice);
+            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, clrWhite);
          }
 
          string lblUp = DTD_PREFIX + "M1_LBL_UP";
@@ -1100,7 +1101,7 @@ void DrawMultiverseVisuals()
          if(ObjectFind(0, lineDn) < 0)
          {
             ObjectCreate(0, lineDn, OBJ_TREND, 0, tDnStart, g_DTD_M1.m1SwingLowPrice, tEnd, g_DTD_M1.m1SwingLowPrice);
-            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, C'255,85,95');
+            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lineDn, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineDn, OBJPROP_WIDTH, 1);
             ObjectSetInteger(0, lineDn, OBJPROP_RAY_RIGHT, false);
@@ -1112,6 +1113,7 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lineDn, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingLowPrice);
             ObjectSetInteger(0, lineDn, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineDn, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingLowPrice);
+            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, clrWhite);
          }
 
          string lblDn = DTD_PREFIX + "M1_LBL_DOWN";
