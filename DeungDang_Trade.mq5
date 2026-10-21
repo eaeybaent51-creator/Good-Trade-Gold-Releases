@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                            DeungDang_Trade.mq5   |
 //|                    Good Trade Gold & Kamnan Ball Trading Suite   |
 //|               Visual Training Co-Pilot & Manual Precision Radar  |
@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.95"
-#property description "DeungDang_Trade V1.95 - High-Visibility Pure White M1 Structure Lines & CME Options Wall Calibration"
+#property version     "1.96"
+#property description "DeungDang_Trade V1.96 - Clean Chart Default (Gann Grid OFF) & High-Visibility Pure White M1 Structure"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -129,11 +129,11 @@ input color    InpColorWave_D_Target = C'255,215,0';     // 🟡 สีเป้
 input color    InpColorFakeoutAlert  = C'0,225,255';     // 💠 สีแจ้งเตือนกับดักกลับตัวหลอก (Cyan Alert)
 
 input group "=== [ 11. ตาข่ายสมดุลและเรดาร์พลังงานคลื่น (GANN & WAVE ENERGY RADAR) ] ==="
-input bool     InpUseGannEquilibriumGrid = true;          // 🌐 เปิดตารางตาข่ายสมดุลราคาและเวลา (Gann Equilibrium Grid 45°)
+input bool     InpUseGannEquilibriumGrid = false;          // 🌐 เปิดตารางตาข่ายสมดุลราคาและเวลา (Gann Equilibrium Grid 45°)
 input color    InpColorGannGrid          = C'32,85,160';  // 🔷 สีเส้นตาข่ายสมดุล (ฟ้าครามโปร่งสบายตา)
 input ENUM_LINE_STYLE InpStyleGannGrid   = STYLE_DOT;     // รูปแบบเส้นตาข่าย (STYLE_DOT เส้นประนุ่มนวล / STYLE_SOLID)
 input double   InpGann_ScalePoints       = 0.0;           // สเกลความกว้างตาข่าย (จุดต่อแท่ง: 0 = อัตโนมัติตามฐานสิบ)
-input bool     InpShowGannZeroLine       = true;          // ⚖️ แสดงเส้นระดับจุดสมดุลเลขกลมกลางรอบคลื่น (Zero Origin Line)
+input bool     InpShowGannZeroLine       = false;          // ⚖️ แสดงเส้นระดับจุดสมดุลเลขกลมกลางรอบคลื่น (Zero Origin Line)
 input color    InpColorGannZeroLine      = C'65,145,225'; // 🔵 สีเส้นจุดสมดุลเลขกลม (DodgerBlue)
 input bool     InpUseWaveEnergyRadar     = true;          // ⚡ เปิดเรดาร์คำนวณพลังงานคลื่นและจุดหมดแรง (Phase Space v≈0)
 input bool     InpUseVSL_LockFloor       = true;          // 🛡️ เซฟตี้ล็อกกำไร +10 จุดเมื่อราคาหมดแรงที่ปลายคลื่น (VSL Floor Lock)
