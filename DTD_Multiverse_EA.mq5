@@ -1,12 +1,12 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                           DTD_Multiverse_EA.mq5 |
 //|          ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD |
 //|               ระบบฝึกเทรดวิเคราะห์โครงสร้างตลาดและค็อกพิทมือถือ |
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.01"
-#property description "DTD Multiverse Training & Manual Execution Cockpit"
+#property version     "1.02"
+#property description "DTD Multiverse V1.02 - Setup Freeze & Latch Engine (Confirmed 1:3R Box Lock & Zero-Creep Structure)"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -143,6 +143,19 @@ struct SDTD_M1_Engine
    double   sellConfirmTP3RPrice;
    double   sellSlPoints;
    double   sellRecommendedLot;
+
+   // Setup Freeze & Latch State (ระบบล็อกและตรึงกรอบแผนเทรดนิ่งสนิท)
+   bool     isLatched;
+   int      latchedSide;
+   datetime latchedTime;
+   double   latchedEntryPrice;
+   double   latchedSLPrice;
+   double   latchedTP1Price;
+   double   latchedTP2Price;
+   double   latchedTP3Price;
+   double   latchedSLPoints;
+   double   latchedLot;
+   double   latchedShortestWick;
 };
 
 //+------------------------------------------------------------------+
@@ -689,6 +702,111 @@ void ScanDTD_CF_M1_Always()
    string moneyUnit = IsCentAccount() ? "USC" : "$";
 
    // =========================================================================
+   // 1B. ตรวจสอบสถานะการล็อกและตรึงกรอบแผนเทรด (SETUP FREEZE & LATCH CHECK)
+   // =========================================================================
+   if(g_DTD_M1.isLatched)
+   {
+      bool unlatch = false;
+      if(g_DTD_M1.latchedSide == 1)
+      {
+         if(curBid >= g_DTD_M1.latchedTP3Price) unlatch = true;
+         else if(curBid <= g_DTD_M1.latchedSLPrice) unlatch = true;
+         else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 45 * 60 && lowestM1Low < g_DTD_M1.latchedSLPrice) unlatch = true;
+      }
+      else if(g_DTD_M1.latchedSide == -1)
+      {
+         if(curAsk <= g_DTD_M1.latchedTP3Price) unlatch = true;
+         else if(curAsk >= g_DTD_M1.latchedSLPrice) unlatch = true;
+         else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 45 * 60 && highestM1High > g_DTD_M1.latchedSLPrice) unlatch = true;
+      }
+
+      if(unlatch)
+      {
+         Print(">>> [DTD_Multiverse] 🔓 ปลดล็อกแผนเทรดเดิม ➔ รีเซ็ตเพื่อรอจับโครงสร้างใหม่");
+         g_DTD_M1.isLatched   = false;
+         g_DTD_M1.latchedSide = 0;
+      }
+      else
+      {
+         g_DTD_M1.setupSide         = g_DTD_M1.latchedSide;
+         g_DTD_M1.shortestWickPrice = g_DTD_M1.latchedShortestWick;
+         g_DTD_M1.confirmEntryPrice = g_DTD_M1.latchedEntryPrice;
+         g_DTD_M1.confirmSLPrice    = g_DTD_M1.latchedSLPrice;
+         g_DTD_M1.confirmTP1RPrice  = g_DTD_M1.latchedTP1Price;
+         g_DTD_M1.confirmTP2RPrice  = g_DTD_M1.latchedTP2Price;
+         g_DTD_M1.confirmTP3RPrice  = g_DTD_M1.latchedTP3Price;
+         g_DTD_M1.slPoints          = g_DTD_M1.latchedSLPoints;
+         g_DTD_M1.tp1RPoints        = g_DTD_M1.latchedSLPoints * 1.0;
+         g_DTD_M1.tp2RPoints        = g_DTD_M1.latchedSLPoints * 2.0;
+         g_DTD_M1.tp3RPoints        = g_DTD_M1.latchedSLPoints * InpTargetRR;
+         g_DTD_M1.recommendedLot    = g_DTD_M1.latchedLot;
+         g_DTD_M1.isEngulfConfirmed = true;
+
+         if(g_DTD_M1.latchedSide == 1)
+         {
+            g_DTD_M1.buyEngulfConfirmed   = true;
+            g_DTD_M1.buyConfirmEntryPrice = g_DTD_M1.latchedEntryPrice;
+            g_DTD_M1.buyConfirmSLPrice    = g_DTD_M1.latchedSLPrice;
+            g_DTD_M1.buyConfirmTP1RPrice  = g_DTD_M1.latchedTP1Price;
+            g_DTD_M1.buyConfirmTP2RPrice  = g_DTD_M1.latchedTP2Price;
+            g_DTD_M1.buyConfirmTP3RPrice  = g_DTD_M1.latchedTP3Price;
+            g_DTD_M1.buySlPoints          = g_DTD_M1.latchedSLPoints;
+            g_DTD_M1.buyRecommendedLot    = g_DTD_M1.latchedLot;
+
+            double distRetest = (curBid - g_DTD_M1.shortestWickPrice) / _Point;
+            if(MathAbs(distRetest) <= 40.0)
+            {
+               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🟢 [จังหวะย่อรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ BUY ราคาดีที่สุด!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
+               g_DTD_M1.statusColor = C'0,255,200';
+            }
+            else if(curBid > g_DTD_M1.latchedEntryPrice)
+            {
+               double pnlPts = (curBid - g_DTD_M1.latchedEntryPrice) / _Point;
+               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🟢 แผน BUY วิ่งทำกำไร (+%.0f pts) ➔ มุ่งสู่เป้าหมาย 1:3R", pnlPts);
+               g_DTD_M1.statusColor = C'0,255,136';
+            }
+            else
+            {
+               g_DTD_M1.statusText  = "🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (กรอบ 1:3R ล็อกนิ่งสนิท รอขึ้นรถ)";
+               g_DTD_M1.statusColor = C'0,255,136';
+            }
+         }
+         else
+         {
+            g_DTD_M1.sellEngulfConfirmed   = true;
+            g_DTD_M1.sellConfirmEntryPrice = g_DTD_M1.latchedEntryPrice;
+            g_DTD_M1.sellConfirmSLPrice    = g_DTD_M1.latchedSLPrice;
+            g_DTD_M1.sellConfirmTP1RPrice  = g_DTD_M1.latchedTP1Price;
+            g_DTD_M1.sellConfirmTP2RPrice  = g_DTD_M1.latchedTP2Price;
+            g_DTD_M1.sellConfirmTP3RPrice  = g_DTD_M1.latchedTP3Price;
+            g_DTD_M1.sellSlPoints          = g_DTD_M1.latchedSLPoints;
+            g_DTD_M1.sellRecommendedLot    = g_DTD_M1.latchedLot;
+
+            double distRetest = (g_DTD_M1.shortestWickPrice - curAsk) / _Point;
+            if(MathAbs(distRetest) <= 40.0)
+            {
+               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🔴 [จังหวะดีดรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ SELL ราคาดีที่สุด!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
+               g_DTD_M1.statusColor = C'255,180,80';
+            }
+            else if(curAsk < g_DTD_M1.latchedEntryPrice)
+            {
+               double pnlPts = (g_DTD_M1.latchedEntryPrice - curAsk) / _Point;
+               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🔴 แผน SELL วิ่งทำกำไร (+%.0f pts) ➔ มุ่งสู่เป้าหมาย 1:3R", pnlPts);
+               g_DTD_M1.statusColor = C'255,80,90';
+            }
+            else
+            {
+               g_DTD_M1.statusText  = "🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (กรอบ 1:3R ล็อกนิ่งสนิท รอขึ้นรถ)";
+               g_DTD_M1.statusColor = C'255,80,90';
+            }
+         }
+
+         g_DTD_M1.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD_M1.slPoints, g_DTD_M1.tp1RPoints, g_DTD_M1.tp2RPoints, g_DTD_M1.tp3RPoints, g_DTD_M1.recommendedLot, moneyUnit, InpRiskMoney);
+         return;
+      }
+   }
+
+   // =========================================================================
    // 2. คำนวณแผน BUY อิสระ (Bullish DTD Candidate)
    // =========================================================================
    bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
@@ -876,6 +994,21 @@ void ScanDTD_CF_M1_Always()
 
       if(buyConfirmed)
       {
+         if(!g_DTD_M1.isLatched)
+         {
+            g_DTD_M1.isLatched           = true;
+            g_DTD_M1.latchedSide         = 1;
+            g_DTD_M1.latchedTime         = ratesM1[1].time;
+            g_DTD_M1.latchedEntryPrice   = buyEntryPrice;
+            g_DTD_M1.latchedSLPrice      = buySLPrice;
+            g_DTD_M1.latchedTP1Price     = buyTP1RPrice;
+            g_DTD_M1.latchedTP2Price     = buyTP2RPrice;
+            g_DTD_M1.latchedTP3Price     = buyTP3RPrice;
+            g_DTD_M1.latchedSLPoints     = buySLPoints;
+            g_DTD_M1.latchedLot          = buyRecommendedLot;
+            g_DTD_M1.latchedShortestWick = buyTargetPrice;
+            Print(">>> [DTD_Multiverse] 🔒 ล็อกกรอบแผนเทรด BUY นิ่งสนิท! Entry: ", buyEntryPrice, " SL: ", buySLPrice, " TP3: ", buyTP3RPrice);
+         }
          g_DTD_M1.statusText  = "🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
          g_DTD_M1.statusColor = C'0,255,136';
       }
@@ -913,6 +1046,21 @@ void ScanDTD_CF_M1_Always()
 
       if(sellConfirmed)
       {
+         if(!g_DTD_M1.isLatched)
+         {
+            g_DTD_M1.isLatched           = true;
+            g_DTD_M1.latchedSide         = -1;
+            g_DTD_M1.latchedTime         = ratesM1[1].time;
+            g_DTD_M1.latchedEntryPrice   = sellEntryPrice;
+            g_DTD_M1.latchedSLPrice      = sellSLPrice;
+            g_DTD_M1.latchedTP1Price     = sellTP1RPrice;
+            g_DTD_M1.latchedTP2Price     = sellTP2RPrice;
+            g_DTD_M1.latchedTP3Price     = sellTP3RPrice;
+            g_DTD_M1.latchedSLPoints     = sellSLPoints;
+            g_DTD_M1.latchedLot          = sellRecommendedLot;
+            g_DTD_M1.latchedShortestWick = sellTargetPrice;
+            Print(">>> [DTD_Multiverse] 🔒 ล็อกกรอบแผนเทรด SELL นิ่งสนิท! Entry: ", sellEntryPrice, " SL: ", sellSLPrice, " TP3: ", sellTP3RPrice);
+         }
          g_DTD_M1.statusText  = "🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
          g_DTD_M1.statusColor = C'255,80,90';
       }

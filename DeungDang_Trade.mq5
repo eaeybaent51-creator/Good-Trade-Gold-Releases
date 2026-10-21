@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.96"
-#property description "DeungDang_Trade V1.96 - Clean Chart Default (Gann Grid OFF) & High-Visibility Pure White M1 Structure"
+#property version     "1.97"
+#property description "DeungDang_Trade V1.97 - Setup Freeze & Latch Engine (Confirmed 1:3R Box Lock & Zero-Creep Structure)"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -331,6 +331,19 @@ struct SDTD_ConfirmState
    double   sellConfirmTP3RPrice;
    double   sellSlDistPoints;
    double   sellRecommendedLot;
+
+   // Setup Freeze & Latch State (ระบบล็อกและตรึงกรอบแผนเทรดนิ่งสนิท)
+   bool     isLatched;
+   int      latchedSide;
+   datetime latchedTime;
+   double   latchedEntryPrice;
+   double   latchedSLPrice;
+   double   latchedTP1Price;
+   double   latchedTP2Price;
+   double   latchedTP3Price;
+   double   latchedSLDist;
+   double   latchedLot;
+   double   latchedShortestWick;
 };
 
 //+------------------------------------------------------------------+
@@ -4196,6 +4209,111 @@ void ScanDTD_CF_M1()
    string moneyUnit = IsCentAccount() ? "USC" : "$";
 
    // =========================================================================
+   // 1B. ตรวจสอบสถานะการล็อกและตรึงกรอบแผนเทรด (SETUP FREEZE & LATCH CHECK)
+   // =========================================================================
+   if(g_DTD.isLatched)
+   {
+      bool unlatch = false;
+      if(g_DTD.latchedSide == 1)
+      {
+         if(curBid >= g_DTD.latchedTP3Price) unlatch = true;
+         else if(curBid <= g_DTD.latchedSLPrice) unlatch = true;
+         else if((ratesM1[0].time - g_DTD.latchedTime) > 45 * 60 && lowestM1Low < g_DTD.latchedSLPrice) unlatch = true;
+      }
+      else if(g_DTD.latchedSide == -1)
+      {
+         if(curAsk <= g_DTD.latchedTP3Price) unlatch = true;
+         else if(curAsk >= g_DTD.latchedSLPrice) unlatch = true;
+         else if((ratesM1[0].time - g_DTD.latchedTime) > 45 * 60 && highestM1High > g_DTD.latchedSLPrice) unlatch = true;
+      }
+
+      if(unlatch)
+      {
+         Print(">>> [DeungDang_Trade] 🔓 ปลดล็อกแผนเทรดเดิม ➔ รีเซ็ตเพื่อรอจับโครงสร้างใหม่");
+         g_DTD.isLatched   = false;
+         g_DTD.latchedSide = 0;
+      }
+      else
+      {
+         g_DTD.setupSide         = g_DTD.latchedSide;
+         g_DTD.shortestWickPrice = g_DTD.latchedShortestWick;
+         g_DTD.confirmEntryPrice = g_DTD.latchedEntryPrice;
+         g_DTD.confirmSLPrice    = g_DTD.latchedSLPrice;
+         g_DTD.confirmTP1RPrice  = g_DTD.latchedTP1Price;
+         g_DTD.confirmTP2RPrice  = g_DTD.latchedTP2Price;
+         g_DTD.confirmTP3RPrice  = g_DTD.latchedTP3Price;
+         g_DTD.slDistPoints      = g_DTD.latchedSLDist;
+         g_DTD.tp1RDistPoints    = g_DTD.latchedSLDist * 1.0;
+         g_DTD.tp2RDistPoints    = g_DTD.latchedSLDist * 2.0;
+         g_DTD.tp3RDistPoints    = g_DTD.latchedSLDist * InpDTD_TargetRR;
+         g_DTD.recommendedLot    = g_DTD.latchedLot;
+         g_DTD.isEngulfConfirmed = true;
+
+         if(g_DTD.latchedSide == 1)
+         {
+            g_DTD.buyEngulfConfirmed   = true;
+            g_DTD.buyConfirmEntryPrice = g_DTD.latchedEntryPrice;
+            g_DTD.buyConfirmSLPrice    = g_DTD.latchedSLPrice;
+            g_DTD.buyConfirmTP1RPrice  = g_DTD.latchedTP1Price;
+            g_DTD.buyConfirmTP2RPrice  = g_DTD.latchedTP2Price;
+            g_DTD.buyConfirmTP3RPrice  = g_DTD.latchedTP3Price;
+            g_DTD.buySlDistPoints      = g_DTD.latchedSLDist;
+            g_DTD.buyRecommendedLot    = g_DTD.latchedLot;
+
+            double distRetest = (curBid - g_DTD.shortestWickPrice) / _Point;
+            if(MathAbs(distRetest) <= 40.0)
+            {
+               g_DTD.statusText  = StringFormat("🎯 CF M1: 🟢 [จังหวะย่อรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ BUY ราคาดีที่สุด!", DoubleToString(g_DTD.shortestWickPrice, _Digits));
+               g_DTD.statusColor = C'0,255,200';
+            }
+            else if(curBid > g_DTD.latchedEntryPrice)
+            {
+               double pnlPts = (curBid - g_DTD.latchedEntryPrice) / _Point;
+               g_DTD.statusText  = StringFormat("🎯 CF M1: 🟢 แผน BUY วิ่งทำกำไร (+%.0f pts) ➔ มุ่งสู่เป้าหมาย 1:3R", pnlPts);
+               g_DTD.statusColor = C'0,255,136';
+            }
+            else
+            {
+               g_DTD.statusText  = "🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (กรอบ 1:3R ล็อกนิ่งสนิท รอขึ้นรถ)";
+               g_DTD.statusColor = C'0,255,136';
+            }
+         }
+         else
+         {
+            g_DTD.sellEngulfConfirmed   = true;
+            g_DTD.sellConfirmEntryPrice = g_DTD.latchedEntryPrice;
+            g_DTD.sellConfirmSLPrice    = g_DTD.latchedSLPrice;
+            g_DTD.sellConfirmTP1RPrice  = g_DTD.latchedTP1Price;
+            g_DTD.sellConfirmTP2RPrice  = g_DTD.latchedTP2Price;
+            g_DTD.sellConfirmTP3RPrice  = g_DTD.latchedTP3Price;
+            g_DTD.sellSlDistPoints      = g_DTD.latchedSLDist;
+            g_DTD.sellRecommendedLot    = g_DTD.latchedLot;
+
+            double distRetest = (g_DTD.shortestWickPrice - curAsk) / _Point;
+            if(MathAbs(distRetest) <= 40.0)
+            {
+               g_DTD.statusText  = StringFormat("🎯 CF M1: 🔴 [จังหวะดีดรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ SELL ราคาดีที่สุด!", DoubleToString(g_DTD.shortestWickPrice, _Digits));
+               g_DTD.statusColor = C'255,180,80';
+            }
+            else if(curAsk < g_DTD.latchedEntryPrice)
+            {
+               double pnlPts = (g_DTD.latchedEntryPrice - curAsk) / _Point;
+               g_DTD.statusText  = StringFormat("🎯 CF M1: 🔴 แผน SELL วิ่งทำกำไร (+%.0f pts) ➔ มุ่งสู่เป้าหมาย 1:3R", pnlPts);
+               g_DTD.statusColor = C'255,80,90';
+            }
+            else
+            {
+               g_DTD.statusText  = "🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (กรอบ 1:3R ล็อกนิ่งสนิท รอขึ้นรถ)";
+               g_DTD.statusColor = C'255,80,90';
+            }
+         }
+
+         g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
+         return;
+      }
+   }
+
+   // =========================================================================
    // 2. คำนวณแผน BUY อิสระ (Bullish DTD Candidate)
    // =========================================================================
    bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
@@ -4410,6 +4528,21 @@ void ScanDTD_CF_M1()
 
       if(buyConfirmed)
       {
+         if(!g_DTD.isLatched)
+         {
+            g_DTD.isLatched           = true;
+            g_DTD.latchedSide         = 1;
+            g_DTD.latchedTime         = ratesM1[1].time;
+            g_DTD.latchedEntryPrice   = buyEntryPrice;
+            g_DTD.latchedSLPrice      = buySLPrice;
+            g_DTD.latchedTP1Price     = buyTP1RPrice;
+            g_DTD.latchedTP2Price     = buyTP2RPrice;
+            g_DTD.latchedTP3Price     = buyTP3RPrice;
+            g_DTD.latchedSLDist       = buySLDist;
+            g_DTD.latchedLot          = buyRecommendedLot;
+            g_DTD.latchedShortestWick = buyTargetWickPrice;
+            Print(">>> [DeungDang_Trade] 🔒 ล็อกกรอบแผนเทรด BUY นิ่งสนิท! Entry: ", buyEntryPrice, " SL: ", buySLPrice, " TP3: ", buyTP3RPrice);
+         }
          g_DTD.statusText  = StringFormat("🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(buyTargetWickPrice, _Digits));
          g_DTD.statusColor = C'0,255,136';
       }
@@ -4450,6 +4583,21 @@ void ScanDTD_CF_M1()
 
       if(sellConfirmed)
       {
+         if(!g_DTD.isLatched)
+         {
+            g_DTD.isLatched           = true;
+            g_DTD.latchedSide         = -1;
+            g_DTD.latchedTime         = ratesM1[1].time;
+            g_DTD.latchedEntryPrice   = sellEntryPrice;
+            g_DTD.latchedSLPrice      = sellSLPrice;
+            g_DTD.latchedTP1Price     = sellTP1RPrice;
+            g_DTD.latchedTP2Price     = sellTP2RPrice;
+            g_DTD.latchedTP3Price     = sellTP3RPrice;
+            g_DTD.latchedSLDist       = sellSLDist;
+            g_DTD.latchedLot          = sellRecommendedLot;
+            g_DTD.latchedShortestWick = sellTargetWickPrice;
+            Print(">>> [DeungDang_Trade] 🔒 ล็อกกรอบแผนเทรด SELL นิ่งสนิท! Entry: ", sellEntryPrice, " SL: ", sellSLPrice, " TP3: ", sellTP3RPrice);
+         }
          g_DTD.statusText  = StringFormat("🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)", DoubleToString(sellTargetWickPrice, _Digits));
          g_DTD.statusColor = C'255,80,90';
       }
