@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.02"
-#property description "DTD Multiverse V1.02 - Setup Freeze & Latch Engine (Confirmed 1:3R Box Lock & Zero-Creep Structure)"
+#property version     "1.03"
+#property description "DTD Multiverse V1.03 - Dual M1 & M15 Directional Harmony Engine & Setup Latch Suite"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -47,6 +47,7 @@ input bool            InpUseDTD_CF_M1        = true;             // 🎯 เป�
 input bool            InpDrawM1Visuals       = true;             // 📐 แสดงเส้นระดับไส้สั้นสุดและกล่อง 1R:3R บนชาร์ต
 input int             InpDTD_SL_BufferPts    = 35;               // 🛡️ ระยะเผื่อสเปรดใต้/เหนือจุดสวิงคอนเฟิร์ม (จุด)
 input double          InpTargetRR            = 3.0;              // 🏆 เป้าความคุ้มค่า RR ขั้นต่ำ (แนะนำ 3.0 เท่า = 3R)
+input bool            InpRequireM15_Alignment= true;              // 🎯 กฎเหล็ก: M1 และ M15 ต้องไปในทิศทางเดียวกัน 100% (ห้ามสวนเทรนด์ M15)
 
 input group "=== [ 5. บริหารเงินทุน MM 1:3R & คำนวณ LOT อัตโนมัติ ] ==="
 input double          InpRiskMoney           = 20.0;             // 💵 จำนวนเงินความเสี่ยงต่อไม้ ($ หรือ USC)
@@ -429,6 +430,48 @@ string FormatMoneyOrPoints(double points)
       return StringFormat("$%.2f", cash);
    }
    return StringFormat("%.0f จุด", points);
+}
+
+//+------------------------------------------------------------------+
+//| M15 MULTI-TIMEFRAME DIRECTION DETECTOR                           |
+//| คำนวณทิศทางแนวโน้ม M15 (EMA 14 + แท่งเทียน M15 + โมเมนตัม)       |
+//| คืนค่า: +1 = ขาขึ้น (BULL), -1 = ขาลง (BEAR)                     |
+//+------------------------------------------------------------------+
+int GetM15_TrendDirection()
+{
+   MqlRates ratesM15[];
+   ArraySetAsSeries(ratesM15, true);
+   int copied = CopyRates(_Symbol, PERIOD_M15, 0, 30, ratesM15);
+   if(copied < 15) return 0;
+
+   // 1. คำนวณ EMA 14 บน M15 แบบ Native เพื่อความแม่นยำและเสถียร 100%
+   double ema14 = 0.0;
+   double k = 2.0 / (14.0 + 1.0);
+   double smaSum = 0.0;
+   int startBar = copied - 1;
+   for(int i = startBar; i > startBar - 14; i--)
+      smaSum += ratesM15[i].close;
+   ema14 = smaSum / 14.0;
+   for(int i = startBar - 14; i >= 0; i--)
+      ema14 = (ratesM15[i].close * k) + (ema14 * (1.0 - k));
+
+   double curPrice = ratesM15[0].close;
+   double close1   = ratesM15[1].close;
+   double open1    = ratesM15[1].open;
+
+   // 2. วิเคราะห์ทิศทาง M15:
+   bool priceAboveEMA = (curPrice >= ema14);
+   bool priceBelowEMA = (curPrice <= ema14);
+   bool bar1Bull      = (close1 >= open1);
+   bool higherHigh    = (ratesM15[0].high >= ratesM15[1].high);
+   bool lowerLow      = (ratesM15[0].low <= ratesM15[1].low);
+
+   if(priceAboveEMA && (bar1Bull || higherHigh))
+      return 1;  // M15 ขาขึ้น (BULL)
+   else if(priceBelowEMA && (!bar1Bull || lowerLow))
+      return -1; // M15 ขาลง (BEAR)
+   else
+      return (curPrice >= ema14) ? 1 : -1;
 }
 
 //+------------------------------------------------------------------+
@@ -947,6 +990,10 @@ void ScanDTD_CF_M1_Always()
       }
    }
 
+   int m15Dir = GetM15_TrendDirection();
+   bool m15AllowsBuy  = (!InpRequireM15_Alignment || m15Dir == 1);
+   bool m15AllowsSell = (!InpRequireM15_Alignment || m15Dir == -1);
+
    int activeSide = 0;
    if(distBuyPOI <= zoneTol)
       activeSide = 1;
@@ -994,7 +1041,7 @@ void ScanDTD_CF_M1_Always()
 
       if(buyConfirmed)
       {
-         if(!g_DTD_M1.isLatched)
+         if(!g_DTD_M1.isLatched && m15AllowsBuy)
          {
             g_DTD_M1.isLatched           = true;
             g_DTD_M1.latchedSide         = 1;
@@ -1046,7 +1093,7 @@ void ScanDTD_CF_M1_Always()
 
       if(sellConfirmed)
       {
-         if(!g_DTD_M1.isLatched)
+         if(!g_DTD_M1.isLatched && m15AllowsSell)
          {
             g_DTD_M1.isLatched           = true;
             g_DTD_M1.latchedSide         = -1;
@@ -1786,6 +1833,23 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
    double sl = 0.0;
    double tp = 0.0;
 
+   // ตรวจสอบกฎเหล็ก: M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%
+   if(InpRequireM15_Alignment)
+   {
+      int m15Trend = GetM15_TrendDirection();
+      if(orderType == ORDER_TYPE_BUY && m15Trend == -1)
+      {
+         Print(">>> [DTD_Multiverse] ⛔ ไม่อนุญาตให้เปิดไม้ BUY! M15 ยังเป็นทิศทางขาลง BEAR (ตามกฎเหล็ก M1 และ M15 ต้องไปในทิศทางเดียวกัน)");
+         Alert("⛔ [กฎเหล็ก M1 & M15] ไม่สามารถเปิดไม้ BUY ได้!\nทิศทาง M15 ยังเป็นขาลง (BEAR)\nตามกฎของอาจารย์เดช M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%");
+         return;
+      }
+      else if(orderType == ORDER_TYPE_SELL && m15Trend == 1)
+      {
+         Print(">>> [DTD_Multiverse] ⛔ ไม่อนุญาตให้เปิดไม้ SELL! M15 ยังเป็นทิศทางขาขึ้น BULL (ตามกฎเหล็ก M1 และ M15 ต้องไปในทิศทางเดียวกัน)");
+         Alert("⛔ [กฎเหล็ก M1 & M15] ไม่สามารถเปิดไม้ SELL ได้!\nทิศทาง M15 ยังเป็นขาขึ้น (BULL)\nตามกฎของอาจารย์เดช M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%");
+         return;
+      }
+   }
    if(orderType == ORDER_TYPE_BUY)
    {
       price = ask;
