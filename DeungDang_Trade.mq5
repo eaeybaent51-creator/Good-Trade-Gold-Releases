@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.00"
-#property description "DeungDang_Trade V2.00 - Zero-Popup Clean Cockpit & Unhindered Manual Execution Suite"
+#property version     "2.01"
+#property description "DeungDang_Trade V2.01 - Zero-Auto-BE Manual Run Suite (Full Trader Control)"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -136,7 +136,7 @@ input double   InpGann_ScalePoints       = 0.0;           // สเกลคว�
 input bool     InpShowGannZeroLine       = false;          // ⚖️ แสดงเส้นระดับจุดสมดุลเลขกลมกลางรอบคลื่น (Zero Origin Line)
 input color    InpColorGannZeroLine      = C'65,145,225'; // 🔵 สีเส้นจุดสมดุลเลขกลม (DodgerBlue)
 input bool     InpUseWaveEnergyRadar     = true;          // ⚡ เปิดเรดาร์คำนวณพลังงานคลื่นและจุดหมดแรง (Phase Space v≈0)
-input bool     InpUseVSL_LockFloor       = true;          // 🛡️ เซฟตี้ล็อกกำไร +10 จุดเมื่อราคาหมดแรงที่ปลายคลื่น (VSL Floor Lock)
+input bool     InpUseVSL_LockFloor       = false;         // 🛡️ ปิดระบบล็อกหน้าทุนอัตโนมัติถาวร (ให้ผู้เทรดกดปุ่ม [บังทุน] เองเมื่อต้องการ)
 input int      InpVSL_TriggerProfitPts   = 200;           // กำไรขั้นต่ำก่อนเปิดระบบหมดแรงล็อกทุน (จุด: 200 pts)
 input int      InpVSL_FloorPts           = 10;            // ระยะล็อกกำไรหน้าทุนเมื่อราคาหมดแรง (จุด: +10 pts)
 
@@ -4085,7 +4085,8 @@ void DrawGannEquilibriumGrid()
 //+------------------------------------------------------------------+
 void CheckVelocityStopLockFloor()
 {
-   if(!InpUseVSL_LockFloor) return;
+   // ปิดการทำงานถาวร เพื่อไม่ให้ระบบดึง SL บังหน้าทุนเองเด็ดขาด (มอบอำนาจรันเทรนด์ให้ผู้เทรด 100%)
+   return;
    if(!g_GannEnergy.isStationPoint) return;
 
    double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
