@@ -1,7 +1,7 @@
 {
   "name": "Good Trade Gold PRO EA",
-  "latest_version": "8.08",
-  "release_date": "2026-10-21",
+  "latest_version": "8.09",
+  "release_date": "2026-10-23",
   "download_url": "https://raw.githubusercontent.com/eaeybaent51-creator/Good-Trade-Gold-Releases/main/Good_Trade_Gold_EA.ex5",
-  "changelog": "Good Trade Gold PRO V8.08 - CME Options Wall Master Calibration (Oct 21, 2026 - Settlement Data Date 19 Oct 2026, 34.67 DTE vs Futures $4,142.5, OGZ6 Nov 24, 2026): 1) Calibrated Mega Call Wall (Strike 4500.0) to 10,133 OI (Puts 1,730 OI). 2) Calibrated Tactical Call Wall (Strike 4400.0) to 2,871 OI (+453 contracts!). 3) Calibrated Intermediate Call (Strike 4350.0) to 1,439 OI (+244 contracts). 4) Calibrated Tactical Put Wall (Strike 4300.0) to 3,293 OI (Calls increased to 2,441 OI). 5) Calibrated Intermediate Put Support (Strike 4250.0) to 2,466 OI (Calls 1,325 OI). 6) Calibrated Macro Put Base / Heavy Pivot (Strike 4200.0) to 2,525 Puts vs 2,489 Calls (+918 Call contracts!). 7) Extended grid to Strike 6000 (14,976 Calls) and Strike 5500 (17,102 Calls). 8) Updated DTE tracking to 35 DTE (34.67 DTE)."
+  "changelog": "Good Trade Gold PRO V8.09 - CME Options Wall Master Calibration (Oct 23, 2026 - Settlement Data Date 21 Oct 2026, 33.03 DTE vs Futures $4,060.2, OGZ6 Nov 24, 2026): 1) Calibrated Mega Call Wall (Strike 4500.0) to 10,618 OI (+485 contracts!). 2) Calibrated Tactical Call Wall (Strike 4400.0) to 2,890 OI (+19 contracts). 3) Calibrated Intermediate Call (Strike 4350.0) to 1,433 OI. 4) Calibrated Tactical Put Wall / Pivot (Strike 4300.0) to 3,296 Puts vs 2,654 Calls. 5) Calibrated Intermediate Put Support (Strike 4250.0) to 2,468 Puts vs 1,385 Calls. 6) Calibrated Heavy Pivot / Call Wall (Strike 4200.0) to 3,544 Calls (+1,055 contracts!) vs 2,498 Puts. 7) Calibrated Ground Zero Mega Put Base (Strike 4000.0) to 4,696 Puts (major defense floor). 8) Updated DTE tracking to 33 DTE (33.03 DTE)."
 }
