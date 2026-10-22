@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.99"
-#property description "DeungDang_Trade V1.99 - Anti-Chasing Dynamic Guard & Clean Visual Architecture Suite"
+#property version     "2.00"
+#property description "DeungDang_Trade V2.00 - Zero-Popup Clean Cockpit & Unhindered Manual Execution Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -5153,7 +5153,6 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
    if(ask <= 0.0 || bid <= 0.0)
    {
       Print(">>> [DeungDang_Trade] ⚠️ ไม่สามารถอ่านราคาตลาดได้! Ask: ", ask, " Bid: ", bid);
-      Alert("⚠️ [DeungDang_Trade] ไม่สามารถอ่านราคาตลาดได้ กรุณาลองใหม่อีกครั้ง");
       return;
    }
 
@@ -5163,52 +5162,6 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
    double price = 0.0;
    double sl = 0.0;
    double tp = 0.0;
-
-   // ตรวจสอบกฎเหล็ก: M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%
-   if(InpRequireM15_Alignment)
-   {
-      int m15Trend = GetM15_TrendDirection();
-      if(orderType == ORDER_TYPE_BUY && m15Trend == -1)
-      {
-         Print(">>> [DeungDang_Trade] ⛔ ไม่อนุญาตให้เปิดไม้ BUY! M15 ยังเป็นทิศทางขาลง BEAR (ตามกฎเหล็ก M1 และ M15 ต้องไปในทิศทางเดียวกัน)");
-         Alert("⛔ [กฎเหล็ก M1 & M15] ไม่สามารถเปิดไม้ BUY ได้!\nทิศทาง M15 ยังเป็นขาลง (BEAR)\nตามกฎของอาจารย์เดช M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%");
-         return;
-      }
-      else if(orderType == ORDER_TYPE_SELL && m15Trend == 1)
-      {
-         Print(">>> [DeungDang_Trade] ⛔ ไม่อนุญาตให้เปิดไม้ SELL! M15 ยังเป็นทิศทางขาขึ้น BULL (ตามกฎเหล็ก M1 และ M15 ต้องไปในทิศทางเดียวกัน)");
-         Alert("⛔ [กฎเหล็ก M1 & M15] ไม่สามารถเปิดไม้ SELL ได้!\nทิศทาง M15 ยังเป็นขาขึ้น (BULL)\nตามกฎของอาจารย์เดช M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%");
-         return;
-      }
-   }
-   // ตรวจสอบ Anti-Chasing Guard (ห้ามไล่ราคาเมื่อวิ่งเกิน 80 จุดตามคำสอน อ.เดช)
-   if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
-   {
-      double entryRef = (g_DTD.confirmEntryPrice > 0.0) ? g_DTD.confirmEntryPrice : g_DTD.latchedEntryPrice;
-      if(entryRef > 0.0)
-      {
-         if(orderType == ORDER_TYPE_BUY)
-         {
-            double distRun = (ask - entryRef) / _Point;
-            if(distRun > 80.0)
-            {
-               Print(">>> [DeungDang_Trade] ⛔ สกัดกั้นการไล่ราคา: ราคาวิ่งบวกไปแล้ว +", (int)distRun, " จุดจากจุดเข้า (ห้ามไล่ยอดดอยตามคำสอน อ.เดช ➔ รอย่อรีเทสต์เส้นไส้สั้นสุด)");
-               Alert(StringFormat("⛔ [ห้ามไล่ราคาตามสูตร อ.เดช]\nราคาวิ่งพุ่งเลยจุดเข้าแล้ว +%d จุด!\nไม่ควรเปิดไม้ที่ยอดดอยเด็ดขาด\nกรุณารอย่อรีเทสต์ที่แนวเส้นไส้สั้นสุดก่อนครับ", (int)distRun));
-               return;
-            }
-         }
-         else if(orderType == ORDER_TYPE_SELL)
-         {
-            double distRun = (entryRef - bid) / _Point;
-            if(distRun > 80.0)
-            {
-               Print(">>> [DeungDang_Trade] ⛔ สกัดกั้นการไล่ราคา: ราคาทุบดิ่งไปแล้ว +", (int)distRun, " จุดจากจุดเข้า (ห้ามไล่ก้นเหวตามคำสอน อ.เดช ➔ รอดีดรีเทสต์เส้นไส้สั้นสุด)");
-               Alert(StringFormat("⛔ [ห้ามไล่ราคาตามสูตร อ.เดช]\nราคาทุบดิ่งเลยจุดเข้าแล้ว +%d จุด!\nไม่ควรเปิดไม้ที่ก้นเหวเด็ดขาด\nกรุณารอดีดรีเทสต์ที่แนวเส้นไส้สั้นสุดก่อนครับ", (int)distRun));
-               return;
-            }
-         }
-      }
-   }
 
    if(orderType == ORDER_TYPE_BUY)
    {
@@ -5253,13 +5206,11 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       if(m_trade.Buy(g_CurrentLot, _Symbol, price, sl, tp, "DeungDang_Buy"))
       {
          Print(">>> [DeungDang_Trade] 🟢 เปิดไม้ BUY สำเร็จ! Ticket: ", m_trade.ResultOrder(), " Lot: ", g_CurrentLot, " Price: ", price, " SL: ", sl, " TP: ", tp);
-         Alert(StringFormat("🟢 [DeungDang_Trade] เปิดไม้ BUY สำเร็จ!\nTicket: %d | Lot: %.2f | Price: %.2f\nSL: %.2f | TP: %.2f", m_trade.ResultOrder(), g_CurrentLot, price, sl, tp));
          if(g_ZoneSharedSL == 0.0) g_ZoneSharedSL = sl;
       }
       else
       {
          Print(">>> [DeungDang_Trade] ⚠️ เปิดไม้ BUY ไม่สำเร็จ! Error: ", m_trade.ResultRetcode(), " - ", m_trade.ResultRetcodeDescription());
-         Alert(StringFormat("⚠️ [DeungDang_Trade] เปิดไม้ BUY ไม่สำเร็จ!\nสาเหตุ: %s (Error: %d)", m_trade.ResultRetcodeDescription(), m_trade.ResultRetcode()));
       }
    }
    else if(orderType == ORDER_TYPE_SELL)
@@ -5305,13 +5256,11 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       if(m_trade.Sell(g_CurrentLot, _Symbol, price, sl, tp, "DeungDang_Sell"))
       {
          Print(">>> [DeungDang_Trade] 🔴 เปิดไม้ SELL สำเร็จ! Ticket: ", m_trade.ResultOrder(), " Lot: ", g_CurrentLot, " Price: ", price, " SL: ", sl, " TP: ", tp);
-         Alert(StringFormat("🔴 [DeungDang_Trade] เปิดไม้ SELL สำเร็จ!\nTicket: %d | Lot: %.2f | Price: %.2f\nSL: %.2f | TP: %.2f", m_trade.ResultOrder(), g_CurrentLot, price, sl, tp));
          if(g_ZoneSharedSL == 0.0) g_ZoneSharedSL = sl;
       }
       else
       {
          Print(">>> [DeungDang_Trade] ⚠️ เปิดไม้ SELL ไม่สำเร็จ! Error: ", m_trade.ResultRetcode(), " - ", m_trade.ResultRetcodeDescription());
-         Alert(StringFormat("⚠️ [DeungDang_Trade] เปิดไม้ SELL ไม่สำเร็จ!\nสาเหตุ: %s (Error: %d)", m_trade.ResultRetcodeDescription(), m_trade.ResultRetcode()));
       }
    }
 }
@@ -5358,11 +5307,11 @@ void ExecuteBreakEven()
    }
    Print(">>> [DeungDang_Trade] 🛡️ ขยับบังหน้าทุน (BE) เรียบร้อย: ", modified, "/", totalFound, " ไม้");
    if(totalFound == 0)
-      Alert("ℹ️ [DeungDang_Trade] ไม่มีไม้ที่กำลังถืออยู่ (0 positions)");
+      Print(">>> [DeungDang_Trade] ", "ℹ️ [DeungDang_Trade] ไม่มีไม้ที่กำลังถืออยู่ (0 positions)");
    else if(modified > 0)
-      Alert(StringFormat("🛡️ [DeungDang_Trade] ขยับบังหน้าทุน (BE) สำเร็จ (%d ไม้)", modified));
+      Print(">>> [DeungDang_Trade] ", StringFormat("🛡️ [DeungDang_Trade] ขยับบังหน้าทุน (BE) สำเร็จ (%d ไม้)", modified));
    else
-      Alert(StringFormat("ℹ️ [DeungDang_Trade] ไม้ทั้งหมดมี SL บังทุนอยู่แล้ว หรือกำไรยังไม่พ้นระยะบังทุน (%d ไม้)", totalFound));
+      Print(">>> [DeungDang_Trade] ", StringFormat("ℹ️ [DeungDang_Trade] ไม้ทั้งหมดมี SL บังทุนอยู่แล้ว หรือกำไรยังไม่พ้นระยะบังทุน (%d ไม้)", totalFound));
 }
 
 void ExecutePartialClose(double pct = 0.80)
@@ -5401,9 +5350,9 @@ void ExecutePartialClose(double pct = 0.80)
    ExecuteBreakEven();
    Print(">>> [DeungDang_Trade] 💰 ปิดแบ่งกำไร 80% เรียบร้อย: ", closed, "/", totalFound, " ไม้ + ดึงบังทุน BE ทันที!");
    if(totalFound == 0)
-      Alert("ℹ️ [DeungDang_Trade] ไม่มีไม้ที่กำลังถืออยู่ (0 positions)");
+      Print(">>> [DeungDang_Trade] ", "ℹ️ [DeungDang_Trade] ไม่มีไม้ที่กำลังถืออยู่ (0 positions)");
    else
-      Alert(StringFormat("💰 [DeungDang_Trade] ปิดแบ่งกำไร 80%% สำเร็จ (%d ไม้) + ขยับบังทุนเรียบร้อย", closed));
+      Print(">>> [DeungDang_Trade] ", StringFormat("💰 [DeungDang_Trade] ปิดแบ่งกำไร 80%% สำเร็จ (%d ไม้) + ขยับบังทุนเรียบร้อย", closed));
 }
 
 datetime g_LastVoiceAlertTime = 0;
@@ -5467,9 +5416,9 @@ void ExecuteCloseAll()
    g_ZoneSharedSL = 0.0;
    Print(">>> [DeungDang_Trade] ❌ ปิดหมดทุกไม้เรียบร้อย: ", closed, "/", totalFound, " ไม้");
    if(totalFound == 0)
-      Alert("ℹ️ [DeungDang_Trade] ไม่มีไม้ที่กำลังถืออยู่ (0 positions)");
+      Print(">>> [DeungDang_Trade] ", "ℹ️ [DeungDang_Trade] ไม่มีไม้ที่กำลังถืออยู่ (0 positions)");
    else
-      Alert(StringFormat("❌ [DeungDang_Trade] ปิดหมดทุกไม้เรียบร้อย (%d ไม้)", closed));
+      Print(">>> [DeungDang_Trade] ", StringFormat("❌ [DeungDang_Trade] ปิดหมดทุกไม้เรียบร้อย (%d ไม้)", closed));
 }
 
 //+------------------------------------------------------------------+
@@ -7582,37 +7531,8 @@ void RenderDashboard()
          ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT");
          btnY2 = btnY1 + 34;
       }
-
-      string btnBuyTxt  = "🟢 กด BUY";
-      color  btnBuyBg   = C'30,120,60';
-      string btnSellTxt = "🔴 กด SELL";
-      color  btnSellBg  = C'150,40,40';
-
-      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
-      {
-         double entryRef = (g_DTD.confirmEntryPrice > 0.0) ? g_DTD.confirmEntryPrice : g_DTD.latchedEntryPrice;
-         if(g_DTD.setupSide == 1 && entryRef > 0.0)
-         {
-            double pnlPts = (curBid - entryRef) / _Point;
-            if(pnlPts > 80.0)
-            {
-               btnBuyTxt = "⚠️ วิ่งเลยจุดเข้า (ห้ามไล่ราคา)";
-               btnBuyBg  = C'85,65,30';
-            }
-         }
-         else if(g_DTD.setupSide == -1 && entryRef > 0.0)
-         {
-            double pnlPts = (entryRef - curAsk) / _Point;
-            if(pnlPts > 80.0)
-            {
-               btnSellTxt = "⚠️ ทุบเลยจุดเข้า (ห้ามไล่ราคา)";
-               btnSellBg  = C'85,65,30';
-            }
-         }
-      }
-
-      CreateButton(GUI_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, btnBuyTxt, btnBuyBg, clrWhite, (StringLen(btnBuyTxt) > 12 ? 8 : 11));
-      CreateButton(GUI_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, btnSellTxt, btnSellBg, clrWhite, (StringLen(btnSellTxt) > 12 ? 8 : 11));
+      CreateButton(GUI_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, "🟢 กด BUY", C'30,120,60', clrWhite, 11);
+      CreateButton(GUI_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, "🔴 กด SELL", C'150,40,40', clrWhite, 11);
 
       cardH3 = (btnY2 + 38 - curY) + 10;
       if(ObjectGetInteger(0, GUI_PREFIX + "C3_BG", OBJPROP_YSIZE) != cardH3)

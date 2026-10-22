@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.04"
-#property description "DTD Multiverse V1.04 - Anti-Chasing Dynamic Guard & Clean Visual Architecture Suite"
+#property version     "1.05"
+#property description "DTD Multiverse V1.05 - Zero-Popup Clean Cockpit & Unhindered Manual Execution Suite"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -1835,36 +1835,8 @@ void RenderDashboard()
       if(curBid <= 0) curBid = iClose(_Symbol, _Period, 0);
       if(curAsk <= 0) curAsk = curBid;
 
-      string btnBuyTxt  = "🟢 กด BUY";
-      color  btnBuyBg   = C'30,120,60';
-      string btnSellTxt = "🔴 กด SELL";
-      color  btnSellBg  = C'150,40,40';
-
-      if(InpUseDTD_CF_M1 && g_DTD_M1.isEngulfConfirmed)
-      {
-         double entryRef = (g_DTD_M1.confirmEntryPrice > 0.0) ? g_DTD_M1.confirmEntryPrice : g_DTD_M1.latchedEntryPrice;
-         if(g_DTD_M1.setupSide == 1 && entryRef > 0.0)
-         {
-            double pnlPts = (curBid - entryRef) / _Point;
-            if(pnlPts > 80.0)
-            {
-               btnBuyTxt = "⚠️ วิ่งเลยจุดเข้า (ห้ามไล่ราคา)";
-               btnBuyBg  = C'85,65,30';
-            }
-         }
-         else if(g_DTD_M1.setupSide == -1 && entryRef > 0.0)
-         {
-            double pnlPts = (entryRef - curAsk) / _Point;
-            if(pnlPts > 80.0)
-            {
-               btnSellTxt = "⚠️ วิ่งเลยจุดเข้า (ห้ามไล่ราคา)";
-               btnSellBg  = C'85,65,30';
-            }
-         }
-      }
-
-      CreateButton(DTD_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, btnBuyTxt, btnBuyBg, clrWhite, (StringFind(btnBuyTxt, "ห้าม") >= 0 ? 8 : 11));
-      CreateButton(DTD_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, btnSellTxt, btnSellBg, clrWhite, (StringFind(btnSellTxt, "ห้าม") >= 0 ? 8 : 11));
+      CreateButton(DTD_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, "🟢 กด BUY", C'30,120,60', clrWhite, 11);
+      CreateButton(DTD_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, "🔴 กด SELL", C'150,40,40', clrWhite, 11);
 
       cardH3 = (btnY2 + 38 - curY) + 10;
       if(ObjectGetInteger(0, DTD_PREFIX + "C3_BG", OBJPROP_YSIZE) != cardH3)
@@ -1894,7 +1866,6 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
    if(ask <= 0.0 || bid <= 0.0)
    {
       Print(">>> [DTD_Multiverse] ⚠️ ไม่สามารถอ่านราคาตลาดได้!");
-      Alert("⚠️ [DTD_Multiverse] ไม่สามารถอ่านราคาตลาดได้ กรุณาลองใหม่อีกครั้ง");
       return;
    }
 
@@ -1905,51 +1876,6 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
    double sl = 0.0;
    double tp = 0.0;
 
-   // ตรวจสอบกฎเหล็ก: M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%
-   if(InpRequireM15_Alignment)
-   {
-      int m15Trend = GetM15_TrendDirection();
-      if(orderType == ORDER_TYPE_BUY && m15Trend == -1)
-      {
-         Print(">>> [DTD_Multiverse] ⛔ ไม่อนุญาตให้เปิดไม้ BUY! M15 ยังเป็นทิศทางขาลง BEAR (ตามกฎเหล็ก M1 และ M15 ต้องไปในทิศทางเดียวกัน)");
-         Alert("⛔ [กฎเหล็ก M1 & M15] ไม่สามารถเปิดไม้ BUY ได้!\nทิศทาง M15 ยังเป็นขาลง (BEAR)\nตามกฎของอาจารย์เดช M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%");
-         return;
-      }
-      else if(orderType == ORDER_TYPE_SELL && m15Trend == 1)
-      {
-         Print(">>> [DTD_Multiverse] ⛔ ไม่อนุญาตให้เปิดไม้ SELL! M15 ยังเป็นทิศทางขาขึ้น BULL (ตามกฎเหล็ก M1 และ M15 ต้องไปในทิศทางเดียวกัน)");
-         Alert("⛔ [กฎเหล็ก M1 & M15] ไม่สามารถเปิดไม้ SELL ได้!\nทิศทาง M15 ยังเป็นขาขึ้น (BULL)\nตามกฎของอาจารย์เดช M1 และ M15 ต้องไปในทิศทางเดียวกัน 100%");
-         return;
-      }
-   }
-   // ตรวจสอบ Anti-Chasing Guard (ห้ามไล่ราคาเมื่อวิ่งเกิน 80 จุดตามคำสอน อ.เดช)
-   if(InpUseDTD_CF_M1 && g_DTD_M1.isEngulfConfirmed)
-   {
-      double entryRef = (g_DTD_M1.confirmEntryPrice > 0.0) ? g_DTD_M1.confirmEntryPrice : g_DTD_M1.latchedEntryPrice;
-      if(entryRef > 0.0)
-      {
-         if(orderType == ORDER_TYPE_BUY)
-         {
-            double distRun = (ask - entryRef) / _Point;
-            if(distRun > 80.0)
-            {
-               Print(">>> [DTD_Multiverse] ⛔ สกัดกั้นการไล่ราคา: ราคาวิ่งบวกไปแล้ว +", (int)distRun, " จุดจากจุดเข้า (ห้ามไล่ยอดดอยตามคำสอน อ.เดช ➔ รอย่อรีเทสต์เส้นไส้สั้นสุด)");
-               Alert(StringFormat("⛔ [ห้ามไล่ราคาตามสูตร อ.เดช]\nราคาวิ่งพุ่งเลยจุดเข้าแล้ว +%d จุด!\nไม่ควรเปิดไม้ที่ยอดดอยเด็ดขาด\nกรุณารอย่อรีเทสต์ที่แนวเส้นไส้สั้นสุดก่อนครับ", (int)distRun));
-               return;
-            }
-         }
-         else if(orderType == ORDER_TYPE_SELL)
-         {
-            double distRun = (entryRef - bid) / _Point;
-            if(distRun > 80.0)
-            {
-               Print(">>> [DTD_Multiverse] ⛔ สกัดกั้นการไล่ราคา: ราคาทุบดิ่งไปแล้ว +", (int)distRun, " จุดจากจุดเข้า (ห้ามไล่ก้นเหวตามคำสอน อ.เดช ➔ รอดีดรีเทสต์เส้นไส้สั้นสุด)");
-               Alert(StringFormat("⛔ [ห้ามไล่ราคาตามสูตร อ.เดช]\nราคาทุบดิ่งเลยจุดเข้าแล้ว +%d จุด!\nไม่ควรเปิดไม้ที่ก้นเหวเด็ดขาด\nกรุณารอดีดรีเทสต์ที่แนวเส้นไส้สั้นสุดก่อนครับ", (int)distRun));
-               return;
-            }
-         }
-      }
-   }
    if(orderType == ORDER_TYPE_BUY)
    {
       price = ask;
@@ -1974,7 +1900,6 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       if(m_trade.Buy(g_CurrentLot, _Symbol, price, sl, tp, "DTD_Buy"))
       {
          Print(">>> [DTD_Multiverse] 🟢 เปิดไม้ BUY สำเร็จ! Ticket: ", m_trade.ResultOrder(), " Lot: ", g_CurrentLot, " Price: ", price, " SL: ", sl, " TP: ", tp);
-         Alert(StringFormat("🟢 [DTD_Multiverse] เปิดไม้ BUY สำเร็จ!\nTicket: %d | Lot: %.2f | Price: %.2f\nSL: %.2f | TP: %.2f", m_trade.ResultOrder(), g_CurrentLot, price, sl, tp));
       }
       else
       {
@@ -2005,7 +1930,6 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       if(m_trade.Sell(g_CurrentLot, _Symbol, price, sl, tp, "DTD_Sell"))
       {
          Print(">>> [DTD_Multiverse] 🔴 เปิดไม้ SELL สำเร็จ! Ticket: ", m_trade.ResultOrder(), " Lot: ", g_CurrentLot, " Price: ", price, " SL: ", sl, " TP: ", tp);
-         Alert(StringFormat("🔴 [DTD_Multiverse] เปิดไม้ SELL สำเร็จ!\nTicket: %d | Lot: %.2f | Price: %.2f\nSL: %.2f | TP: %.2f", m_trade.ResultOrder(), g_CurrentLot, price, sl, tp));
       }
       else
       {
