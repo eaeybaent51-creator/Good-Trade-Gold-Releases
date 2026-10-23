@@ -750,24 +750,101 @@ void ScanDTD_CF_M1_Always()
    if(g_DTD_M1.isLatched)
    {
       bool unlatch = false;
+      string unlatchReason = "";
+
+      // 1) Target TP3 or Stop Loss Hit
       if(g_DTD_M1.latchedSide == 1)
       {
-         if(curBid >= g_DTD_M1.latchedTP3Price) unlatch = true;
-         else if(curBid <= g_DTD_M1.latchedSLPrice) unlatch = true;
-         else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 45 * 60 && lowestM1Low < g_DTD_M1.latchedSLPrice) unlatch = true;
+         if(curBid >= g_DTD_M1.latchedTP3Price) { unlatch = true; unlatchReason = "แตะเป้าหมายหลัก TP3 สำเร็จ"; }
+         else if(curBid <= g_DTD_M1.latchedSLPrice) { unlatch = true; unlatchReason = "ราคาหลุดระดับ Stop Loss"; }
       }
       else if(g_DTD_M1.latchedSide == -1)
       {
-         if(curAsk <= g_DTD_M1.latchedTP3Price) unlatch = true;
-         else if(curAsk >= g_DTD_M1.latchedSLPrice) unlatch = true;
-         else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 45 * 60 && highestM1High > g_DTD_M1.latchedSLPrice) unlatch = true;
+         if(curAsk <= g_DTD_M1.latchedTP3Price) { unlatch = true; unlatchReason = "แตะเป้าหมายหลัก TP3 สำเร็จ"; }
+         else if(curAsk >= g_DTD_M1.latchedSLPrice) { unlatch = true; unlatchReason = "ราคาหลุดระดับ Stop Loss"; }
+      }
+
+      // 2) MTF / Macro Trend Flip & Reversal Guard (ป้องกันการล็อกแผนค้างผิดฝั่ง 100%)
+      if(!unlatch)
+      {
+         int m15Dir = GetM15_TrendDirection();
+         if(g_DTD_M1.latchedSide == 1) // ล็อกฝั่ง BUY อยู่
+         {
+            if(InpRequireM15_Alignment && m15Dir == -1)
+            {
+               unlatch = true;
+               unlatchReason = "เทรนด์ M15 พลิกเป็นขาลง (SELL) ตัดสิทธิ์แผน BUY ทันที";
+            }
+            else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 25 * 60 && curBid < g_DTD_M1.latchedEntryPrice)
+            {
+               unlatch = true;
+               unlatchReason = "เวลาแผนเทรดหมดอายุ (25 นาที) และราคาติดลบ";
+            }
+            else if(g_DTD_M1.m1SwingLowPrice > 0.0 && curBid < g_DTD_M1.m1SwingLowPrice)
+            {
+               unlatch = true;
+               unlatchReason = "โครงสร้าง M1 เสียทรง (ราคาหลุด Swing Low)";
+            }
+         }
+         else if(g_DTD_M1.latchedSide == -1) // ล็อกฝั่ง SELL อยู่
+         {
+            if(InpRequireM15_Alignment && m15Dir == 1)
+            {
+               unlatch = true;
+               unlatchReason = "เทรนด์ M15 พลิกเป็นขาขึ้น (BUY) ตัดสิทธิ์แผน SELL ทันที";
+            }
+            else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 25 * 60 && curAsk > g_DTD_M1.latchedEntryPrice)
+            {
+               unlatch = true;
+               unlatchReason = "เวลาแผนเทรดหมดอายุ (25 นาที) และราคาติดลบ";
+            }
+            else if(g_DTD_M1.m1SwingHighPrice > 0.0 && curAsk > g_DTD_M1.m1SwingHighPrice)
+            {
+               unlatch = true;
+               unlatchReason = "โครงสร้าง M1 เสียทรง (ราคาทะลุ Swing High)";
+            }
+         }
       }
 
       if(unlatch)
       {
-         Print(">>> [DTD_Multiverse] 🔓 ปลดล็อกแผนเทรดเดิม ➔ รีเซ็ตเพื่อรอจับโครงสร้างใหม่");
-         g_DTD_M1.isLatched   = false;
-         g_DTD_M1.latchedSide = 0;
+         Print(">>> [DTD_Multiverse] 🔓 ปลดล็อกแผนเทรดเดิมทันที! เหตุผล: ", unlatchReason);
+         g_DTD_M1.isLatched           = false;
+         g_DTD_M1.latchedSide         = 0;
+         g_DTD_M1.latchedTime         = 0;
+         g_DTD_M1.latchedEntryPrice   = 0.0;
+         g_DTD_M1.latchedSLPrice      = 0.0;
+         g_DTD_M1.latchedTP1Price     = 0.0;
+         g_DTD_M1.latchedTP2Price     = 0.0;
+         g_DTD_M1.latchedTP3Price     = 0.0;
+         g_DTD_M1.latchedSLPoints     = 0.0;
+         g_DTD_M1.latchedLot          = 0.0;
+         g_DTD_M1.latchedShortestWick = 0.0;
+         g_DTD_M1.isEngulfConfirmed   = false;
+         g_DTD_M1.buyEngulfConfirmed  = false;
+         g_DTD_M1.sellEngulfConfirmed = false;
+         g_DTD_M1.confirmEntryPrice   = 0.0;
+         g_DTD_M1.confirmSLPrice      = 0.0;
+         g_DTD_M1.confirmTP1RPrice    = 0.0;
+         g_DTD_M1.confirmTP2RPrice    = 0.0;
+         g_DTD_M1.confirmTP3RPrice    = 0.0;
+         g_DTD_M1.slPoints            = 0.0;
+         g_DTD_M1.tp1RPoints          = 0.0;
+         g_DTD_M1.tp2RPoints          = 0.0;
+         g_DTD_M1.tp3RPoints          = 0.0;
+
+         // ลบกล่อง TradingView Box และเส้นเป้าหมายเก่าทันที
+         ObjectDelete(0, DTD_PREFIX + "M1_BOX_SL");
+         ObjectDelete(0, DTD_PREFIX + "M1_BOX_TP");
+         ObjectDelete(0, DTD_PREFIX + "M1_LINE_TP1R");
+         ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP1R");
+         ObjectDelete(0, DTD_PREFIX + "M1_LINE_TP2R");
+         ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP2R");
+         ObjectDelete(0, DTD_PREFIX + "M1_LINE_TP3R");
+         ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP3R");
+         ObjectDelete(0, DTD_PREFIX + "M1_LINE_SL");
+         ObjectDelete(0, DTD_PREFIX + "M1_LBL_SL");
+         ObjectDelete(0, DTD_PREFIX + "M1_MARK_ENTRY");
       }
       else
       {

@@ -4259,24 +4259,121 @@ void ScanDTD_CF_M1()
    if(g_DTD.isLatched)
    {
       bool unlatch = false;
+      string unlatchReason = "";
+
+      // 1) Target TP3 or Stop Loss Hit
       if(g_DTD.latchedSide == 1)
       {
-         if(curBid >= g_DTD.latchedTP3Price) unlatch = true;
-         else if(curBid <= g_DTD.latchedSLPrice) unlatch = true;
-         else if((ratesM1[0].time - g_DTD.latchedTime) > 45 * 60 && lowestM1Low < g_DTD.latchedSLPrice) unlatch = true;
+         if(curBid >= g_DTD.latchedTP3Price) { unlatch = true; unlatchReason = "แตะเป้าหมายหลัก TP3 สำเร็จ"; }
+         else if(curBid <= g_DTD.latchedSLPrice) { unlatch = true; unlatchReason = "ราคาหลุดระดับ Stop Loss"; }
       }
       else if(g_DTD.latchedSide == -1)
       {
-         if(curAsk <= g_DTD.latchedTP3Price) unlatch = true;
-         else if(curAsk >= g_DTD.latchedSLPrice) unlatch = true;
-         else if((ratesM1[0].time - g_DTD.latchedTime) > 45 * 60 && highestM1High > g_DTD.latchedSLPrice) unlatch = true;
+         if(curAsk <= g_DTD.latchedTP3Price) { unlatch = true; unlatchReason = "แตะเป้าหมายหลัก TP3 สำเร็จ"; }
+         else if(curAsk >= g_DTD.latchedSLPrice) { unlatch = true; unlatchReason = "ราคาหลุดระดับ Stop Loss"; }
+      }
+
+      // 2) MTF / Macro Trend Flip & Reversal Guard (ป้องกันการล็อกแผนค้างผิดฝั่ง 100%)
+      if(!unlatch)
+      {
+         int m15Dir = GetM15_TrendDirection();
+         if(g_DTD.latchedSide == 1) // ล็อกฝั่ง BUY อยู่
+         {
+            if(InpRequireM15_Alignment && m15Dir == -1)
+            {
+               unlatch = true;
+               unlatchReason = "เทรนด์ M15 พลิกเป็นขาลง (SELL) ตัดสิทธิ์แผน BUY ทันที";
+            }
+            else if(g_SamuraiMTF.consensusDir == -1 && (g_MarketBiasSellPct >= 65 || g_SamuraiMTF.bullScore < 35.0))
+            {
+               unlatch = true;
+               unlatchReason = StringFormat("มติตลาด MTF พลิกเป็น SELL 100% (Sell Bias %d%%)", g_MarketBiasSellPct);
+            }
+            else if(g_MarketBiasSellPct >= 75)
+            {
+               unlatch = true;
+               unlatchReason = StringFormat("น้ำหนักตลาด SELL ท่วมท้น (%d%%) ยกเลิกแผน BUY", g_MarketBiasSellPct);
+            }
+            else if((ratesM1[0].time - g_DTD.latchedTime) > 25 * 60 && curBid < g_DTD.latchedEntryPrice)
+            {
+               unlatch = true;
+               unlatchReason = "เวลาแผนเทรดหมดอายุ (25 นาที) และราคาติดลบ";
+            }
+            else if(g_DTD.m1SwingLowPrice > 0.0 && curBid < g_DTD.m1SwingLowPrice)
+            {
+               unlatch = true;
+               unlatchReason = "โครงสร้าง M1 เสียทรง (ราคาหลุด Swing Low)";
+            }
+         }
+         else if(g_DTD.latchedSide == -1) // ล็อกฝั่ง SELL อยู่
+         {
+            if(InpRequireM15_Alignment && m15Dir == 1)
+            {
+               unlatch = true;
+               unlatchReason = "เทรนด์ M15 พลิกเป็นขาขึ้น (BUY) ตัดสิทธิ์แผน SELL ทันที";
+            }
+            else if(g_SamuraiMTF.consensusDir == 1 && (g_MarketBiasBuyPct >= 65 || g_SamuraiMTF.bullScore > 65.0))
+            {
+               unlatch = true;
+               unlatchReason = StringFormat("มติตลาด MTF พลิกเป็น BUY 100% (Buy Bias %d%%)", g_MarketBiasBuyPct);
+            }
+            else if(g_MarketBiasBuyPct >= 75)
+            {
+               unlatch = true;
+               unlatchReason = StringFormat("น้ำหนักตลาด BUY ท่วมท้น (%d%%) ยกเลิกแผน SELL", g_MarketBiasBuyPct);
+            }
+            else if((ratesM1[0].time - g_DTD.latchedTime) > 25 * 60 && curAsk > g_DTD.latchedEntryPrice)
+            {
+               unlatch = true;
+               unlatchReason = "เวลาแผนเทรดหมดอายุ (25 นาที) และราคาติดลบ";
+            }
+            else if(g_DTD.m1SwingHighPrice > 0.0 && curAsk > g_DTD.m1SwingHighPrice)
+            {
+               unlatch = true;
+               unlatchReason = "โครงสร้าง M1 เสียทรง (ราคาทะลุ Swing High)";
+            }
+         }
       }
 
       if(unlatch)
       {
-         Print(">>> [DeungDang_Trade] 🔓 ปลดล็อกแผนเทรดเดิม ➔ รีเซ็ตเพื่อรอจับโครงสร้างใหม่");
-         g_DTD.isLatched   = false;
-         g_DTD.latchedSide = 0;
+         Print(">>> [DeungDang_Trade] 🔓 ปลดล็อกแผนเทรดเดิมทันที! เหตุผล: ", unlatchReason);
+         g_DTD.isLatched           = false;
+         g_DTD.latchedSide         = 0;
+         g_DTD.latchedTime         = 0;
+         g_DTD.latchedEntryPrice   = 0.0;
+         g_DTD.latchedSLPrice      = 0.0;
+         g_DTD.latchedTP1Price     = 0.0;
+         g_DTD.latchedTP2Price     = 0.0;
+         g_DTD.latchedTP3Price     = 0.0;
+         g_DTD.latchedSLDist       = 0.0;
+         g_DTD.latchedLot          = 0.0;
+         g_DTD.latchedShortestWick = 0.0;
+         g_DTD.isEngulfConfirmed   = false;
+         g_DTD.buyEngulfConfirmed  = false;
+         g_DTD.sellEngulfConfirmed = false;
+         g_DTD.confirmEntryPrice   = 0.0;
+         g_DTD.confirmSLPrice      = 0.0;
+         g_DTD.confirmTP1RPrice    = 0.0;
+         g_DTD.confirmTP2RPrice    = 0.0;
+         g_DTD.confirmTP3RPrice    = 0.0;
+         g_DTD.slDistPoints        = 0.0;
+         g_DTD.tp1RDistPoints      = 0.0;
+         g_DTD.tp2RDistPoints      = 0.0;
+         g_DTD.tp3RDistPoints      = 0.0;
+
+         // ลบกล่อง TradingView Box และเส้นเป้าหมายเก่าทันที ไม่ให้ค้างบนจอ
+         ObjectDelete(0, GUI_PREFIX + "DTD_BOX_SL");
+         ObjectDelete(0, GUI_PREFIX + "DTD_BOX_TP");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LINE_TP1R");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LBL_TP1R");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LINE_TP2R");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LBL_TP2R");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LINE_TP3R");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LBL_TP3R");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LINE_SL");
+         ObjectDelete(0, GUI_PREFIX + "DTD_LBL_SL");
+         ObjectDelete(0, GUI_PREFIX + "DTD_MARK_ENTRY");
       }
       else
       {
@@ -4419,6 +4516,20 @@ void ScanDTD_CF_M1()
    g_DTD.buyShortestWickTime  = buyTargetWickTime;
    g_DTD.buyConfirmEntryPrice = buyEntryPrice;
    g_DTD.buyConfirmSLPrice    = buySLPrice;
+   // 2B. HTF Supply Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวต้านใหญ่ H1/H4)
+   for(int z = 0; z < g_ZoneCount; z++)
+   {
+      if(!g_Zones[z].isActive || g_Zones[z].isDemand) continue;
+      if(g_Zones[z].low > buyEntryPrice && g_Zones[z].low < buyTP3RPrice)
+      {
+         double frontRunTP = NormalizeDouble(g_Zones[z].low - (15.0 * _Point), _Digits);
+         if(frontRunTP > buyTP1RPrice)
+         {
+            buyTP3RPrice = frontRunTP;
+         }
+      }
+   }
+
    g_DTD.buyConfirmTP1RPrice  = buyTP1RPrice;
    g_DTD.buyConfirmTP2RPrice  = buyTP2RPrice;
    g_DTD.buyConfirmTP3RPrice  = buyTP3RPrice;
@@ -4486,6 +4597,20 @@ void ScanDTD_CF_M1()
    g_DTD.sellShortestWickTime  = sellTargetWickTime;
    g_DTD.sellConfirmEntryPrice = sellEntryPrice;
    g_DTD.sellConfirmSLPrice    = sellSLPrice;
+   // 3B. HTF Demand Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวรับใหญ่ H1/H4)
+   for(int z = 0; z < g_ZoneCount; z++)
+   {
+      if(!g_Zones[z].isActive || !g_Zones[z].isDemand) continue;
+      if(g_Zones[z].high < sellEntryPrice && g_Zones[z].high > sellTP3RPrice)
+      {
+         double frontRunTP = NormalizeDouble(g_Zones[z].high + (15.0 * _Point), _Digits);
+         if(frontRunTP < sellTP1RPrice)
+         {
+            sellTP3RPrice = frontRunTP;
+         }
+      }
+   }
+
    g_DTD.sellConfirmTP1RPrice  = sellTP1RPrice;
    g_DTD.sellConfirmTP2RPrice  = sellTP2RPrice;
    g_DTD.sellConfirmTP3RPrice  = sellTP3RPrice;
@@ -4820,9 +4945,11 @@ void DrawDTD_M1_Visuals()
 
    // 4. ป้ายข้อความบอกเกณฑ์ CF M1 (ชิดขอบแท่งเทียนปัจจุบัน ไม่หลุดลอยนอกจอ)
    string wickLbl = GUI_PREFIX + "DTD_WICK_LBL";
-   string lblTxt  = StringFormat("🎯 เกณฑ์ CF M1 (ไส้สั้นสุด): %s %s", 
+   string wickSideLabel = (g_DTD.setupSide == 1) ? "ดักย่อรับ" : ((g_DTD.setupSide == -1) ? "ดักดีดต้าน" : "ไส้สั้นสุด");
+   string lblTxt  = StringFormat("🎯 %s CF M1: %s %s", 
+                                 wickSideLabel,
                                  DoubleToString(g_DTD.shortestWickPrice, _Digits),
-                                 (g_DTD.isEngulfConfirmed ? "★ [CF กลืนกินสำเร็จ!]" : "[รอปิดแท่งกลืนกิน]"));
+                                 (g_DTD.isEngulfConfirmed ? "★ [คอนเฟิร์มแล้ว/ดักย่อ]" : "[รอกลืนกินคอนเฟิร์ม]"));
    if(ObjectFind(0, wickLbl) < 0)
    {
       ObjectCreate(0, wickLbl, OBJ_TEXT, 0, tWickLbl, g_DTD.shortestWickPrice);
@@ -7351,7 +7478,7 @@ void RenderDashboard()
    if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
    {
       double cfEntry = (g_DTD.confirmEntryPrice > 0) ? g_DTD.confirmEntryPrice : curBid;
-      entryStr = StringFormat("🎯 จุดเข้า CF M1: %s (แท่งกลืนกินคอนเฟิร์ม)", DoubleToString(cfEntry, _Digits));
+      entryStr = StringFormat("🎯 จุดเข้า CF M1: %s (แท่งกลืนกิน) | ดักย่อไส้: %s", DoubleToString(cfEntry, _Digits), DoubleToString(g_DTD.shortestWickPrice, _Digits));
       double dtdSL_Dist = MathAbs(g_DTD.confirmSLPrice - curBid) / _Point;
       slStr = StringFormat("🛑 SL 1R: %s (ห่างราคาปัจจุบัน -%s | กรอบเสี่ยง %.0f pts)", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(dtdSL_Dist), g_DTD.slDistPoints);
       tpStr = StringFormat("🏆 TP 1R: %s | 2R: %s | 3R: %s (เป้า 3R: +%.0f pts)", DoubleToString(g_DTD.confirmTP1RPrice, _Digits), DoubleToString(g_DTD.confirmTP2RPrice, _Digits), DoubleToString(g_DTD.confirmTP3RPrice, _Digits), g_DTD.tp3RDistPoints);
