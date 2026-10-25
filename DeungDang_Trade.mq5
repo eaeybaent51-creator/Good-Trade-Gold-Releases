@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.03"
-#property description "DeungDang_Trade V2.03 - CME Options Wall 21/10/2569 Calibration Suite"
+#property version     "2.20"
+#property description "DeungDang_Trade V2.20 - Cross-Asset Harmony, Anti-Conflict & Free-Margin Lot Guard Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -148,6 +148,14 @@ input double   InpDTD_RiskMoney          = 20.0;          // 💵 เงิน�
 input double   InpDTD_TargetRR           = 3.0;           // 🏆 เป้าความคุ้มค่า RR ตามสูตรอาจารย์เดช (แนะนำ 3.0 เท่า = 3R)
 input int      InpDTD_SL_BufferPts       = 35;            // 🛡️ ระยะเผื่อสเปรดใต้/เหนือชุดคอนเฟิร์ม M1 (จุด)
 input bool     InpRequireM15_Alignment   = true;          // 🎯 กฎเหล็ก อ.เดช: M1 และ M15 ต้องไปในทิศทางเดียวกัน 100% (ห้ามสวนเทรนด์ M15)
+
+input group "=== [ 13. ระบบคาดการณ์ราคา 2 ฝั่ง (BUY & SELL) & สแกนหา LQ สถาบัน ] ==="
+input bool     InpUseDualForecast        = true;          // 🔮 เปิดระบบคาดการณ์ราคาพร้อมกันทั้งฝั่ง BUY และ SELL (Dual Forecast)
+input bool     InpDrawDualForecastOnChart= true;          // 📐 วาดเส้นคาดการณ์เป้าหมายรองอีกฝั่งบนชาร์ต (Dual Target Projection)
+input bool     InpUseLQ_Scanner          = true;          // 🧲 เปิดเรดาร์สแกนหาจุดสภาพคล่องที่น่าสนใจ (BSL & SSL Liquidity Scanner)
+input bool     InpDrawLQ_OnChart         = true;          // 📐 วาดเส้นประและป้ายชี้เป้า BSL / SSL บนชาร์ต
+input color    InpColorBSL_Pool          = C'255,95,120'; // 🔴 สีเส้นสภาพคล่องฝั่งบน BSL (จุดดักกิน SL ฝั่ง Sell)
+input color    InpColorSSL_Pool          = C'50,235,150'; // 🟢 สีเส้นสภาพคล่องฝั่งล่าง SSL (จุดดักกิน SL ฝั่ง Buy)
 
 //+------------------------------------------------------------------+
 //| STRUCTS FOR MARKET ANALYSIS                                      |
@@ -348,6 +356,64 @@ struct SDTD_ConfirmState
    double   latchedShortestWick;
 };
 
+struct SLQPool
+{
+   bool     isValid;
+   bool     isBSL;         // true = BSL (เหนือราคา), false = SSL (ใต้ราคา)
+   double   price;         // ระดับราคา LQ
+   datetime time;          // เวลาเกิดสวิงหลัก
+   string   tfName;        // เช่น "M15", "H1", "D1"
+   string   poolType;      // เช่น "EQH (ไฮคู่แฝด)", "IDM (ล่อเม่า)", "PDH (ไฮเมื่อวาน)", "Swing High"
+   string   shortTag;      // เช่น "EQH", "IDM", "PDH", "Swing"
+   double   distPts;       // ระยะห่างจากราคาปัจจุบัน (จุด)
+   int      score;         // คะแนนความน่าสนใจ (0-100)
+   int      touches;       // จำนวนครั้งที่ทดสอบ
+   bool     isSweptNow;    // เพิ่งถูกกวาดแล้วรูดไส้กลับสดๆ ร้อนๆ
+};
+
+struct SLQRadarState
+{
+   SLQPool  bsl1;          // พิกัด BSL อันดับ 1 (น่าสนใจและใกล้ที่สุดเหนือราคา)
+   SLQPool  bsl2;          // พิกัด BSL อันดับ 2 (เป้าหมายถัดไปด้านบน)
+   SLQPool  ssl1;          // พิกัด SSL อันดับ 1 (น่าสนใจและใกล้ที่สุดใต้ราคา)
+   SLQPool  ssl2;          // พิกัด SSL อันดับ 2 (เป้าหมายถัดไปด้านล่าง)
+   bool     hasSweepAlert; // มีการกวาด LQ สดๆ ร้อนๆ
+   int      sweepSide;     // +1 = กวาด SSL ล่างแล้วดึงกลับ (เล็ง BUY), -1 = กวาด BSL บนแล้วทุบกลับ (เล็ง SELL)
+   double   sweepPrice;    // ระดับราคาที่เพิ่งถูกกวาด
+   string   sweepAlertStr; // ข้อความแจ้งเตือนการกวาด LQ
+   string   hudBSLStr;     // ข้อความแสดงบน HUD สำหรับ BSL
+   string   hudSSLStr;     // ข้อความแสดงบน HUD สำหรับ SSL
+};
+
+struct SDualForecast
+{
+   int      buyProbPct;
+   bool     buyIsReady;
+   double   buyEntryPrice;
+   double   buyPullbackPrice;
+   double   buySLPrice;
+   double   buySLDistPts;
+   double   buyTP1Price;
+   double   buyTP2Price;
+   double   buyTP3Price;
+   double   buyLot;
+   string   buyPlanLine1;
+   string   buyPlanLine2;
+
+   int      sellProbPct;
+   bool     sellIsReady;
+   double   sellEntryPrice;
+   double   sellPullbackPrice;
+   double   sellSLPrice;
+   double   sellSLDistPts;
+   double   sellTP1Price;
+   double   sellTP2Price;
+   double   sellTP3Price;
+   double   sellLot;
+   string   sellPlanLine1;
+   string   sellPlanLine2;
+};
+
 //+------------------------------------------------------------------+
 //| GLOBAL SYSTEM VARIABLES                                          |
 //+------------------------------------------------------------------+
@@ -358,6 +424,8 @@ CPositionInfo   m_position;
 SAssetProfile     g_Asset;
 SGannWaveEnergy   g_GannEnergy;
 SDTD_ConfirmState g_DTD;
+SLQRadarState     g_LQ;
+SDualForecast     g_Forecast;
 ENUM_SNIPER_STAGE g_SniperStage = STAGE_WATCH_TREND;
 ENUM_SW_REGIME    g_Regime      = SW_NONE;
 
@@ -533,6 +601,10 @@ void CheckVelocityStopLockFloor();
 bool IsCentAccount();
 void ScanDTD_CF_M1();
 void DrawDTD_M1_Visuals();
+void ScanInstitutionalLiquidity();
+void DrawLiquidityVisuals();
+void CalculateDualPriceForecast();
+void RunFullAnalysisScan(const MqlRates &rates[], int copied);
 
 //+------------------------------------------------------------------+
 //| EXPERT INITIALIZATION HANDLER                                    |
@@ -630,29 +702,13 @@ int OnInit()
    // Enable 1-second Timer for Calm & Smooth Countdown (No 250ms High-Frequency Screen Strobing)
    EventSetTimer(InpTimer_Seconds > 0 ? InpTimer_Seconds : 1);
 
-   // Initial Scan
+   // Initial Full Scan (ครบทุกโมดูล 100% แม้เปิดกราฟในวันหยุดเสาร์-อาทิตย์)
    MqlRates rates[];
    ArraySetAsSeries(rates, true);
    int copied = CopyRates(_Symbol, _Period, 0, InpMaxBarsScan, rates);
-   if(copied > 30)
+   if(copied >= 15)
    {
-      UpdateMultiTF_EMA14();
-      ScanSwings(rates, copied);
-      ClassifySwingsAndBreaks(rates, copied);
-      UpdateSpeedlines(rates, copied);
-      AnalyzeWaveStructure(rates, copied);
-      CalculateWave_D_Targets();
-      DetectFakeoutTrap(rates, copied);
-      DrawStandardFibonacci();
-      ScanDemandSupplyZones(rates, copied);
-      ScanHiddenBladeWicks();
-      CheckICTUnicorn(rates, copied);
-      CheckSidewayRegime(rates, copied);
-      CalculateLRLChannel(rates, copied);
-      CheckCandlePATrigger(rates);
-      CalculateDynamicTargets();
-      UpdateMarketBiasAndSession(rates, copied);
-      ScanCME_OptionsMatrix();
+      RunFullAnalysisScan(rates, copied);
       DrawVisualsOnChart();
       if(InpShowHUD) RenderDashboard();
       if(InpUseSamuraiMTFStrip) UpdateSamuraiMTFGoldenAlert();
@@ -763,28 +819,41 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 //| EXPERT TIMER HANDLER (COUNTDOWN & CANDLE RENDERING)              |
 //+------------------------------------------------------------------+
-void OnTimer()
+void RunFullAnalysisScan(const MqlRates &rates[], int copied)
 {
-   static int s_dumpCount = 0;
-   s_dumpCount++;
-   if(s_dumpCount == 3 || s_dumpCount == 6 || s_dumpCount == 12 || (s_dumpCount % 120 == 0))
+   if(g_EMA_Handle != INVALID_HANDLE)
    {
-      DumpAccountTradeHistory();
+      double emaBuf[1];
+      if(CopyBuffer(g_EMA_Handle, 0, 0, 1, emaBuf) > 0)
+         g_EMA14_Val = emaBuf[0];
    }
-   if(InpUseSamuraiMTFStrip)
-   {
-      UpdateSamuraiMTFGoldenAlert();
-   }
+   UpdateMultiTF_EMA14();
+   UpdateMarketBiasAndSession(rates, copied);
+   ScanSwings(rates, copied);
+   ClassifySwingsAndBreaks(rates, copied);
+   UpdateSpeedlines(rates, copied);
+   AnalyzeWaveStructure(rates, copied);
+   CalculateWave_D_Targets();
+   DetectFakeoutTrap(rates, copied);
+   DrawStandardFibonacci();
+   ScanDemandSupplyZones(rates, copied);
+   ScanHiddenBladeWicks();
+   CheckICTUnicorn(rates, copied);
+   CheckSidewayRegime(rates, copied);
+   CalculateLRLChannel(rates, copied);
+   CheckCandlePATrigger(rates);
+   CalculateDynamicTargets();
+   ScanCME_OptionsMatrix();
+   CalculateGannWaveEnergy(rates, copied);
+   ScanInstitutionalLiquidity();
+   ScanDTD_CF_M1();
+   CalculateDualPriceForecast();
+   UpdateMarketBiasAndSession(rates, copied);
+   CheckVoiceAlerts();
 }
 
-//+------------------------------------------------------------------+
-//| EXPERT TICK HANDLER                                              |
-//+------------------------------------------------------------------+
-void OnTick()
+void CheckTimeframeSwitchReset()
 {
-   m_symbol.Refresh();
-
-   // Auto-Reset เมื่อมีการสลับ Timeframe ป้องกันเส้นและคลื่นของ TF เดิมค้างคาจอ
    static ENUM_TIMEFRAMES s_LastPeriod = PERIOD_CURRENT;
    if(s_LastPeriod != _Period)
    {
@@ -804,6 +873,7 @@ void OnTick()
       ObjectDelete(0, GUI_PREFIX + "GANN_ZERO_LINE");
       ObjectDelete(0, GUI_PREFIX + "GANN_ZERO_LBL");
       ObjectsDeleteAll(0, GUI_PREFIX + "DTD_");
+      ObjectsDeleteAll(0, GUI_PREFIX + "LQ_");
 
       g_HasUpSpeedline = false;
       g_HasDnSpeedline = false;
@@ -822,40 +892,57 @@ void OnTick()
 
       s_LastPeriod = _Period;
    }
+}
+
+void OnTimer()
+{
+   static int s_dumpCount = 0;
+   s_dumpCount++;
+   if(s_dumpCount == 3 || s_dumpCount == 6 || s_dumpCount == 12 || (s_dumpCount % 120 == 0))
+   {
+      DumpAccountTradeHistory();
+   }
+   if(InpUseSamuraiMTFStrip)
+   {
+      UpdateSamuraiMTFGoldenAlert();
+   }
+
+   // อัปเดตการวิเคราะห์และหน้าจออัตโนมัติแม้ในวันเสาร์-อาทิตย์ที่ตลาดปิด หรือเมื่อสลับ Timeframe
+   static ENUM_TIMEFRAMES s_TimerLastTF = PERIOD_CURRENT;
+   bool tfChanged = (s_TimerLastTF != _Period);
+   bool needsInitRefresh = (g_DTD.recommendedLot <= 0.0 || g_GannEnergy.zeroPrice <= 0.0 || g_Forecast.buyEntryPrice <= 0.0);
+   if(tfChanged || needsInitRefresh || (s_dumpCount % 3 == 0))
+   {
+      s_TimerLastTF = _Period;
+      CheckTimeframeSwitchReset();
+      MqlRates rates[];
+      ArraySetAsSeries(rates, true);
+      int copied = CopyRates(_Symbol, _Period, 0, InpMaxBarsScan, rates);
+      if(copied >= 15)
+      {
+         RunFullAnalysisScan(rates, copied);
+         DrawVisualsOnChart();
+         if(InpShowHUD) RenderDashboard();
+         if(tfChanged || needsInitRefresh) ChartRedraw();
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| EXPERT TICK HANDLER                                              |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   m_symbol.Refresh();
+   CheckTimeframeSwitchReset();
 
    MqlRates rates[];
    ArraySetAsSeries(rates, true);
    int copied = CopyRates(_Symbol, _Period, 0, InpMaxBarsScan, rates);
-   if(copied < 30) return;
+   if(copied < 15) return;
 
-   // 1. Get EMA 14 values (Current TF, H1, H4)
-   if(g_EMA_Handle != INVALID_HANDLE)
-   {
-      double emaBuf[1];
-      if(CopyBuffer(g_EMA_Handle, 0, 0, 1, emaBuf) > 0)
-         g_EMA14_Val = emaBuf[0];
-   }
-   UpdateMultiTF_EMA14();
-
-   // 2. Perform Full Market Structure Analysis
-   ScanSwings(rates, copied);
-   ClassifySwingsAndBreaks(rates, copied);
-   UpdateSpeedlines(rates, copied);
-   AnalyzeWaveStructure(rates, copied);
-   CalculateWave_D_Targets();
-   DetectFakeoutTrap(rates, copied);
-   ScanDemandSupplyZones(rates, copied);
-   ScanHiddenBladeWicks();
-   CheckICTUnicorn(rates, copied);
-   CheckSidewayRegime(rates, copied);
-   CalculateLRLChannel(rates, copied);
-   CheckCandlePATrigger(rates);
-   CalculateDynamicTargets();
-   UpdateMarketBiasAndSession(rates, copied);
-   CheckVoiceAlerts();
-   ScanCME_OptionsMatrix();
-   CalculateGannWaveEnergy(rates, copied);
-   ScanDTD_CF_M1();
+   // Perform Full Market Structure, Liquidity & Dual Forecast Analysis
+   RunFullAnalysisScan(rates, copied);
 
    // 3. Synchronize Shared SL & VSL Floor Lock for Manual Positions
    // SynchronizeSharedSL(); // ปิดถาวรตามคำสั่งเด็ดขาดของคุณเอ้
@@ -921,6 +1008,34 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
             GlobalVariableSet("DT_LOT_" + _Symbol, g_CurrentLot);
             ObjectSetString(0, GUI_PREFIX + "LOT_VAL", OBJPROP_TEXT, DoubleToString(g_CurrentLot, 2));
             Print(">>> [DeungDang_Trade] 🎯 ปรับใช้ขนาด Lot ตามสูตร MM อ.เดช (1:3R): ", g_CurrentLot);
+            if(InpShowHUD) RenderDashboard();
+            ChartRedraw();
+         }
+         ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
+      }
+      else if(sparam == GUI_PREFIX + "BTN_DTD_LOT_BUY")
+      {
+         double targetLot = (g_Forecast.buyLot > 0.0) ? g_Forecast.buyLot : g_DTD.buyRecommendedLot;
+         if(targetLot > 0.0)
+         {
+            g_CurrentLot = targetLot;
+            GlobalVariableSet("DT_LOT_" + _Symbol, g_CurrentLot);
+            ObjectSetString(0, GUI_PREFIX + "LOT_VAL", OBJPROP_TEXT, DoubleToString(g_CurrentLot, 2));
+            Print(">>> [DeungDang_Trade] 🟢 ปรับใช้ขนาด Lot แผนคาดการณ์ BUY (1:3R): ", g_CurrentLot);
+            if(InpShowHUD) RenderDashboard();
+            ChartRedraw();
+         }
+         ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
+      }
+      else if(sparam == GUI_PREFIX + "BTN_DTD_LOT_SELL")
+      {
+         double targetLot = (g_Forecast.sellLot > 0.0) ? g_Forecast.sellLot : g_DTD.sellRecommendedLot;
+         if(targetLot > 0.0)
+         {
+            g_CurrentLot = targetLot;
+            GlobalVariableSet("DT_LOT_" + _Symbol, g_CurrentLot);
+            ObjectSetString(0, GUI_PREFIX + "LOT_VAL", OBJPROP_TEXT, DoubleToString(g_CurrentLot, 2));
+            Print(">>> [DeungDang_Trade] 🔴 ปรับใช้ขนาด Lot แผนคาดการณ์ SELL (1:3R): ", g_CurrentLot);
             if(InpShowHUD) RenderDashboard();
             ChartRedraw();
          }
@@ -1693,8 +1808,23 @@ void UpdateMarketBiasAndSession(const MqlRates &rates[], int total)
    }
    else
    {
-      // Step 1: Cycle Completed / Sweep / Wait Structure
-      if(g_WaveCycleCompleted)
+      // Step 1: Cycle Completed / Sweep / Wait Structure / CF M1 Active Sync
+      if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
+      {
+         if(g_DTD.setupSide == -1)
+         {
+            g_StepTitle = "🎯 สเต็ป 3 (CF M1): จบแท่งกลืนกิน SELL คอนเฟิร์มแล้ว!";
+            g_StepDesc  = "👉 โครงสร้างลงคุมตลาด ➔ ดักเด้ง/ลั่นไก SELL ตามแผน 1:3R 🔴";
+            g_StepColor = C'255,100,120';
+         }
+         else
+         {
+            g_StepTitle = "🎯 สเต็ป 3 (CF M1): จบแท่งกลืนกิน BUY คอนเฟิร์มแล้ว!";
+            g_StepDesc  = "👉 โครงสร้างขึ้นคุมตลาด ➔ ดักย่อ/ลั่นไก BUY ตามแผน 1:3R 🟢";
+            g_StepColor = C'80,240,160';
+         }
+      }
+      else if(g_WaveCycleCompleted)
       {
          g_StepTitle = "🏁 สถานะคลื่น: " + g_WaveCompletionDesc;
          g_StepDesc  = "👉 รอบเดิมจบแล้ว ➔ สแกนหา Step 1 กวาดสวิง High/Low หรือรอ CF M1 ⏳";
@@ -2060,6 +2190,24 @@ void AnalyzeWaveStructure(const MqlRates &rates[], int total)
                isLost = true;
          }
 
+         // 1B) ตรวจสอบการกลับตัวภายในหลังจุด B (Internal Bullish ChoCH: เกิด Higher Low และเบรก High ย่อย)
+         if(!isLost && bIdx >= 2)
+         {
+            double firstHighAfterB = 0.0;
+            for(int s = bIdx - 1; s >= 0; s--)
+            {
+               if(g_Swings[s].isHigh && g_Swings[s].time > bTime)
+               {
+                  if(firstHighAfterB == 0.0) firstHighAfterB = g_Swings[s].price;
+               }
+               else if(!g_Swings[s].isHigh && g_Swings[s].time > bTime && g_Swings[s].price > bPrice)
+               {
+                  if(firstHighAfterB > 0.0 && rates[0].close > firstHighAfterB)
+                     isLost = true;
+               }
+            }
+         }
+
          // 2) ฝั่ง Sell ชนะแล้ว จบรอบสมบูรณ์ (ราคาหลุด B เข้าเป้า TP หลังเกิดจุด C)
          bool isWon = false;
          if(cIdx >= 0 && rates[0].time > cTime)
@@ -2189,6 +2337,26 @@ void AnalyzeWaveStructure(const MqlRates &rates[], int total)
                isLost = true;
          }
 
+         // 1B) ตรวจสอบการกลับตัวภายในหลังจุด B (Internal Bearish ChoCH: เกิด Lower High หลัง B แล้วทุบหลุด Low ย่อย)
+         if(!isLost && bIdx >= 2)
+         {
+            double firstLowAfterB = 9999999.0;
+            bool   hasLowerHighAfterB = false;
+            for(int s = bIdx - 1; s >= 0; s--)
+            {
+               if(!g_Swings[s].isHigh && g_Swings[s].time > bTime)
+               {
+                  if(firstLowAfterB == 9999999.0) firstLowAfterB = g_Swings[s].price;
+               }
+               else if(g_Swings[s].isHigh && g_Swings[s].time > bTime && g_Swings[s].price < bPrice)
+               {
+                  hasLowerHighAfterB = true;
+               }
+            }
+            if(hasLowerHighAfterB && firstLowAfterB < 9999999.0 && (rates[0].close < firstLowAfterB || cPrice < firstLowAfterB))
+               isLost = true;
+         }
+
          // 2) ฝั่ง Buy ชนะแล้ว จบรอบสมบูรณ์ (ราคาเบรกทะลุ B เข้าเป้า TP หลังเกิดจุด C)
          bool isWon = false;
          if(cIdx >= 0 && rates[0].time > cTime)
@@ -2229,16 +2397,39 @@ void AnalyzeWaveStructure(const MqlRates &rates[], int total)
    }
 
    // -------------------------------------------------------------
-   // 3. DETERMINE THE ACTIVE DOMINANT WAVE CYCLE
+   // 3. DETERMINE THE ACTIVE DOMINANT WAVE CYCLE (WITH MTF HARMONY GUARD)
    // -------------------------------------------------------------
    int chosen = 0;
    if(sellValid && buyValid)
    {
-      if(sellC_Time >= buyC_Time) chosen = -1;
-      else                        chosen = 1;
+      if(g_SamuraiMTF.consensusDir == -1 && g_MarketBiasSellPct >= 62)      chosen = -1;
+      else if(g_SamuraiMTF.consensusDir == 1 && g_MarketBiasBuyPct >= 62)   chosen = 1;
+      else if(sellB_Time != buyB_Time) chosen = (sellB_Time > buyB_Time) ? -1 : 1;
+      else if(sellC_Time >= buyC_Time) chosen = -1;
+      else                             chosen = 1;
    }
-   else if(sellValid) chosen = -1;
-   else if(buyValid)  chosen = 1;
+   else if(sellValid)
+   {
+      // ป้องกันการชี้เป้า SELL สวนมติตลาดขาขึ้นรุนแรง (BUY >= 75%)
+      if(g_SamuraiMTF.consensusDir == 1 && g_MarketBiasBuyPct >= 75 && g_EMA14_Val > 0 && rates[0].close > g_EMA14_Val)
+      {
+         chosen = 0;
+         sellCycleCompleted = true;
+         sellCompletionReason = "เทรนด์ขาขึ้น MTF คุมตลาด (ยกเลิกคลื่นย่อยสวนเทรนด์)";
+      }
+      else chosen = -1;
+   }
+   else if(buyValid)
+   {
+      // ป้องกันการชี้เป้า BUY สวนมติตลาดขาลงรุนแรง (SELL >= 75%)
+      if(g_SamuraiMTF.consensusDir == -1 && g_MarketBiasSellPct >= 75 && g_EMA14_Val > 0 && rates[0].close < g_EMA14_Val)
+      {
+         chosen = 0;
+         buyCycleCompleted = true;
+         buyCompletionReason = "เทรนด์ขาลง MTF คุมตลาด (ยกเลิกคลื่นย่อยสวนเทรนด์)";
+      }
+      else chosen = 1;
+   }
 
    // -------------------------------------------------------------
    // 4. APPLY ACTIVE WAVE DATA OR REGISTER CYCLE RESOLUTION
@@ -4015,9 +4206,10 @@ void CalculateGannWaveEnergy(const MqlRates &rates[], int copied)
    }
 
    // 7. ตรวจจับจุดหมดแรงปลายคลื่น (Station Point: v ≈ 0 at Extreme Peak / Trough)
+   double velScale = (g_Asset.assetType == ASSET_CRYPTO) ? 25.0 : 1.0;
    double extThreshPts = (baseDecade * 0.60) / _Point;
    bool isStretched    = (MathAbs(g_GannEnergy.displacementPts) >= extThreshPts);
-   bool isLowVelocity  = (MathAbs(g_GannEnergy.velocityPtsSec) <= 1.8);
+   bool isLowVelocity  = (MathAbs(g_GannEnergy.velocityPtsSec) <= (1.8 * velScale));
    bool isDecelerating = (g_GannEnergy.accelPtsSec2 * g_GannEnergy.displacementPts <= 0.0);
 
    if(isStretched && isLowVelocity && isDecelerating)
@@ -4042,12 +4234,12 @@ void CalculateGannWaveEnergy(const MqlRates &rates[], int copied)
       g_GannEnergy.stationDirection = 0;
 
       double absV = MathAbs(g_GannEnergy.velocityPtsSec);
-      if(absV >= 8.0)
+      if(absV >= (8.0 * velScale))
       {
          g_GannEnergy.energyStatus = "🚀 พุ่งตัวแรงเต็มสปีด • คลื่นกำลังขยายตัว";
          g_GannEnergy.statusColor  = clrAqua;
       }
-      else if(absV >= 2.5)
+      else if(absV >= (2.5 * velScale))
       {
          g_GannEnergy.energyStatus = "🟢 คลื่นวิ่งปกติ • มีแรงส่งต่อเนื่อง";
          g_GannEnergy.statusColor  = clrPaleGreen;
@@ -4186,6 +4378,33 @@ int GetM15_TrendDirection()
 }
 
 //+------------------------------------------------------------------+
+//| 14E-0. FREE-MARGIN LOT CAP HELPER (PREVENT 'NOT ENOUGH MONEY')   |
+//+------------------------------------------------------------------+
+double CapLotByFreeMargin(double desiredLot, ENUM_ORDER_TYPE orderType, double price, double minLot, double maxLot, double stepLot)
+{
+   if(desiredLot < minLot) desiredLot = minLot;
+   if(desiredLot > maxLot) desiredLot = maxLot;
+
+   double freeMargin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   if(freeMargin <= 0.0) freeMargin = AccountInfoDouble(ACCOUNT_EQUITY);
+
+   double marginPerOneLot = 0.0;
+   if(price > 0.0 && freeMargin > 0.0 && OrderCalcMargin(orderType, _Symbol, 1.0, price, marginPerOneLot) && marginPerOneLot > 0.0)
+   {
+      // จำกัดขนาด Lot ไม่ให้ใช้ Margin เกิน 70% ของ Free Margin จริงในพอร์ต
+      double maxAffordableLot = (freeMargin * 0.70) / marginPerOneLot;
+      maxAffordableLot = MathFloor(maxAffordableLot / stepLot) * stepLot;
+      if(maxAffordableLot < minLot) maxAffordableLot = minLot;
+      if(desiredLot > maxAffordableLot) desiredLot = maxAffordableLot;
+   }
+
+   desiredLot = MathFloor((desiredLot + 0.000001) / stepLot) * stepLot;
+   if(desiredLot < minLot) desiredLot = minLot;
+   if(desiredLot > maxLot) desiredLot = maxLot;
+   return NormalizeDouble(desiredLot, 2);
+}
+
+//+------------------------------------------------------------------+
 //| 14E. DTD CONFIRMATION (CF M1) & MONEY MANAGEMENT 1:3R            |
 //+------------------------------------------------------------------+
 void ScanDTD_CF_M1()
@@ -4203,7 +4422,13 @@ void ScanDTD_CF_M1()
    int copiedM1 = CopyRates(_Symbol, PERIOD_M1, 0, 100, ratesM1);
    if(copiedM1 < 25)
    {
-      g_DTD.statusText = "🎯 CF M1: กำลังโหลดแท่งเทียน M1...";
+      // Fallback ใช้แท่งเทียนของ Timeframe ปัจจุบันทันทีหากประวัติ M1 ยังโหลดไม่เสร็จในวันหยุด
+      copiedM1 = CopyRates(_Symbol, _Period, 0, 100, ratesM1);
+   }
+   if(copiedM1 < 10)
+   {
+      g_DTD.statusText  = "🎯 CF M1: กำลังเตรียมข้อมูลแท่งเทียน...";
+      g_DTD.mmPlanText  = "💵 แผน MM (1R/2R/3R): กำลังคำนวณระยะ SL และขนาด Lot...";
       g_DTD.statusColor = clrSilver;
       return;
    }
@@ -4250,8 +4475,195 @@ void ScanDTD_CF_M1()
    if(maxLot <= 0.0) maxLot = 100.0;
    if(stepLot <= 0.0) stepLot = 0.01;
 
-   double buffer = InpDTD_SL_BufferPts * _Point;
+   long curSpreadPts = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   if(curSpreadPts <= 0) curSpreadPts = (long)MathRound((curAsk - curBid) / _Point);
+
+   double minBufferPts = (double)InpDTD_SL_BufferPts;
+   if(g_Asset.assetType == ASSET_CRYPTO)
+      minBufferPts = MathMax(minBufferPts, MathMax((double)curSpreadPts * 0.50, (curBid * 0.0002) / _Point));
+   else
+      minBufferPts = MathMax(minBufferPts, (double)curSpreadPts * 0.80);
+
+   double buffer = minBufferPts * _Point;
+
+   double minSLPts = 80.0;
+   if(g_Asset.assetType == ASSET_CRYPTO)
+      minSLPts = MathMax((double)curSpreadPts * 2.0, (curBid * 0.00065) / _Point);
+   else if(g_Asset.assetType == ASSET_GOLD)
+      minSLPts = MathMax(80.0, (double)curSpreadPts * 2.2);
+   else
+      minSLPts = MathMax(45.0, (double)curSpreadPts * 2.2);
+
    string moneyUnit = IsCentAccount() ? "USC" : "$";
+
+   // =========================================================================
+   // 2. คำนวณแผน BUY อิสระ (Bullish DTD Candidate)
+   // =========================================================================
+   bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
+   int buyStartBar = 1;
+   int buyEndBar = MathMin(highestM1Bar, 15);
+   if(buyEndBar <= buyStartBar) buyEndBar = MathMin(10, copiedM1 - 1);
+
+   double buyShortestWickLen = 999999.0;
+   double buyTargetWickPrice = 0.0;
+   datetime buyTargetWickTime = 0;
+   double lowestPullbackPrice = ratesM1[1].low;
+
+   for(int b = buyStartBar; b <= buyEndBar; b++)
+   {
+      double bodyTop = MathMax(ratesM1[b].open, ratesM1[b].close);
+      double upperWick = ratesM1[b].high - bodyTop;
+      if(ratesM1[b].low < lowestPullbackPrice) lowestPullbackPrice = ratesM1[b].low;
+
+      if(upperWick < buyShortestWickLen && upperWick >= 0.0)
+      {
+         buyShortestWickLen = upperWick;
+         buyTargetWickPrice = ratesM1[b].high;
+         buyTargetWickTime = ratesM1[b].time;
+      }
+   }
+   if(buyTargetWickPrice <= 0.0)
+   {
+      buyTargetWickPrice = ratesM1[1].high;
+      buyTargetWickTime = ratesM1[1].time;
+   }
+
+   bool buyConfirmed = (((ratesM1[1].close > buyTargetWickPrice && ratesM1[1].close > ratesM1[1].open) ||
+                         (ratesM1[2].close > buyTargetWickPrice && ratesM1[2].close > ratesM1[2].open && ratesM1[1].close >= buyTargetWickPrice)) &&
+                        (ratesM1[0].close >= buyTargetWickPrice));
+   bool buyIsTestingNow = (!buyConfirmed && ratesM1[0].close > buyTargetWickPrice);
+
+   double buyEntryPrice = curAsk;
+   double buySLPrice = lowestPullbackPrice - buffer;
+   if((buyEntryPrice - buySLPrice) < minSLPts * _Point)
+      buySLPrice = buyEntryPrice - (minSLPts * _Point);
+
+   double buySLDist = (buyEntryPrice - buySLPrice) / _Point;
+   if(buySLDist <= 0.0) buySLDist = minSLPts;
+
+   double buyTP1RPrice = buyEntryPrice + (buySLDist * _Point * 1.0);
+   double buyTP2RPrice = buyEntryPrice + (buySLDist * _Point * 2.0);
+   double buyTP3RPrice = buyEntryPrice + (buySLDist * _Point * InpDTD_TargetRR);
+
+   double buyLossPerLot = buySLDist * ptValPerLot;
+   double buyCalcLot = InpDefaultLot;
+   if(buyLossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
+      buyCalcLot = InpDTD_RiskMoney / buyLossPerLot;
+   double buyRecommendedLot = CapLotByFreeMargin(buyCalcLot, ORDER_TYPE_BUY, curAsk, minLot, maxLot, stepLot);
+
+   // 2B. HTF Supply Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวต้านใหญ่ H1/H4)
+   for(int z = 0; z < g_ZoneCount; z++)
+   {
+      if(!g_Zones[z].isActive || g_Zones[z].isDemand) continue;
+      if(g_Zones[z].low > buyEntryPrice && g_Zones[z].low < buyTP3RPrice)
+      {
+         double frontRunTP = NormalizeDouble(g_Zones[z].low - (15.0 * _Point), _Digits);
+         if(frontRunTP > buyTP1RPrice)
+         {
+            buyTP3RPrice = frontRunTP;
+         }
+      }
+   }
+
+   // =========================================================================
+   // 3. คำนวณแผน SELL อิสระ (Bearish DTD Candidate)
+   // =========================================================================
+   bool sellHasShift = (ratesM1[0].close <= lowestM1Low || ratesM1[1].close <= lowestM1Low || lowestM1Bar >= 3);
+   int sellStartBar = 1;
+   int sellEndBar = MathMin(lowestM1Bar, 15);
+   if(sellEndBar <= sellStartBar) sellEndBar = MathMin(10, copiedM1 - 1);
+
+   double sellShortestWickLen = 999999.0;
+   double sellTargetWickPrice = 0.0;
+   datetime sellTargetWickTime = 0;
+   double highestPullbackPrice = ratesM1[1].high;
+
+   for(int b = sellStartBar; b <= sellEndBar; b++)
+   {
+      double bodyBottom = MathMin(ratesM1[b].open, ratesM1[b].close);
+      double lowerWick = bodyBottom - ratesM1[b].low;
+      if(ratesM1[b].high > highestPullbackPrice) highestPullbackPrice = ratesM1[b].high;
+
+      if(lowerWick < sellShortestWickLen && lowerWick >= 0.0)
+      {
+         sellShortestWickLen = lowerWick;
+         sellTargetWickPrice = ratesM1[b].low;
+         sellTargetWickTime = ratesM1[b].time;
+      }
+   }
+   if(sellTargetWickPrice <= 0.0)
+   {
+      sellTargetWickPrice = ratesM1[1].low;
+      sellTargetWickTime = ratesM1[1].time;
+   }
+
+   bool sellConfirmed = (((ratesM1[1].close < sellTargetWickPrice && ratesM1[1].close < ratesM1[1].open) ||
+                          (ratesM1[2].close < sellTargetWickPrice && ratesM1[2].close < ratesM1[2].open && ratesM1[1].close <= sellTargetWickPrice)) &&
+                         (ratesM1[0].close <= sellTargetWickPrice));
+   bool sellIsTestingNow = (!sellConfirmed && ratesM1[0].close < sellTargetWickPrice);
+
+   // กฎเหล็ก: ห้ามขึ้น [คอนเฟิร์ม] พร้อมกันทั้ง 2 ฝั่งในเวลาเดียวกันเด็ดขาด!
+   if(buyConfirmed && sellConfirmed)
+   {
+      if(ratesM1[0].close >= ratesM1[0].open)
+         sellConfirmed = false;
+      else
+         buyConfirmed = false;
+   }
+
+   double sellEntryPrice = curBid;
+   double sellSLPrice = highestPullbackPrice + buffer;
+   if((sellSLPrice - sellEntryPrice) < minSLPts * _Point)
+      sellSLPrice = sellEntryPrice + (minSLPts * _Point);
+
+   double sellSLDist = (sellSLPrice - sellEntryPrice) / _Point;
+   if(sellSLDist <= 0.0) sellSLDist = minSLPts;
+
+   double sellTP1RPrice = sellEntryPrice - (sellSLDist * _Point * 1.0);
+   double sellTP2RPrice = sellEntryPrice - (sellSLDist * _Point * 2.0);
+   double sellTP3RPrice = sellEntryPrice - (sellSLDist * _Point * InpDTD_TargetRR);
+
+   double sellLossPerLot = sellSLDist * ptValPerLot;
+   double sellCalcLot = InpDefaultLot;
+   if(sellLossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
+      sellCalcLot = InpDTD_RiskMoney / sellLossPerLot;
+   double sellRecommendedLot = CapLotByFreeMargin(sellCalcLot, ORDER_TYPE_SELL, curBid, minLot, maxLot, stepLot);
+
+   // 3B. HTF Demand Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวรับใหญ่ H1/H4)
+   for(int z = 0; z < g_ZoneCount; z++)
+   {
+      if(!g_Zones[z].isActive || !g_Zones[z].isDemand) continue;
+      if(g_Zones[z].high < sellEntryPrice && g_Zones[z].high > sellTP3RPrice)
+      {
+         double frontRunTP = NormalizeDouble(g_Zones[z].high + (15.0 * _Point), _Digits);
+         if(frontRunTP < sellTP1RPrice)
+         {
+            sellTP3RPrice = frontRunTP;
+         }
+      }
+   }
+
+   g_DTD.buyEngulfConfirmed   = buyConfirmed;
+   g_DTD.buyShortestWickPrice = buyTargetWickPrice;
+   g_DTD.buyShortestWickTime  = buyTargetWickTime;
+   g_DTD.buyConfirmEntryPrice = buyEntryPrice;
+   g_DTD.buyConfirmSLPrice    = buySLPrice;
+   g_DTD.buyConfirmTP1RPrice  = buyTP1RPrice;
+   g_DTD.buyConfirmTP2RPrice  = buyTP2RPrice;
+   g_DTD.buyConfirmTP3RPrice  = buyTP3RPrice;
+   g_DTD.buySlDistPoints      = buySLDist;
+   g_DTD.buyRecommendedLot    = buyRecommendedLot;
+
+   g_DTD.sellEngulfConfirmed   = sellConfirmed;
+   g_DTD.sellShortestWickPrice = sellTargetWickPrice;
+   g_DTD.sellShortestWickTime  = sellTargetWickTime;
+   g_DTD.sellConfirmEntryPrice = sellEntryPrice;
+   g_DTD.sellConfirmSLPrice    = sellSLPrice;
+   g_DTD.sellConfirmTP1RPrice  = sellTP1RPrice;
+   g_DTD.sellConfirmTP2RPrice  = sellTP2RPrice;
+   g_DTD.sellConfirmTP3RPrice  = sellTP3RPrice;
+   g_DTD.sellSlDistPoints      = sellSLDist;
+   g_DTD.sellRecommendedLot    = sellRecommendedLot;
 
    // =========================================================================
    // 1B. ตรวจสอบสถานะการล็อกและตรึงกรอบแผนเทรด (SETUP FREEZE & LATCH CHECK)
@@ -4388,12 +4800,14 @@ void ScanDTD_CF_M1()
          g_DTD.tp1RDistPoints    = g_DTD.latchedSLDist * 1.0;
          g_DTD.tp2RDistPoints    = g_DTD.latchedSLDist * 2.0;
          g_DTD.tp3RDistPoints    = g_DTD.latchedSLDist * InpDTD_TargetRR;
+         g_DTD.latchedLot        = CapLotByFreeMargin(g_DTD.latchedLot, (g_DTD.latchedSide == 1 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL), (g_DTD.latchedSide == 1 ? curAsk : curBid), minLot, maxLot, stepLot);
          g_DTD.recommendedLot    = g_DTD.latchedLot;
          g_DTD.isEngulfConfirmed = true;
 
          if(g_DTD.latchedSide == 1)
          {
             g_DTD.buyEngulfConfirmed   = true;
+            g_DTD.sellEngulfConfirmed  = false;
             g_DTD.buyConfirmEntryPrice = g_DTD.latchedEntryPrice;
             g_DTD.buyConfirmSLPrice    = g_DTD.latchedSLPrice;
             g_DTD.buyConfirmTP1RPrice  = g_DTD.latchedTP1Price;
@@ -4411,7 +4825,7 @@ void ScanDTD_CF_M1()
             else if(curBid > g_DTD.latchedEntryPrice)
             {
                double pnlPts = (curBid - g_DTD.latchedEntryPrice) / _Point;
-               g_DTD.statusText  = StringFormat("🎯 CF M1: 🟢 แผน BUY วิ่งทำกำไร (+%.0f pts) ➔ มุ่งสู่เป้าหมาย 1:3R", pnlPts);
+               g_DTD.statusText  = StringFormat("🎯 CF M1: 🟢 แผน BUY วิ่งทำกำไร (+%s) ➔ มุ่งสู่เป้าหมาย 1:3R", FormatMoneyOrPoints(pnlPts));
                g_DTD.statusColor = C'0,255,136';
             }
             else
@@ -4423,6 +4837,7 @@ void ScanDTD_CF_M1()
          else
          {
             g_DTD.sellEngulfConfirmed   = true;
+            g_DTD.buyEngulfConfirmed    = false;
             g_DTD.sellConfirmEntryPrice = g_DTD.latchedEntryPrice;
             g_DTD.sellConfirmSLPrice    = g_DTD.latchedSLPrice;
             g_DTD.sellConfirmTP1RPrice  = g_DTD.latchedTP1Price;
@@ -4440,7 +4855,7 @@ void ScanDTD_CF_M1()
             else if(curAsk < g_DTD.latchedEntryPrice)
             {
                double pnlPts = (g_DTD.latchedEntryPrice - curAsk) / _Point;
-               g_DTD.statusText  = StringFormat("🎯 CF M1: 🔴 แผน SELL วิ่งทำกำไร (+%.0f pts) ➔ มุ่งสู่เป้าหมาย 1:3R", pnlPts);
+               g_DTD.statusText  = StringFormat("🎯 CF M1: 🔴 แผน SELL วิ่งทำกำไร (+%s) ➔ มุ่งสู่เป้าหมาย 1:3R", FormatMoneyOrPoints(pnlPts));
                g_DTD.statusColor = C'255,80,90';
             }
             else
@@ -4450,177 +4865,20 @@ void ScanDTD_CF_M1()
             }
          }
 
-         g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
+         g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f (เสี่ยง %s%.1f)",
+                                         FormatMoneyOrPoints(g_DTD.slDistPoints),
+                                         FormatMoneyOrPoints(g_DTD.tp1RDistPoints),
+                                         FormatMoneyOrPoints(g_DTD.tp2RDistPoints),
+                                         FormatMoneyOrPoints(g_DTD.tp3RDistPoints),
+                                         g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
          return;
       }
    }
 
    // =========================================================================
-   // 2. คำนวณแผน BUY อิสระ (Bullish DTD Candidate)
-   // =========================================================================
-   bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
-   int buyStartBar = 1;
-   int buyEndBar = MathMin(highestM1Bar, 15);
-   if(buyEndBar <= buyStartBar) buyEndBar = MathMin(10, copiedM1 - 1);
-
-   double buyShortestWickLen = 999999.0;
-   double buyTargetWickPrice = 0.0;
-   datetime buyTargetWickTime = 0;
-   double lowestPullbackPrice = ratesM1[1].low;
-
-   for(int b = buyStartBar; b <= buyEndBar; b++)
-   {
-      double bodyTop = MathMax(ratesM1[b].open, ratesM1[b].close);
-      double upperWick = ratesM1[b].high - bodyTop;
-      if(ratesM1[b].low < lowestPullbackPrice) lowestPullbackPrice = ratesM1[b].low;
-
-      if(upperWick < buyShortestWickLen && upperWick >= 0.0)
-      {
-         buyShortestWickLen = upperWick;
-         buyTargetWickPrice = ratesM1[b].high;
-         buyTargetWickTime = ratesM1[b].time;
-      }
-   }
-   if(buyTargetWickPrice <= 0.0)
-   {
-      buyTargetWickPrice = ratesM1[1].high;
-      buyTargetWickTime = ratesM1[1].time;
-   }
-
-   bool buyConfirmed = (ratesM1[1].close > buyTargetWickPrice || ratesM1[2].close > buyTargetWickPrice);
-   bool buyIsTestingNow = (!buyConfirmed && ratesM1[0].close > buyTargetWickPrice);
-
-   double buyEntryPrice = curAsk;
-   double buySLPrice = lowestPullbackPrice - buffer;
-   if((buyEntryPrice - buySLPrice) < 80.0 * _Point)
-      buySLPrice = buyEntryPrice - (80.0 * _Point);
-
-   double buySLDist = (buyEntryPrice - buySLPrice) / _Point;
-   if(buySLDist <= 0.0) buySLDist = 100.0;
-
-   double buyTP1RPrice = buyEntryPrice + (buySLDist * _Point * 1.0);
-   double buyTP2RPrice = buyEntryPrice + (buySLDist * _Point * 2.0);
-   double buyTP3RPrice = buyEntryPrice + (buySLDist * _Point * InpDTD_TargetRR);
-
-   double buyLossPerLot = buySLDist * ptValPerLot;
-   double buyCalcLot = InpDefaultLot;
-   if(buyLossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
-      buyCalcLot = InpDTD_RiskMoney / buyLossPerLot;
-   buyCalcLot = MathFloor(buyCalcLot / stepLot) * stepLot;
-   if(buyCalcLot < minLot) buyCalcLot = minLot;
-   if(buyCalcLot > maxLot) buyCalcLot = maxLot;
-   double buyRecommendedLot = NormalizeDouble(buyCalcLot, 2);
-
-   g_DTD.buyEngulfConfirmed   = buyConfirmed;
-   g_DTD.buyShortestWickPrice = buyTargetWickPrice;
-   g_DTD.buyShortestWickTime  = buyTargetWickTime;
-   g_DTD.buyConfirmEntryPrice = buyEntryPrice;
-   g_DTD.buyConfirmSLPrice    = buySLPrice;
-   // 2B. HTF Supply Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวต้านใหญ่ H1/H4)
-   for(int z = 0; z < g_ZoneCount; z++)
-   {
-      if(!g_Zones[z].isActive || g_Zones[z].isDemand) continue;
-      if(g_Zones[z].low > buyEntryPrice && g_Zones[z].low < buyTP3RPrice)
-      {
-         double frontRunTP = NormalizeDouble(g_Zones[z].low - (15.0 * _Point), _Digits);
-         if(frontRunTP > buyTP1RPrice)
-         {
-            buyTP3RPrice = frontRunTP;
-         }
-      }
-   }
-
-   g_DTD.buyConfirmTP1RPrice  = buyTP1RPrice;
-   g_DTD.buyConfirmTP2RPrice  = buyTP2RPrice;
-   g_DTD.buyConfirmTP3RPrice  = buyTP3RPrice;
-   g_DTD.buySlDistPoints      = buySLDist;
-   g_DTD.buyRecommendedLot    = buyRecommendedLot;
-
-   // =========================================================================
-   // 3. คำนวณแผน SELL อิสระ (Bearish DTD Candidate)
-   // =========================================================================
-   bool sellHasShift = (ratesM1[0].close <= lowestM1Low || ratesM1[1].close <= lowestM1Low || lowestM1Bar >= 3);
-   int sellStartBar = 1;
-   int sellEndBar = MathMin(lowestM1Bar, 15);
-   if(sellEndBar <= sellStartBar) sellEndBar = MathMin(10, copiedM1 - 1);
-
-   double sellShortestWickLen = 999999.0;
-   double sellTargetWickPrice = 0.0;
-   datetime sellTargetWickTime = 0;
-   double highestPullbackPrice = ratesM1[1].high;
-
-   for(int b = sellStartBar; b <= sellEndBar; b++)
-   {
-      double bodyBottom = MathMin(ratesM1[b].open, ratesM1[b].close);
-      double lowerWick = bodyBottom - ratesM1[b].low;
-      if(ratesM1[b].high > highestPullbackPrice) highestPullbackPrice = ratesM1[b].high;
-
-      if(lowerWick < sellShortestWickLen && lowerWick >= 0.0)
-      {
-         sellShortestWickLen = lowerWick;
-         sellTargetWickPrice = ratesM1[b].low;
-         sellTargetWickTime = ratesM1[b].time;
-      }
-   }
-   if(sellTargetWickPrice <= 0.0)
-   {
-      sellTargetWickPrice = ratesM1[1].low;
-      sellTargetWickTime = ratesM1[1].time;
-   }
-
-   bool sellConfirmed = (ratesM1[1].close < sellTargetWickPrice || ratesM1[2].close < sellTargetWickPrice);
-   bool sellIsTestingNow = (!sellConfirmed && ratesM1[0].close < sellTargetWickPrice);
-
-   double sellEntryPrice = curBid;
-   double sellSLPrice = highestPullbackPrice + buffer;
-   if((sellSLPrice - sellEntryPrice) < 80.0 * _Point)
-      sellSLPrice = sellEntryPrice + (80.0 * _Point);
-
-   double sellSLDist = (sellSLPrice - sellEntryPrice) / _Point;
-   if(sellSLDist <= 0.0) sellSLDist = 100.0;
-
-   double sellTP1RPrice = sellEntryPrice - (sellSLDist * _Point * 1.0);
-   double sellTP2RPrice = sellEntryPrice - (sellSLDist * _Point * 2.0);
-   double sellTP3RPrice = sellEntryPrice - (sellSLDist * _Point * InpDTD_TargetRR);
-
-   double sellLossPerLot = sellSLDist * ptValPerLot;
-   double sellCalcLot = InpDefaultLot;
-   if(sellLossPerLot > 0.0 && InpDTD_RiskMoney > 0.0)
-      sellCalcLot = InpDTD_RiskMoney / sellLossPerLot;
-   sellCalcLot = MathFloor(sellCalcLot / stepLot) * stepLot;
-   if(sellCalcLot < minLot) sellCalcLot = minLot;
-   if(sellCalcLot > maxLot) sellCalcLot = maxLot;
-   double sellRecommendedLot = NormalizeDouble(sellCalcLot, 2);
-
-   g_DTD.sellEngulfConfirmed   = sellConfirmed;
-   g_DTD.sellShortestWickPrice = sellTargetWickPrice;
-   g_DTD.sellShortestWickTime  = sellTargetWickTime;
-   g_DTD.sellConfirmEntryPrice = sellEntryPrice;
-   g_DTD.sellConfirmSLPrice    = sellSLPrice;
-   // 3B. HTF Demand Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวรับใหญ่ H1/H4)
-   for(int z = 0; z < g_ZoneCount; z++)
-   {
-      if(!g_Zones[z].isActive || !g_Zones[z].isDemand) continue;
-      if(g_Zones[z].high < sellEntryPrice && g_Zones[z].high > sellTP3RPrice)
-      {
-         double frontRunTP = NormalizeDouble(g_Zones[z].high + (15.0 * _Point), _Digits);
-         if(frontRunTP < sellTP1RPrice)
-         {
-            sellTP3RPrice = frontRunTP;
-         }
-      }
-   }
-
-   g_DTD.sellConfirmTP1RPrice  = sellTP1RPrice;
-   g_DTD.sellConfirmTP2RPrice  = sellTP2RPrice;
-   g_DTD.sellConfirmTP3RPrice  = sellTP3RPrice;
-   g_DTD.sellSlDistPoints      = sellSLDist;
-   g_DTD.sellRecommendedLot    = sellRecommendedLot;
-
-   // =========================================================================
    // 4. SMART CONTEXT ARBITRATOR (POI Demand/Supply & Liquidity Sweep Confluence)
    // =========================================================================
-   double zoneTol = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.003) : (g_Asset.assetType == ASSET_GOLD ? (100.0 * _Point) : (25.0 * _Point));
+   double zoneTol = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.00035) : (g_Asset.assetType == ASSET_GOLD ? (60.0 * _Point) : (20.0 * _Point));
 
    double distDZ = 9999999.0;
    double distSZ = 9999999.0;
@@ -4629,18 +4887,30 @@ void ScanDTD_CF_M1()
       if(!g_Zones[z].isActive) continue;
       if(g_Zones[z].isDemand)
       {
-         double d = (curBid >= g_Zones[z].low && curBid <= g_Zones[z].high) ? 0.0 : MathAbs(curBid - g_Zones[z].high);
-         if(d < distDZ) distDZ = d;
+         if(curBid >= g_Zones[z].low && curBid <= g_Zones[z].high)
+            distDZ = 0.0;
+         else if(curBid > g_Zones[z].high)
+         {
+            double d = curBid - g_Zones[z].high;
+            if(d < distDZ) distDZ = d;
+         }
       }
       else
       {
-         double d = (curAsk >= g_Zones[z].low && curAsk <= g_Zones[z].high) ? 0.0 : MathAbs(g_Zones[z].low - curAsk);
-         if(d < distSZ) distSZ = d;
+         if(curAsk >= g_Zones[z].low && curAsk <= g_Zones[z].high)
+            distSZ = 0.0;
+         else if(curAsk < g_Zones[z].low)
+         {
+            double d = g_Zones[z].low - curAsk;
+            if(d < distSZ) distSZ = d;
+         }
       }
    }
 
    bool inDZ = (distDZ <= zoneTol);
    bool inSZ = (distSZ <= zoneTol);
+   if(distDZ == 0.0 && distSZ > 0.0) inSZ = false;
+   if(distSZ == 0.0 && distDZ > 0.0) inDZ = false;
    bool sweepSSL = (g_IsFakeoutTrap && g_FakeoutSide == 1);
    bool sweepBSL = (g_IsFakeoutTrap && g_FakeoutSide == -1);
 
@@ -4733,7 +5003,7 @@ void ScanDTD_CF_M1()
          g_DTD.statusColor = clrGold;
       }
 
-      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
+      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f (เสี่ยง %s%.1f)", FormatMoneyOrPoints(g_DTD.slDistPoints), FormatMoneyOrPoints(g_DTD.tp1RDistPoints), FormatMoneyOrPoints(g_DTD.tp2RDistPoints), FormatMoneyOrPoints(g_DTD.tp3RDistPoints), g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
    }
    else
    {
@@ -4788,7 +5058,7 @@ void ScanDTD_CF_M1()
          g_DTD.statusColor = clrGold;
       }
 
-      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %.0f | TP1 %.0f | TP2 %.0f | TP3 %.0f pts | Lot แนะนำ: %.2f (เสี่ยง %s%.1f)", g_DTD.slDistPoints, g_DTD.tp1RDistPoints, g_DTD.tp2RDistPoints, g_DTD.tp3RDistPoints, g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
+      g_DTD.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f (เสี่ยง %s%.1f)", FormatMoneyOrPoints(g_DTD.slDistPoints), FormatMoneyOrPoints(g_DTD.tp1RDistPoints), FormatMoneyOrPoints(g_DTD.tp2RDistPoints), FormatMoneyOrPoints(g_DTD.tp3RDistPoints), g_DTD.recommendedLot, moneyUnit, InpDTD_RiskMoney);
    }
 }
 
@@ -5186,7 +5456,8 @@ void DrawDTD_M1_Visuals()
 
       string lblSL = GUI_PREFIX + "DTD_LBL_SL";
       double slDist = MathAbs(g_DTD.confirmSLPrice - curBidPrice) / _Point;
-      string slTxt  = StringFormat(" 🛑 SL 1R: %s (-%s) [ใต้ชุดคอนเฟิร์ม] ", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist));
+      string slPosTag = (g_DTD.setupSide == 1) ? "[ใต้ชุดคอนเฟิร์ม]" : "[เหนือชุดคอนเฟิร์ม]";
+      string slTxt  = StringFormat(" 🛑 SL 1R: %s (-%s) %s ", DoubleToString(g_DTD.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist), slPosTag);
       if(ObjectFind(0, lblSL) < 0)
       {
          ObjectCreate(0, lblSL, OBJ_TEXT, 0, bEnd, g_DTD.confirmSLPrice);
@@ -5219,6 +5490,725 @@ void DrawDTD_M1_Visuals()
       ObjectDelete(0, GUI_PREFIX + "DTD_LINE_SL");
       ObjectDelete(0, GUI_PREFIX + "DTD_LBL_SL");
    }
+
+   // 7. วาดเส้นคาดการณ์ฝั่งตรงข้าม (Dual-Directional Opposite Forecast Projection)
+   if(InpUseDualForecast && InpDrawDualForecastOnChart)
+   {
+      int oppSide = (g_DTD.setupSide == 1) ? -1 : 1;
+      double oppWick = (oppSide == 1) ? g_DTD.buyShortestWickPrice : g_DTD.sellShortestWickPrice;
+      double oppTP3  = (oppSide == 1) ? g_Forecast.buyTP3Price : g_Forecast.sellTP3Price;
+      color  oppCol  = (oppSide == 1) ? C'50,225,140' : C'255,95,115';
+
+      string oppLineWick = GUI_PREFIX + "DTD_OPP_WICK_LINE";
+      string oppLblWick  = GUI_PREFIX + "DTD_OPP_WICK_LBL";
+      string oppLineTP   = GUI_PREFIX + "DTD_OPP_TP3_LINE";
+      string oppLblTP    = GUI_PREFIX + "DTD_OPP_TP3_LBL";
+
+      double minOppSep = (g_Asset.assetType == ASSET_CRYPTO) ? (oppWick * 0.0006) : ((g_Asset.assetType == ASSET_GOLD) ? (45.0 * _Point) : (20.0 * _Point));
+      if(oppWick > 0.0 && MathAbs(oppWick - g_DTD.shortestWickPrice) > minOppSep)
+      {
+         datetime tOppEnd = tEnd + (tfSec * 4);
+         if(ObjectFind(0, oppLineWick) < 0)
+         {
+            ObjectCreate(0, oppLineWick, OBJ_TREND, 0, tStart, oppWick, tOppEnd, oppWick);
+            ObjectSetInteger(0, oppLineWick, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, oppLineWick, OBJPROP_WIDTH, 1);
+            ObjectSetInteger(0, oppLineWick, OBJPROP_RAY_RIGHT, false);
+         }
+         ObjectSetInteger(0, oppLineWick, OBJPROP_TIME, 0, tStart);
+         ObjectSetDouble(0, oppLineWick, OBJPROP_PRICE, 0, oppWick);
+         ObjectSetInteger(0, oppLineWick, OBJPROP_TIME, 1, tOppEnd);
+         ObjectSetDouble(0, oppLineWick, OBJPROP_PRICE, 1, oppWick);
+         ObjectSetInteger(0, oppLineWick, OBJPROP_COLOR, oppCol);
+
+         string oppWickTxt = StringFormat(" 🔮 แผนรอง [%s] จุดเข้า/ไส้สั้น: %s (Lot %.2f) ",
+                                          (oppSide == 1 ? "BUY 🟢" : "SELL 🔴"),
+                                          DoubleToString(oppWick, _Digits),
+                                          (oppSide == 1 ? g_Forecast.buyLot : g_Forecast.sellLot));
+         if(ObjectFind(0, oppLblWick) < 0)
+         {
+            ObjectCreate(0, oppLblWick, OBJ_TEXT, 0, tOppEnd, oppWick);
+            ObjectSetString(0, oppLblWick, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetInteger(0, oppLblWick, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, oppLblWick, OBJPROP_ANCHOR, (oppSide == 1 ? ANCHOR_LEFT_LOWER : ANCHOR_LEFT_UPPER));
+         }
+         ObjectSetInteger(0, oppLblWick, OBJPROP_TIME, 0, tOppEnd);
+         ObjectSetDouble(0, oppLblWick, OBJPROP_PRICE, 0, oppWick);
+         ObjectSetString(0, oppLblWick, OBJPROP_TEXT, oppWickTxt);
+         ObjectSetInteger(0, oppLblWick, OBJPROP_COLOR, oppCol);
+         ObjectSetInteger(0, oppLblWick, OBJPROP_ANCHOR, (oppSide == 1 ? ANCHOR_LEFT_LOWER : ANCHOR_LEFT_UPPER));
+      }
+      else
+      {
+         ObjectDelete(0, oppLineWick);
+         ObjectDelete(0, oppLblWick);
+      }
+
+      if(oppTP3 > 0.0)
+      {
+         if(ObjectFind(0, oppLineTP) < 0)
+         {
+            ObjectCreate(0, oppLineTP, OBJ_TREND, 0, tStart, oppTP3, tEnd, oppTP3);
+            ObjectSetInteger(0, oppLineTP, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, oppLineTP, OBJPROP_WIDTH, 1);
+            ObjectSetInteger(0, oppLineTP, OBJPROP_RAY_RIGHT, false);
+         }
+         ObjectSetInteger(0, oppLineTP, OBJPROP_TIME, 0, tStart);
+         ObjectSetDouble(0, oppLineTP, OBJPROP_PRICE, 0, oppTP3);
+         ObjectSetInteger(0, oppLineTP, OBJPROP_TIME, 1, tEnd);
+         ObjectSetDouble(0, oppLineTP, OBJPROP_PRICE, 1, oppTP3);
+         ObjectSetInteger(0, oppLineTP, OBJPROP_COLOR, oppCol);
+
+         string oppTPTxt = StringFormat(" 🔮 เป้าคาดการณ์ [%s TP3]: %s ",
+                                        (oppSide == 1 ? "BUY 🟢" : "SELL 🔴"),
+                                        DoubleToString(oppTP3, _Digits));
+         if(ObjectFind(0, oppLblTP) < 0)
+         {
+            ObjectCreate(0, oppLblTP, OBJ_TEXT, 0, tEnd, oppTP3);
+            ObjectSetString(0, oppLblTP, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetInteger(0, oppLblTP, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, oppLblTP, OBJPROP_ANCHOR, ANCHOR_LEFT);
+         }
+         ObjectSetInteger(0, oppLblTP, OBJPROP_TIME, 0, tEnd);
+         ObjectSetDouble(0, oppLblTP, OBJPROP_PRICE, 0, oppTP3);
+         ObjectSetString(0, oppLblTP, OBJPROP_TEXT, oppTPTxt);
+         ObjectSetInteger(0, oppLblTP, OBJPROP_COLOR, oppCol);
+      }
+      else
+      {
+         ObjectDelete(0, oppLineTP);
+         ObjectDelete(0, oppLblTP);
+      }
+   }
+   else
+   {
+      ObjectDelete(0, GUI_PREFIX + "DTD_OPP_WICK_LINE");
+      ObjectDelete(0, GUI_PREFIX + "DTD_OPP_WICK_LBL");
+      ObjectDelete(0, GUI_PREFIX + "DTD_OPP_TP3_LINE");
+      ObjectDelete(0, GUI_PREFIX + "DTD_OPP_TP3_LBL");
+   }
+}
+
+//+------------------------------------------------------------------+
+//| 14G. INSTITUTIONAL MULTI-TIMEFRAME LIQUIDITY (LQ) SCANNER        |
+//| สแกนหาจุดสะสมสภาพคล่องที่น่าสนใจ (BSL & SSL: EQH, EQL, IDM, PDH/L)|
+//+------------------------------------------------------------------+
+void ResetLQPool(SLQPool &p)
+{
+   p.isValid    = false;
+   p.isBSL      = false;
+   p.price      = 0.0;
+   p.time       = 0;
+   p.tfName     = "";
+   p.poolType   = "";
+   p.shortTag   = "";
+   p.distPts    = 0.0;
+   p.score      = 0;
+   p.touches    = 1;
+   p.isSweptNow = false;
+}
+
+void ScanInstitutionalLiquidity()
+{
+   ResetLQPool(g_LQ.bsl1);
+   ResetLQPool(g_LQ.bsl2);
+   ResetLQPool(g_LQ.ssl1);
+   ResetLQPool(g_LQ.ssl2);
+   g_LQ.hasSweepAlert = false;
+   g_LQ.sweepSide     = 0;
+   g_LQ.sweepPrice    = 0.0;
+   g_LQ.sweepAlertStr = "";
+
+   if(!InpUseLQ_Scanner)
+   {
+      g_LQ.hudBSLStr = "🧲 LQ บน (BSL): ปิดการใช้งาน";
+      g_LQ.hudSSLStr = "🧲 LQ ล่าง (SSL): ปิดการใช้งาน";
+      return;
+   }
+
+   double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(curBid <= 0.0) curBid = iClose(_Symbol, _Period, 0);
+   if(curAsk <= 0.0) curAsk = curBid;
+
+   SLQPool bslCandidates[40];
+   SLQPool sslCandidates[40];
+   int bslCount = 0;
+   int sslCount = 0;
+
+   // 1. ตรวจสอบ Previous Day High (PDH) และ Previous Day Low (PDL)
+   MqlRates d1Rates[];
+   ArraySetAsSeries(d1Rates, true);
+   if(CopyRates(_Symbol, PERIOD_D1, 0, 3, d1Rates) >= 2)
+   {
+      double pdh = d1Rates[1].high;
+      double pdl = d1Rates[1].low;
+      datetime pdTime = d1Rates[1].time;
+
+      if(pdh > curAsk + (10 * _Point) && bslCount < 40)
+      {
+         ResetLQPool(bslCandidates[bslCount]);
+         bslCandidates[bslCount].isValid  = true;
+         bslCandidates[bslCount].isBSL    = true;
+         bslCandidates[bslCount].price    = pdh;
+         bslCandidates[bslCount].time     = pdTime;
+         bslCandidates[bslCount].tfName   = "D1";
+         bslCandidates[bslCount].poolType = "PDH (ไฮเมื่อวาน)";
+         bslCandidates[bslCount].shortTag = "PDH";
+         bslCandidates[bslCount].distPts  = (pdh - curBid) / _Point;
+         bslCandidates[bslCount].score    = 78;
+         bslCount++;
+      }
+      if(pdl < curBid - (10 * _Point) && sslCount < 40)
+      {
+         ResetLQPool(sslCandidates[sslCount]);
+         sslCandidates[sslCount].isValid  = true;
+         sslCandidates[sslCount].isBSL    = false;
+         sslCandidates[sslCount].price    = pdl;
+         sslCandidates[sslCount].time     = pdTime;
+         sslCandidates[sslCount].tfName   = "D1";
+         sslCandidates[sslCount].poolType = "PDL (โลว์เมื่อวาน)";
+         sslCandidates[sslCount].shortTag = "PDL";
+         sslCandidates[sslCount].distPts  = (curBid - pdl) / _Point;
+         sslCandidates[sslCount].score    = 78;
+         sslCount++;
+      }
+   }
+
+   // 2. สแกน Multi-Timeframe (M5, M15, M30, H1, H4) หา EQH, EQL, IDM และ Major Swings
+   const ENUM_TIMEFRAMES scanTFs[5] = {PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4};
+   const string          scanTags[5]= {"M5", "M15", "M30", "H1", "H4"};
+   const int             tfBaseScore[5] = {50, 65, 70, 75, 80};
+
+   double eqTolPts = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0008) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 30.0 : 12.0);
+   double idmDistPts = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.003) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 160.0 : 40.0);
+
+   for(int t = 0; t < 5; t++)
+   {
+      MqlRates tfRates[];
+      ArraySetAsSeries(tfRates, true);
+      int copied = CopyRates(_Symbol, scanTFs[t], 0, 90, tfRates);
+      if(copied < 15) continue;
+
+      bool isActiveTF = (scanTFs[t] == (ENUM_TIMEFRAMES)_Period);
+
+      // เก็บสวิงย่อยใน TF นี้เพื่อตรวจจับ Equal Highs (EQH) / Equal Lows (EQL)
+      double swingHighPrices[30];
+      datetime swingHighTimes[30];
+      int shCount = 0;
+
+      double swingLowPrices[30];
+      datetime swingLowTimes[30];
+      int slCount = 0;
+
+      for(int i = 2; i < copied - 3; i++)
+      {
+         bool isSH = (tfRates[i].high >= tfRates[i-1].high && tfRates[i].high >= tfRates[i-2].high &&
+                      tfRates[i].high >= tfRates[i+1].high && tfRates[i].high >= tfRates[i+2].high);
+         bool isSL = (tfRates[i].low <= tfRates[i-1].low && tfRates[i].low <= tfRates[i-2].low &&
+                      tfRates[i].low <= tfRates[i+1].low && tfRates[i].low <= tfRates[i+2].low);
+
+         if(isSH && shCount < 30)
+         {
+            // ตรวจสอบว่าสวิงไฮนี้ถูกทำลายไปแล้วหรือยังในแท่งถัดๆ มา (i-1 ถึง 2)
+            bool broken = false;
+            for(int k = i - 1; k >= 2; k--)
+            {
+               if(tfRates[k].high > tfRates[i].high + (5 * _Point))
+               {
+                  broken = true;
+                  break;
+               }
+            }
+
+            // ตรวจจับการ Sweep สดๆ ร้อนๆ บนแท่งที่ 0 หรือ 1 (แทงไส้ทะลุไฮแล้วปิดเนื้อกลับลงมาใต้ไฮ)
+            if(!broken && (tfRates[0].high > tfRates[i].high || tfRates[1].high > tfRates[i].high) && tfRates[0].close < tfRates[i].high)
+            {
+               if(!g_LQ.hasSweepAlert || scanTFs[t] >= PERIOD_M15)
+               {
+                  g_LQ.hasSweepAlert = true;
+                  g_LQ.sweepSide     = -1; // กวาด BSL บนแล้วทุบกลับ -> สัญญาณ SELL
+                  g_LQ.sweepPrice    = tfRates[i].high;
+                  g_LQ.sweepAlertStr = StringFormat("⚡ กวาด LQ บน (BSL %s [%s]) แล้วทิ้งไส้ทุบกลับ! ➔ จังหวะดัก SELL สวยงาม", DoubleToString(tfRates[i].high, _Digits), scanTags[t]);
+               }
+            }
+
+            if(!broken && tfRates[i].high > curBid + (15 * _Point))
+            {
+               swingHighPrices[shCount] = tfRates[i].high;
+               swingHighTimes[shCount]  = tfRates[i].time;
+               shCount++;
+            }
+         }
+
+         if(isSL && slCount < 30)
+         {
+            bool broken = false;
+            for(int k = i - 1; k >= 2; k--)
+            {
+               if(tfRates[k].low < tfRates[i].low - (5 * _Point))
+               {
+                  broken = true;
+                  break;
+               }
+            }
+
+            // ตรวจจับการ Sweep สดๆ ร้อนๆ บนแท่งที่ 0 หรือ 1 (แทงไส้หลุดโลว์แล้วดึงกลับขึ้นมาเหนือโลว์)
+            if(!broken && (tfRates[0].low < tfRates[i].low || tfRates[1].low < tfRates[i].low) && tfRates[0].close > tfRates[i].low)
+            {
+               if(!g_LQ.hasSweepAlert || scanTFs[t] >= PERIOD_M15)
+               {
+                  g_LQ.hasSweepAlert = true;
+                  g_LQ.sweepSide     = 1; // กวาด SSL ล่างแล้วดึงกลับ -> สัญญาณ BUY
+                  g_LQ.sweepPrice    = tfRates[i].low;
+                  g_LQ.sweepAlertStr = StringFormat("⚡ กวาด LQ ล่าง (SSL %s [%s]) แล้วรูดไส้ดึงกลับ! ➔ จังหวะช้อน BUY สวยงาม", DoubleToString(tfRates[i].low, _Digits), scanTags[t]);
+               }
+            }
+
+            if(!broken && tfRates[i].low < curBid - (15 * _Point))
+            {
+               swingLowPrices[slCount] = tfRates[i].low;
+               swingLowTimes[slCount]  = tfRates[i].time;
+               slCount++;
+            }
+         }
+      }
+
+      // ประเมินคะแนน BSL ของ TF นี้
+      for(int h = 0; h < shCount && bslCount < 40; h++)
+      {
+         double p = swingHighPrices[h];
+         int touches = 1;
+         for(int h2 = 0; h2 < shCount; h2++)
+         {
+            if(h2 != h && MathAbs(swingHighPrices[h2] - p) <= eqTolPts * _Point)
+               touches++;
+         }
+
+         // ตรวจว่าเป็น Inducement (IDM) ล่อเม่าหน้า Supply Zone หรือไม่
+         bool isIDM = false;
+         for(int z = 0; z < g_ZoneCount; z++)
+         {
+            if(!g_Zones[z].isActive || g_Zones[z].isDemand) continue;
+            double distToSZ = (g_Zones[z].low - p) / _Point;
+            if(distToSZ > 0.0 && distToSZ <= idmDistPts)
+            {
+               isIDM = true;
+               break;
+            }
+         }
+
+         double distPts = (p - curBid) / _Point;
+         int score = tfBaseScore[t];
+         if(isActiveTF) score += 20;
+         string poolType = "Swing High";
+         string shortTag = "Swing";
+
+         if(touches >= 2)
+         {
+            score += 30;
+            poolType = "EQH (ไฮคู่แฝด)";
+            shortTag = "EQH★";
+         }
+         else if(isIDM)
+         {
+            score += 25;
+            poolType = "IDM (ล่อเม่าหน้า Supply)";
+            shortTag = "IDM🧲";
+         }
+
+         // โบนัสระยะทำการบนหน้าจอ (ปรับสเกลอัตโนมัติตามสินทรัพย์ Gold / Crypto / Forex)
+         double nearMinPts   = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0005) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 40.0 : 15.0);
+         double nearIdealPts = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0080) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 650.0 : 120.0);
+         double nearMedPts   = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0180) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 1500.0 : 250.0);
+         double nearFarPts   = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0300) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 2500.0 : 450.0);
+
+         if(distPts >= nearMinPts && distPts <= nearIdealPts) score += 25;
+         else if(distPts <= nearMedPts) score += 10;
+         else if(distPts > nearFarPts) score -= 25;
+
+         ResetLQPool(bslCandidates[bslCount]);
+         bslCandidates[bslCount].isValid  = true;
+         bslCandidates[bslCount].isBSL    = true;
+         bslCandidates[bslCount].price    = p;
+         bslCandidates[bslCount].time     = swingHighTimes[h];
+         bslCandidates[bslCount].tfName   = scanTags[t];
+         bslCandidates[bslCount].poolType = poolType;
+         bslCandidates[bslCount].shortTag = shortTag;
+         bslCandidates[bslCount].distPts  = distPts;
+         bslCandidates[bslCount].score    = score;
+         bslCandidates[bslCount].touches  = touches;
+         bslCount++;
+      }
+
+      // ประเมินคะแนน SSL ของ TF นี้
+      for(int l = 0; l < slCount && sslCount < 40; l++)
+      {
+         double p = swingLowPrices[l];
+         int touches = 1;
+         for(int l2 = 0; l2 < slCount; l2++)
+         {
+            if(l2 != l && MathAbs(swingLowPrices[l2] - p) <= eqTolPts * _Point)
+               touches++;
+         }
+
+         // ตรวจว่าเป็น Inducement (IDM) ล่อเม่าหน้า Demand Zone หรือไม่
+         bool isIDM = false;
+         for(int z = 0; z < g_ZoneCount; z++)
+         {
+            if(!g_Zones[z].isActive || !g_Zones[z].isDemand) continue;
+            double distToDZ = (p - g_Zones[z].high) / _Point;
+            if(distToDZ > 0.0 && distToDZ <= idmDistPts)
+            {
+               isIDM = true;
+               break;
+            }
+         }
+
+         double distPts = (curBid - p) / _Point;
+         int score = tfBaseScore[t];
+         if(isActiveTF) score += 20;
+         string poolType = "Swing Low";
+         string shortTag = "Swing";
+
+         if(touches >= 2)
+         {
+            score += 30;
+            poolType = "EQL (โลว์คู่แฝด)";
+            shortTag = "EQL★";
+         }
+         else if(isIDM)
+         {
+            score += 25;
+            poolType = "IDM (ล่อเม่าหน้า Demand)";
+            shortTag = "IDM🧲";
+         }
+
+         double nearMinPts   = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0005) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 40.0 : 15.0);
+         double nearIdealPts = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0080) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 650.0 : 120.0);
+         double nearMedPts   = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0180) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 1500.0 : 250.0);
+         double nearFarPts   = (g_Asset.assetType == ASSET_CRYPTO) ? ((curBid * 0.0300) / _Point) : (g_Asset.assetType == ASSET_GOLD ? 2500.0 : 450.0);
+
+         if(distPts >= nearMinPts && distPts <= nearIdealPts) score += 25;
+         else if(distPts <= nearMedPts) score += 10;
+         else if(distPts > nearFarPts) score -= 25;
+
+         ResetLQPool(sslCandidates[sslCount]);
+         sslCandidates[sslCount].isValid  = true;
+         sslCandidates[sslCount].isBSL    = false;
+         sslCandidates[sslCount].price    = p;
+         sslCandidates[sslCount].time     = swingLowTimes[l];
+         sslCandidates[sslCount].tfName   = scanTags[t];
+         sslCandidates[sslCount].poolType = poolType;
+         sslCandidates[sslCount].shortTag = shortTag;
+         sslCandidates[sslCount].distPts  = distPts;
+         sslCandidates[sslCount].score    = score;
+         sslCandidates[sslCount].touches  = touches;
+         sslCount++;
+      }
+   }
+
+   // 3. คัดเลือก BSL อันดับ 1 และ 2 (คะแนนสูงสุด และไม่ซ้อนทับกัน)
+   int bestBSLIdx = -1;
+   int bestBSLScore = -999;
+   for(int i = 0; i < bslCount; i++)
+   {
+      if(bslCandidates[i].isValid && bslCandidates[i].score > bestBSLScore)
+      {
+         bestBSLScore = bslCandidates[i].score;
+         bestBSLIdx   = i;
+      }
+   }
+   if(bestBSLIdx >= 0)
+   {
+      g_LQ.bsl1 = bslCandidates[bestBSLIdx];
+      int secondIdx = -1;
+      int secondScore = -999;
+      for(int i = 0; i < bslCount; i++)
+      {
+         if(i != bestBSLIdx && bslCandidates[i].isValid &&
+            MathAbs(bslCandidates[i].price - g_LQ.bsl1.price) > ((g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.0010) : (45 * _Point)) &&
+            bslCandidates[i].score > secondScore)
+         {
+            secondScore = bslCandidates[i].score;
+            secondIdx   = i;
+         }
+      }
+      if(secondIdx >= 0) g_LQ.bsl2 = bslCandidates[secondIdx];
+   }
+
+   // 4. คัดเลือก SSL อันดับ 1 และ 2 (คะแนนสูงสุด และไม่ซ้อนทับกัน)
+   int bestSSLIdx = -1;
+   int bestSSLScore = -999;
+   for(int i = 0; i < sslCount; i++)
+   {
+      if(sslCandidates[i].isValid && sslCandidates[i].score > bestSSLScore)
+      {
+         bestSSLScore = sslCandidates[i].score;
+         bestSSLIdx   = i;
+      }
+   }
+   if(bestSSLIdx >= 0)
+   {
+      g_LQ.ssl1 = sslCandidates[bestSSLIdx];
+      int secondIdx = -1;
+      int secondScore = -999;
+      for(int i = 0; i < sslCount; i++)
+      {
+         if(i != bestSSLIdx && sslCandidates[i].isValid &&
+            MathAbs(sslCandidates[i].price - g_LQ.ssl1.price) > ((g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.0010) : (45 * _Point)) &&
+            sslCandidates[i].score > secondScore)
+         {
+            secondScore = sslCandidates[i].score;
+            secondIdx   = i;
+         }
+      }
+      if(secondIdx >= 0) g_LQ.ssl2 = sslCandidates[secondIdx];
+   }
+
+   // 5. สร้างข้อความสรุปสำหรับแสดงบน HUD Card 2
+   if(g_LQ.bsl1.isValid)
+   {
+      string bslNext = g_LQ.bsl2.isValid ? StringFormat(" | ถัดไป: %s [%s•%s]", DoubleToString(g_LQ.bsl2.price, _Digits), g_LQ.bsl2.tfName, g_LQ.bsl2.shortTag) : "";
+      g_LQ.hudBSLStr = StringFormat("🧲 LQ บน (BSL): %s [%s•%s] (+%s)%s",
+                                    DoubleToString(g_LQ.bsl1.price, _Digits),
+                                    g_LQ.bsl1.tfName,
+                                    g_LQ.bsl1.shortTag,
+                                    FormatMoneyOrPoints(g_LQ.bsl1.distPts),
+                                    bslNext);
+   }
+   else
+   {
+      g_LQ.hudBSLStr = "🧲 LQ บน (BSL): ไม่พบคลัสเตอร์ SL ใกล้เคียง";
+   }
+
+   if(g_LQ.ssl1.isValid)
+   {
+      string sslNext = g_LQ.ssl2.isValid ? StringFormat(" | ถัดไป: %s [%s•%s]", DoubleToString(g_LQ.ssl2.price, _Digits), g_LQ.ssl2.tfName, g_LQ.ssl2.shortTag) : "";
+      g_LQ.hudSSLStr = StringFormat("🧲 LQ ล่าง (SSL): %s [%s•%s] (-%s)%s",
+                                    DoubleToString(g_LQ.ssl1.price, _Digits),
+                                    g_LQ.ssl1.tfName,
+                                    g_LQ.ssl1.shortTag,
+                                    FormatMoneyOrPoints(g_LQ.ssl1.distPts),
+                                    sslNext);
+   }
+   else
+   {
+      g_LQ.hudSSLStr = "🧲 LQ ล่าง (SSL): ไม่พบคลัสเตอร์ SL ใกล้เคียง";
+   }
+}
+
+//+------------------------------------------------------------------+
+//| 14H. DRAW INSTITUTIONAL LIQUIDITY POOLS ON CHART (BSL & SSL)     |
+//+------------------------------------------------------------------+
+void DrawLiquidityVisuals()
+{
+   if(!InpUseLQ_Scanner || !InpDrawLQ_OnChart)
+   {
+      ObjectsDeleteAll(0, GUI_PREFIX + "LQ_");
+      return;
+   }
+
+   int tfSec = PeriodSeconds((ENUM_TIMEFRAMES)_Period);
+   datetime tEnd = TimeCurrent() + (tfSec * 14);
+   datetime tFallbackStart = TimeCurrent() - (tfSec * 35);
+   double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(curBid <= 0.0) curBid = iClose(_Symbol, _Period, 0);
+   double colTol = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.00055) : ((g_Asset.assetType == ASSET_GOLD) ? (35.0 * _Point) : (15.0 * _Point));
+
+   // 1. วาดเส้นและป้าย BSL อันดับ 1 (จุดดักกิน SL ฝั่ง Sell เหนือราคา)
+   string bsl1Line = GUI_PREFIX + "LQ_BSL1_LINE";
+   string bsl1Lbl  = GUI_PREFIX + "LQ_BSL1_LBL";
+   if(g_LQ.bsl1.isValid)
+   {
+      datetime tStart = (g_LQ.bsl1.time > tFallbackStart) ? g_LQ.bsl1.time : tFallbackStart;
+      if(ObjectFind(0, bsl1Line) < 0)
+      {
+         ObjectCreate(0, bsl1Line, OBJ_TREND, 0, tStart, g_LQ.bsl1.price, tEnd, g_LQ.bsl1.price);
+         ObjectSetInteger(0, bsl1Line, OBJPROP_STYLE, STYLE_DASH);
+         ObjectSetInteger(0, bsl1Line, OBJPROP_WIDTH, 2);
+         ObjectSetInteger(0, bsl1Line, OBJPROP_RAY_RIGHT, false);
+         ObjectSetInteger(0, bsl1Line, OBJPROP_BACK, false);
+      }
+      ObjectSetInteger(0, bsl1Line, OBJPROP_TIME, 0, tStart);
+      ObjectSetDouble(0, bsl1Line, OBJPROP_PRICE, 0, g_LQ.bsl1.price);
+      ObjectSetInteger(0, bsl1Line, OBJPROP_TIME, 1, tEnd);
+      ObjectSetDouble(0, bsl1Line, OBJPROP_PRICE, 1, g_LQ.bsl1.price);
+      ObjectSetInteger(0, bsl1Line, OBJPROP_COLOR, InpColorBSL_Pool);
+
+      bool nearDTD = (MathAbs(g_LQ.bsl1.price - g_DTD.confirmTP3RPrice) <= colTol ||
+                      MathAbs(g_LQ.bsl1.price - g_DTD.confirmTP2RPrice) <= colTol ||
+                      MathAbs(g_LQ.bsl1.price - g_DTD.confirmTP1RPrice) <= colTol ||
+                      MathAbs(g_LQ.bsl1.price - g_DTD.confirmSLPrice)   <= colTol);
+      double lblPrice = nearDTD ? (g_LQ.bsl1.price + colTol * 0.65) : g_LQ.bsl1.price;
+      ENUM_ANCHOR_POINT ancBSL = nearDTD ? ANCHOR_LEFT_LOWER : ANCHOR_LEFT;
+
+      string bslTxt = StringFormat(" 🧲 LQ บน (BSL) [%s•%s] %s (+%s) • จุดดักกิน SL Sell ",
+                                   g_LQ.bsl1.tfName,
+                                   g_LQ.bsl1.poolType,
+                                   DoubleToString(g_LQ.bsl1.price, _Digits),
+                                   FormatMoneyOrPoints(g_LQ.bsl1.distPts));
+      if(ObjectFind(0, bsl1Lbl) < 0)
+      {
+         ObjectCreate(0, bsl1Lbl, OBJ_TEXT, 0, tEnd, lblPrice);
+         ObjectSetString(0, bsl1Lbl, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, bsl1Lbl, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, bsl1Lbl, OBJPROP_ANCHOR, ancBSL);
+         ObjectSetInteger(0, bsl1Lbl, OBJPROP_BACK, false);
+      }
+      ObjectSetInteger(0, bsl1Lbl, OBJPROP_TIME, 0, tEnd);
+      ObjectSetDouble(0, bsl1Lbl, OBJPROP_PRICE, 0, lblPrice);
+      ObjectSetString(0, bsl1Lbl, OBJPROP_TEXT, bslTxt);
+      ObjectSetInteger(0, bsl1Lbl, OBJPROP_COLOR, InpColorBSL_Pool);
+      ObjectSetInteger(0, bsl1Lbl, OBJPROP_ANCHOR, ancBSL);
+   }
+   else
+   {
+      ObjectDelete(0, bsl1Line);
+      ObjectDelete(0, bsl1Lbl);
+   }
+
+   // 2. วาดเส้นและป้าย SSL อันดับ 1 (จุดดักกิน SL ฝั่ง Buy ใต้ราคา)
+   string ssl1Line = GUI_PREFIX + "LQ_SSL1_LINE";
+   string ssl1Lbl  = GUI_PREFIX + "LQ_SSL1_LBL";
+   if(g_LQ.ssl1.isValid)
+   {
+      datetime tStart = (g_LQ.ssl1.time > tFallbackStart) ? g_LQ.ssl1.time : tFallbackStart;
+      if(ObjectFind(0, ssl1Line) < 0)
+      {
+         ObjectCreate(0, ssl1Line, OBJ_TREND, 0, tStart, g_LQ.ssl1.price, tEnd, g_LQ.ssl1.price);
+         ObjectSetInteger(0, ssl1Line, OBJPROP_STYLE, STYLE_DASH);
+         ObjectSetInteger(0, ssl1Line, OBJPROP_WIDTH, 2);
+         ObjectSetInteger(0, ssl1Line, OBJPROP_RAY_RIGHT, false);
+         ObjectSetInteger(0, ssl1Line, OBJPROP_BACK, false);
+      }
+      ObjectSetInteger(0, ssl1Line, OBJPROP_TIME, 0, tStart);
+      ObjectSetDouble(0, ssl1Line, OBJPROP_PRICE, 0, g_LQ.ssl1.price);
+      ObjectSetInteger(0, ssl1Line, OBJPROP_TIME, 1, tEnd);
+      ObjectSetDouble(0, ssl1Line, OBJPROP_PRICE, 1, g_LQ.ssl1.price);
+      ObjectSetInteger(0, ssl1Line, OBJPROP_COLOR, InpColorSSL_Pool);
+
+      bool nearDTD = (MathAbs(g_LQ.ssl1.price - g_DTD.confirmTP3RPrice) <= colTol ||
+                      MathAbs(g_LQ.ssl1.price - g_DTD.confirmTP2RPrice) <= colTol ||
+                      MathAbs(g_LQ.ssl1.price - g_DTD.confirmTP1RPrice) <= colTol ||
+                      MathAbs(g_LQ.ssl1.price - g_DTD.confirmSLPrice)   <= colTol);
+      double lblPrice = nearDTD ? (g_LQ.ssl1.price - colTol * 0.65) : g_LQ.ssl1.price;
+      ENUM_ANCHOR_POINT ancSSL = nearDTD ? ANCHOR_LEFT_UPPER : ANCHOR_LEFT;
+
+      string sslTxt = StringFormat(" 🧲 LQ ล่าง (SSL) [%s•%s] %s (-%s) • จุดดักกิน SL Buy ",
+                                   g_LQ.ssl1.tfName,
+                                   g_LQ.ssl1.poolType,
+                                   DoubleToString(g_LQ.ssl1.price, _Digits),
+                                   FormatMoneyOrPoints(g_LQ.ssl1.distPts));
+      if(ObjectFind(0, ssl1Lbl) < 0)
+      {
+         ObjectCreate(0, ssl1Lbl, OBJ_TEXT, 0, tEnd, lblPrice);
+         ObjectSetString(0, ssl1Lbl, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, ssl1Lbl, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, ssl1Lbl, OBJPROP_ANCHOR, ancSSL);
+         ObjectSetInteger(0, ssl1Lbl, OBJPROP_BACK, false);
+      }
+      ObjectSetInteger(0, ssl1Lbl, OBJPROP_TIME, 0, tEnd);
+      ObjectSetDouble(0, ssl1Lbl, OBJPROP_PRICE, 0, lblPrice);
+      ObjectSetString(0, ssl1Lbl, OBJPROP_TEXT, sslTxt);
+      ObjectSetInteger(0, ssl1Lbl, OBJPROP_COLOR, InpColorSSL_Pool);
+      ObjectSetInteger(0, ssl1Lbl, OBJPROP_ANCHOR, ancSSL);
+   }
+   else
+   {
+      ObjectDelete(0, ssl1Line);
+      ObjectDelete(0, ssl1Lbl);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| 14I. DUAL-DIRECTIONAL PRICE FORECAST ENGINE (BUY & SELL ROADMAP) |
+//| คำนวณแผนคาดการณ์ราคาทั้งฝั่ง BUY และ SELL พร้อมกันตลอด 24 ชม.    |
+//+------------------------------------------------------------------+
+void CalculateDualPriceForecast()
+{
+   double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double curAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(curBid <= 0.0) curBid = iClose(_Symbol, _Period, 0);
+   if(curAsk <= 0.0) curAsk = curBid;
+
+   // 1. คำนวณโอกาสความน่าจะเป็น (Probability %) ของทั้งฝั่ง BUY และ SELL
+   int buyScore  = g_MarketBiasBuyPct;
+   int sellScore = g_MarketBiasSellPct;
+
+   int m15Dir = GetM15_TrendDirection();
+   if(m15Dir == 1)  { buyScore += 10; sellScore -= 10; }
+   if(m15Dir == -1) { sellScore += 10; buyScore -= 10; }
+
+   if(g_DTD.buyEngulfConfirmed && !g_DTD.sellEngulfConfirmed)  { buyScore += 12; sellScore -= 12; }
+   if(g_DTD.sellEngulfConfirmed && !g_DTD.buyEngulfConfirmed)  { sellScore += 12; buyScore -= 12; }
+
+   if(g_LQ.hasSweepAlert)
+   {
+      if(g_LQ.sweepSide == 1)  { buyScore += 15; sellScore -= 15; }
+      if(g_LQ.sweepSide == -1) { sellScore += 15; buyScore -= 15; }
+   }
+
+   if(buyScore < 10)  buyScore = 10;
+   if(buyScore > 90)  buyScore = 90;
+   sellScore = 100 - buyScore;
+
+   g_Forecast.buyProbPct  = buyScore;
+   g_Forecast.sellProbPct = sellScore;
+
+   // 2. สร้างแผนคาดการณ์ฝั่ง BUY (Bullish Forecast - คำนวณระยะ SL และ TP1..3 จากราคาเข้าที่แสดงผลตรงกัน 100%)
+   g_Forecast.buyIsReady       = g_DTD.buyEngulfConfirmed;
+   g_Forecast.buyPullbackPrice = (g_DTD.buyShortestWickPrice > 0.0) ? g_DTD.buyShortestWickPrice : curAsk;
+   g_Forecast.buyEntryPrice    = g_Forecast.buyIsReady ? ((g_DTD.buyConfirmEntryPrice > 0.0) ? g_DTD.buyConfirmEntryPrice : curAsk) : g_Forecast.buyPullbackPrice;
+   g_Forecast.buySLPrice       = (g_DTD.buyConfirmSLPrice > 0.0 && g_DTD.buyConfirmSLPrice < g_Forecast.buyEntryPrice) ? g_DTD.buyConfirmSLPrice : (g_Forecast.buyEntryPrice - g_Asset.slPoints * _Point);
+   g_Forecast.buySLDistPts     = MathMax(10.0, (g_Forecast.buyEntryPrice - g_Forecast.buySLPrice) / _Point);
+   g_Forecast.buyTP1Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP1RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP1RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * 1.0);
+   g_Forecast.buyTP2Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP2RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP2RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * 2.0);
+   g_Forecast.buyTP3Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP3RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP3RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * InpDTD_TargetRR);
+   g_Forecast.buyLot           = (g_DTD.buyRecommendedLot > 0.0) ? g_DTD.buyRecommendedLot : g_CurrentLot;
+
+   string buyStateTag = g_Forecast.buyIsReady ? "✅คอนเฟิร์ม" : "⏳รอกลืนกิน";
+   string bslMagnetTag = g_LQ.bsl1.isValid ? StringFormat(" | 🧲ดูดหา BSL %s", DoubleToString(g_LQ.bsl1.price, _Digits)) : "";
+
+   g_Forecast.buyPlanLine1 = StringFormat("🟢 คาดการณ์ BUY (%d%%) [%s]: ดักย่อ/เข้า %s | SL %s (-%s) | Lot %.2f",
+                                          g_Forecast.buyProbPct,
+                                          buyStateTag,
+                                          DoubleToString(g_Forecast.buyEntryPrice, _Digits),
+                                          DoubleToString(g_Forecast.buySLPrice, _Digits),
+                                          FormatMoneyOrPoints(g_Forecast.buySLDistPts),
+                                          g_Forecast.buyLot);
+   g_Forecast.buyPlanLine2 = StringFormat("   🎯 เป้าขาขึ้น: TP1 %s ➔ TP2 %s ➔ TP3 %s%s",
+                                          DoubleToString(g_Forecast.buyTP1Price, _Digits),
+                                          DoubleToString(g_Forecast.buyTP2Price, _Digits),
+                                          DoubleToString(g_Forecast.buyTP3Price, _Digits),
+                                          bslMagnetTag);
+
+   // 3. สร้างแผนคาดการณ์ฝั่ง SELL (Bearish Forecast - คำนวณระยะ SL และ TP1..3 จากราคาเข้าที่แสดงผลตรงกัน 100%)
+   g_Forecast.sellIsReady       = g_DTD.sellEngulfConfirmed;
+   g_Forecast.sellPullbackPrice = (g_DTD.sellShortestWickPrice > 0.0) ? g_DTD.sellShortestWickPrice : curBid;
+   g_Forecast.sellEntryPrice    = g_Forecast.sellIsReady ? ((g_DTD.sellConfirmEntryPrice > 0.0) ? g_DTD.sellConfirmEntryPrice : curBid) : g_Forecast.sellPullbackPrice;
+   g_Forecast.sellSLPrice       = (g_DTD.sellConfirmSLPrice > g_Forecast.sellEntryPrice) ? g_DTD.sellConfirmSLPrice : (g_Forecast.sellEntryPrice + g_Asset.slPoints * _Point);
+   g_Forecast.sellSLDistPts     = MathMax(10.0, (g_Forecast.sellSLPrice - g_Forecast.sellEntryPrice) / _Point);
+   g_Forecast.sellTP1Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP1RPrice > 0.0 && g_DTD.sellConfirmTP1RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP1RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * 1.0);
+   g_Forecast.sellTP2Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP2RPrice > 0.0 && g_DTD.sellConfirmTP2RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP2RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * 2.0);
+   g_Forecast.sellTP3Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP3RPrice > 0.0 && g_DTD.sellConfirmTP3RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP3RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * InpDTD_TargetRR);
+   g_Forecast.sellLot           = (g_DTD.sellRecommendedLot > 0.0) ? g_DTD.sellRecommendedLot : g_CurrentLot;
+
+   string sellStateTag = g_Forecast.sellIsReady ? "✅คอนเฟิร์ม" : "⏳รอกลืนกิน";
+   string sslMagnetTag = g_LQ.ssl1.isValid ? StringFormat(" | 🧲ดูดหา SSL %s", DoubleToString(g_LQ.ssl1.price, _Digits)) : "";
+
+   g_Forecast.sellPlanLine1 = StringFormat("🔴 คาดการณ์ SELL (%d%%) [%s]: ดักเด้ง/เข้า %s | SL %s (-%s) | Lot %.2f",
+                                           g_Forecast.sellProbPct,
+                                           sellStateTag,
+                                           DoubleToString(g_Forecast.sellEntryPrice, _Digits),
+                                           DoubleToString(g_Forecast.sellSLPrice, _Digits),
+                                           FormatMoneyOrPoints(g_Forecast.sellSLDistPts),
+                                           g_Forecast.sellLot);
+   g_Forecast.sellPlanLine2 = StringFormat("   🎯 เป้าขาลง: TP1 %s ➔ TP2 %s ➔ TP3 %s%s",
+                                           DoubleToString(g_Forecast.sellTP1Price, _Digits),
+                                           DoubleToString(g_Forecast.sellTP2Price, _Digits),
+                                           DoubleToString(g_Forecast.sellTP3Price, _Digits),
+                                           sslMagnetTag);
 }
 //+------------------------------------------------------------------+
 //| 15. SYNCHRONIZE ZONE-ANCHORED SHARED SL                          |
@@ -5299,7 +6289,7 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       price = ask;
 
       // 1. ตรวจสอบ SL สำหรับ BUY (ต้องอยู่ใต้ราคา Bid เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.buyEngulfConfirmed && g_DTD.buyConfirmSLPrice > 0.0 && g_DTD.buyConfirmSLPrice < bid - minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.buyConfirmSLPrice > 0.0 && g_DTD.buyConfirmSLPrice < bid - minStopDist)
          sl = g_DTD.buyConfirmSLPrice;
       else if(InpUseDTD_CF_M1 && g_DTD.setupSide == 1 && g_DTD.confirmSLPrice > 0.0 && g_DTD.confirmSLPrice < bid - minStopDist)
          sl = g_DTD.confirmSLPrice;
@@ -5309,7 +6299,7 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
          sl = bid - (g_Asset.slPoints * _Point);
 
       // 2. ตรวจสอบ TP สำหรับ BUY (ต้องอยู่เหนือราคา Ask เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.buyEngulfConfirmed && g_DTD.buyConfirmTP3RPrice > ask + minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.buyConfirmTP3RPrice > ask + minStopDist)
          tp = g_DTD.buyConfirmTP3RPrice;
       else if(InpUseDTD_CF_M1 && g_DTD.setupSide == 1 && g_DTD.confirmTP3RPrice > ask + minStopDist)
          tp = g_DTD.confirmTP3RPrice;
@@ -5332,6 +6322,16 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       tp    = NormalizeDouble(tp, _Digits);
       price = NormalizeDouble(price, _Digits);
 
+      double minL = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN); if(minL <= 0) minL = 0.01;
+      double maxL = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX); if(maxL <= 0) maxL = 100.0;
+      double stpL = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP); if(stpL <= 0) stpL = 0.01;
+      double safeLot = CapLotByFreeMargin(g_CurrentLot, ORDER_TYPE_BUY, price, minL, maxL, stpL);
+      if(safeLot < g_CurrentLot)
+      {
+         Print(">>> [DeungDang_Trade] 🛡️ ปรับลดขนาด Lot อัตโนมัติจาก ", g_CurrentLot, " เป็น ", safeLot, " เพื่อให้พอกับ Free Margin จริงในพอร์ต!");
+         g_CurrentLot = safeLot;
+      }
+
       Print(">>> [DeungDang_Trade] ⚡ กำลังส่งคำสั่ง BUY: Lot=", g_CurrentLot, " Price=", price, " SL=", sl, " TP=", tp);
 
       if(m_trade.Buy(g_CurrentLot, _Symbol, price, sl, tp, "DeungDang_Buy"))
@@ -5349,7 +6349,7 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       price = bid;
 
       // 1. ตรวจสอบ SL สำหรับ SELL (ต้องอยู่เหนือราคา Ask เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.sellEngulfConfirmed && g_DTD.sellConfirmSLPrice > ask + minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.sellConfirmSLPrice > ask + minStopDist)
          sl = g_DTD.sellConfirmSLPrice;
       else if(InpUseDTD_CF_M1 && g_DTD.setupSide == -1 && g_DTD.confirmSLPrice > ask + minStopDist)
          sl = g_DTD.confirmSLPrice;
@@ -5359,7 +6359,7 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
          sl = ask + (g_Asset.slPoints * _Point);
 
       // 2. ตรวจสอบ TP สำหรับ SELL (ต้องอยู่ใต้ราคา Bid เสมอ)
-      if(InpUseDTD_CF_M1 && g_DTD.sellEngulfConfirmed && g_DTD.sellConfirmTP3RPrice > 0.0 && g_DTD.sellConfirmTP3RPrice < bid - minStopDist)
+      if(InpUseDTD_CF_M1 && g_DTD.sellConfirmTP3RPrice > 0.0 && g_DTD.sellConfirmTP3RPrice < bid - minStopDist)
          tp = g_DTD.sellConfirmTP3RPrice;
       else if(InpUseDTD_CF_M1 && g_DTD.setupSide == -1 && g_DTD.confirmTP3RPrice > 0.0 && g_DTD.confirmTP3RPrice < bid - minStopDist)
          tp = g_DTD.confirmTP3RPrice;
@@ -5381,6 +6381,16 @@ void ExecuteManualTrade(ENUM_ORDER_TYPE orderType)
       sl    = NormalizeDouble(sl, _Digits);
       tp    = NormalizeDouble(tp, _Digits);
       price = NormalizeDouble(price, _Digits);
+
+      double minL = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN); if(minL <= 0) minL = 0.01;
+      double maxL = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX); if(maxL <= 0) maxL = 100.0;
+      double stpL = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP); if(stpL <= 0) stpL = 0.01;
+      double safeLot = CapLotByFreeMargin(g_CurrentLot, ORDER_TYPE_SELL, price, minL, maxL, stpL);
+      if(safeLot < g_CurrentLot)
+      {
+         Print(">>> [DeungDang_Trade] 🛡️ ปรับลดขนาด Lot อัตโนมัติจาก ", g_CurrentLot, " เป็น ", safeLot, " เพื่อให้พอกับ Free Margin จริงในพอร์ต!");
+         g_CurrentLot = safeLot;
+      }
 
       Print(">>> [DeungDang_Trade] ⚡ กำลังส่งคำสั่ง SELL: Lot=", g_CurrentLot, " Price=", price, " SL=", sl, " TP=", tp);
 
@@ -5737,8 +6747,15 @@ void DrawMultiTF_EMA14_Lines()
       double val = g_EMA14_Vals[i];
       color tfCol = InpUseTF_Colors_EMA14 ? g_EMA14_Cols[i] : InpColorEMA14_Lines;
 
-      // Stagger line ends and label positions horizontally so labels never collide
-      datetime tLineEnd = tBaseEnd + (datetime)(secPerBar * ((i % 3) * 2));
+      // Stagger line ends and label positions horizontally so labels never collide with DTD M1 labels
+      double emaColTol  = (g_Asset.assetType == ASSET_CRYPTO) ? (val * 0.00045) : ((g_Asset.assetType == ASSET_GOLD) ? (30.0 * _Point) : (15.0 * _Point));
+      bool nearDTDLine  = (MathAbs(val - g_DTD.shortestWickPrice) <= emaColTol ||
+                           MathAbs(val - g_DTD.confirmSLPrice)    <= emaColTol ||
+                           MathAbs(val - g_DTD.confirmTP1RPrice)  <= emaColTol ||
+                           MathAbs(val - g_DTD.confirmTP2RPrice)  <= emaColTol ||
+                           MathAbs(val - g_DTD.confirmTP3RPrice)  <= emaColTol);
+      int extraBars     = nearDTDLine ? 12 : 0;
+      datetime tLineEnd = tBaseEnd + (datetime)(secPerBar * (((i % 3) * 2) + extraBars));
       datetime tLbl     = tLineEnd + (datetime)(secPerBar * 1);
 
       // 1. Draw horizontal dotted EMA 14 level line
@@ -6035,7 +7052,7 @@ void DrawVisualsOnChart()
 
       double curPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double ptsToD   = MathAbs(g_WaveD_1618 - curPrice) / _Point;
-      string dText    = StringFormat("  🎯 [EP4] ขา D (161.8%%) %.2f (+%.0f pts)", g_WaveD_1618, ptsToD);
+      string dText    = StringFormat("  🎯 [EP4] ขา D (161.8%%) %s (+%s)", DoubleToString(g_WaveD_1618, _Digits), FormatMoneyOrPoints(ptsToD));
 
       if(ObjectFind(0, lblD) < 0)
       {
@@ -6394,6 +7411,18 @@ void DrawVisualsOnChart()
 
    for(int i = 0; i < g_SwingCount; i++)
    {
+      // ป้องกันป้าย HH/HL/LH/LL ชนทับกับป้าย คลื่น A / คลื่น B / คลื่น C บนจุดสวิงเดียวกัน
+      if(g_WaveFormed)
+      {
+         int waveProxSec = tfSec * 3;
+         if(MathAbs((long)(g_Swings[i].time - g_WaveA_Time)) <= waveProxSec ||
+            MathAbs((long)(g_Swings[i].time - g_WaveB_Time)) <= waveProxSec ||
+            MathAbs((long)(g_Swings[i].time - g_WaveC_Time)) <= waveProxSec)
+         {
+            continue;
+         }
+      }
+
       if(g_Swings[i].isHigh && drawnH < 3)
       {
          // Enforce minimum 8 bars distance between successive swing highs to avoid clutter
@@ -6447,6 +7476,9 @@ void DrawVisualsOnChart()
 
    // 13. DTD M1 Confirmation Visuals & 1R:3R TradingView Box
    DrawDTD_M1_Visuals();
+
+   // 14. Institutional Multi-Timeframe Liquidity (BSL & SSL) Visuals
+   DrawLiquidityVisuals();
 }
 
 //+------------------------------------------------------------------+
@@ -6519,6 +7551,7 @@ void CreateOrUpdateTextLabel(string name, int subwin, int x, int y, string text,
 
 void CreateLabel(string name, int x, int y, string text, color clr, int fontSize = 8, bool isBold = false)
 {
+   if(StringLen(text) == 0) text = " ";
    if(ObjectFind(0, name) < 0)
    {
       ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
@@ -6705,6 +7738,14 @@ void SplitTextToLines(string fullText, int maxLen, string &l1, string &l2, strin
 
 void RenderWrappedLabel(string prefix, int x, int &y, string fullText, color clr, int fontSize = 8, bool isBold = false, int maxLen = 56, int lineSpacing = 16)
 {
+   if(StringLen(fullText) == 0)
+   {
+      ObjectDelete(0, prefix + "_A");
+      ObjectDelete(0, prefix + "_B");
+      ObjectDelete(0, prefix + "_C");
+      ObjectDelete(0, prefix);
+      return;
+   }
    string l1, l2, l3;
    SplitTextToLines(fullText, maxLen, l1, l2, l3);
    
@@ -6816,10 +7857,25 @@ void RenderDashboard()
       sig2 = "👉 แอ็กชัน: แรงขายหมดเกลี้ยง ➔ เตรียมกด BUY 🟢";
       sigClr = C'80,250,160';
    }
+   else if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
+   {
+      if(g_DTD.setupSide == -1)
+      {
+         sig1 = "📢 สัญญาณ: โครงสร้างขาลง + จบแท่งกลืนกิน CF M1 (SELL)";
+         sig2 = "👉 แอ็กชัน: แรงขายคุมตลาด ➔ โฟกัสแผน SELL 1:3R ในการ์ดที่ 3 🔴";
+         sigClr = C'255,100,120';
+      }
+      else
+      {
+         sig1 = "📢 สัญญาณ: โครงสร้างขาขึ้น + จบแท่งกลืนกิน CF M1 (BUY)";
+         sig2 = "👉 แอ็กชัน: แรงซื้อคุมตลาด ➔ โฟกัสแผน BUY 1:3R ในการ์ดที่ 3 🟢";
+         sigClr = C'80,250,160';
+      }
+   }
    else if(g_WaveCycleCompleted)
    {
       sig1 = "📢 โครงสร้างใหญ่: จบวงรอบคลื่นสมบูรณ์ (Wave Cycle Completed)";
-      sig2 = (InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed) ? "👉 แอ็กชัน: DTD CF M1 จบกลืนกินแล้ว ➔ พร้อมลั่นไกตามแผน 1:3R 🎯" : "👉 แอ็กชัน: ตลาดพักตัว ➔ รอกรอบสวิงชุดใหม่ หรือรอ CF M1 คอนเฟิร์ม 🟡";
+      sig2 = "👉 แอ็กชัน: ตลาดพักตัว ➔ รอกรอบสวิงชุดใหม่ หรือรอ CF M1 คอนเฟิร์ม 🟡";
       sigClr = clrGold;
    }
    else if(g_Regime == SW_UP_ACCUM)
@@ -6911,10 +7967,15 @@ void RenderDashboard()
       // Row 4: Asset & Session (Auto-Wrap if long)
       RenderWrappedLabel(GUI_PREFIX + "C1_L_ASSET", baseX + 14, lineY, assetSessionStr, clrAqua, 8, false, 56, 16);
 
-      // Row 5: Spread
+      // Row 5: Spread (Asset-Adaptive Threshold & Display)
       long curSpread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-      string spreadStr = StringFormat("⚡ Spread ปัจจุบัน: %d pts (%s)", curSpread, (curSpread <= 45 ? "ปกติ 🟢" : "สเปรดปกติ ✅"));
-      CreateLabel(GUI_PREFIX + "C1_L_SPREAD", baseX + 14, lineY, spreadStr, clrPaleGreen, 8, false);
+      double refBidForSpread = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(refBidForSpread <= 0) refBidForSpread = iClose(_Symbol, _Period, 0);
+      long maxNormSpread = (g_Asset.assetType == ASSET_CRYPTO) ? (long)MathRound((refBidForSpread * 0.0006) / _Point) : ((g_Asset.assetType == ASSET_GOLD) ? 50 : 25);
+      bool isSpreadOK = (curSpread <= maxNormSpread);
+      string spreadValTxt = (g_Asset.assetType == ASSET_CRYPTO) ? StringFormat("%d pts ($%.2f)", curSpread, curSpread * _Point) : StringFormat("%d pts", curSpread);
+      string spreadStr = StringFormat("⚡ Spread ปัจจุบัน: %s (%s)", spreadValTxt, (isSpreadOK ? "ปกติ 🟢" : "สเปรดถ่าง ⚠️"));
+      CreateLabel(GUI_PREFIX + "C1_L_SPREAD", baseX + 14, lineY, spreadStr, (isSpreadOK ? clrPaleGreen : clrOrange), 8, false);
       lineY += 18;
 
       // Row 6: Samurai 6-TF Individual High-Contrast Badges
@@ -7083,10 +8144,11 @@ void RenderDashboard()
    if(InpUseWaveEnergyRadar)
    {
       string signDisp = (g_GannEnergy.displacementPts >= 0) ? "+" : "";
-      gannLatticeStr = StringFormat("🌐 จุดสมดุลคลื่น: เลขกลม %s | ยืด %s%s | สปีด %.1f จุด/วิ", 
+      string velUnitStr = (g_Asset.assetType == ASSET_CRYPTO) ? StringFormat("$%.2f/วิ", MathAbs(g_GannEnergy.velocityPtsSec * _Point)) : StringFormat("%.1f จุด/วิ", g_GannEnergy.velocityPtsSec);
+      gannLatticeStr = StringFormat("🌐 จุดสมดุลคลื่น: เลขกลม %s | ยืด %s%s | สปีด %s", 
                                     DoubleToString(g_GannEnergy.zeroPrice, _Digits), 
                                     signDisp, FormatMoneyOrPoints(MathAbs(g_GannEnergy.displacementPts)), 
-                                    g_GannEnergy.velocityPtsSec);
+                                    velUnitStr);
       gannEnergyStr  = StringFormat("⚡ พลังงานคลื่น: %s", g_GannEnergy.energyStatus);
    }
 
@@ -7099,6 +8161,12 @@ void RenderDashboard()
       h2 += (StringLen(mtfStr) > 56 ? 32 : 16);
       h2 += (StringLen(dzFull) > 56 ? 32 : 16);
       h2 += (StringLen(szFull) > 56 ? 32 : 16);
+      if(InpUseLQ_Scanner)
+      {
+         h2 += (StringLen(g_LQ.hudBSLStr) > 56 ? 32 : 16);
+         h2 += (StringLen(g_LQ.hudSSLStr) > 56 ? 32 : 16);
+         if(g_LQ.hasSweepAlert) h2 += (StringLen(g_LQ.sweepAlertStr) > 56 ? 32 : 16);
+      }
       if(showCME) h2 += 18;
       if(InpUseWaveEnergyRadar)
       {
@@ -7113,7 +8181,7 @@ void RenderDashboard()
    CreateRect(GUI_PREFIX + "C2_BG", baseX, curY, w, cardH2, C'12,24,24', C'25,55,55');
 
    // 2. CREATE TITLE & BUTTON ON TOP
-   CreateLabel(GUI_PREFIX + "C2_TITLE", baseX + 12, curY + 5, "⚔️ 2. SAMURAI CHANNEL, CME OI & พลังงานคลื่น (QUANT)", C'100,240,180', 8, true);
+   CreateLabel(GUI_PREFIX + "C2_TITLE", baseX + 12, curY + 5, "⚔️ 2. SAMURAI CHANNEL, เรดาร์ LQ & พลังงานคลื่น (QUANT)", C'100,240,180', 8, true);
    CreateButton(GUI_PREFIX + "BTN_MIN_C2", baseX + w - 24, curY + 3, 18, 18, (g_Card2_Expanded ? "—" : "+"), C'35,50,70', clrSilver, 8);
 
    if(g_Card2_Expanded)
@@ -7124,6 +8192,27 @@ void RenderDashboard()
       RenderWrappedLabel(GUI_PREFIX + "C2_L3", baseX + 14, lineY, mtfStr, clrGold, 8, false, 56, 16);
       RenderWrappedLabel(GUI_PREFIX + "C2_L4_DZ", baseX + 14, lineY, dzFull, C'50,225,130', 8, true, 56, 16);
       RenderWrappedLabel(GUI_PREFIX + "C2_L4_SZ", baseX + 14, lineY, szFull, C'255,100,120', 8, true, 56, 16);
+
+      if(InpUseLQ_Scanner)
+      {
+         RenderWrappedLabel(GUI_PREFIX + "C2_L_BSL", baseX + 14, lineY, g_LQ.hudBSLStr, C'255,130,150', 8, true, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C2_L_SSL", baseX + 14, lineY, g_LQ.hudSSLStr, C'80,245,170', 8, true, 58, 16);
+         if(g_LQ.hasSweepAlert)
+         {
+            color swCol = (g_LQ.sweepSide == 1) ? C'0,255,180' : C'255,180,60';
+            RenderWrappedLabel(GUI_PREFIX + "C2_L_LQSW", baseX + 14, lineY, g_LQ.sweepAlertStr, swCol, 8, true, 58, 16);
+         }
+         else
+         {
+            RenderWrappedLabel(GUI_PREFIX + "C2_L_LQSW", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         }
+      }
+      else
+      {
+         RenderWrappedLabel(GUI_PREFIX + "C2_L_BSL", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C2_L_SSL", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C2_L_LQSW", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+      }
 
       if(showCME)
       {
@@ -7536,11 +8625,16 @@ void RenderDashboard()
 
    if(InpUseDTD_CF_M1)
    {
-      double zoneTol    = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.003) : (g_Asset.assetType == ASSET_GOLD ? (100.0 * _Point) : (25.0 * _Point));
-      bool isBuySetup   = (g_DTD.setupSide == 1);
-      bool inTargetZone = isBuySetup ? (minDZDist <= zoneTol) : (minSZDist <= zoneTol);
-      bool isLQSwept    = isBuySetup ? (g_IsFakeoutTrap && g_FakeoutSide == 1) : (g_IsFakeoutTrap && g_FakeoutSide == -1);
-      bool isEngulfCF   = g_DTD.isEngulfConfirmed;
+      double zoneTol      = (g_Asset.assetType == ASSET_CRYPTO) ? (curBid * 0.00035) : (g_Asset.assetType == ASSET_GOLD ? (60.0 * _Point) : (20.0 * _Point));
+      bool isBuySetup     = (g_DTD.setupSide == 1);
+      bool inTargetZone   = isBuySetup ? (minDZDist <= zoneTol) : (minSZDist <= zoneTol);
+      bool inOppositeZone = isBuySetup ? (minSZDist <= zoneTol) : (minDZDist <= zoneTol);
+      if(isBuySetup && minSZDist == 0.0 && minDZDist > 0.0)  inTargetZone = false;
+      if(!isBuySetup && minDZDist == 0.0 && minSZDist > 0.0) inTargetZone = false;
+
+      bool isLQSwept      = isBuySetup ? ((g_IsFakeoutTrap && g_FakeoutSide == 1) || (g_LQ.hasSweepAlert && g_LQ.sweepSide == 1))
+                                       : ((g_IsFakeoutTrap && g_FakeoutSide == -1) || (g_LQ.hasSweepAlert && g_LQ.sweepSide == -1));
+      bool isEngulfCF     = g_DTD.isEngulfConfirmed;
 
       if(inTargetZone && isLQSwept && isEngulfCF)
       {
@@ -7554,17 +8648,25 @@ void RenderDashboard()
          dtdGradeCol  = C'50,230,150';
          dtdChecklist = isBuySetup ? "✅ แตะ Demand + [—] รอจังหวะ Sweep + ✅ M1 กลืนกิน (เทรดได้)" : "✅ แตะ Supply + [—] รอจังหวะ Sweep + ✅ M1 กลืนกิน (เทรดได้)";
       }
-      else if(isLQSwept && isEngulfCF)
+      else if(isLQSwept && isEngulfCF && !inOppositeZone)
       {
          dtdGradeStr  = "⭐ เกรดสัญญาณ: [ A ★★★★ จังหวะดักกินเจ้ามือ ]";
          dtdGradeCol  = clrGold;
          dtdChecklist = isBuySetup ? "[—] นอก Demand + ✅ Sweep SSL ล้าง SL + ✅ M1 กลืนกิน (สไนเปอร์)" : "[—] นอก Supply + ✅ Sweep BSL ล้าง SL + ✅ M1 กลืนกิน (สไนเปอร์)";
       }
+      else if(isEngulfCF && inOppositeZone)
+      {
+         dtdGradeStr  = isBuySetup ? "⚠️ เกรดสัญญาณ: [ C ⚠️ สัญญาณ BUY ชนแนวต้าน Supply! ]" : "⚠️ เกรดสัญญาณ: [ C ⚠️ สัญญาณ SELL ชนแนวรับ Demand! ]";
+         dtdGradeCol  = clrTomato;
+         dtdChecklist = isBuySetup ? "🛑 ราคาอยู่ในโซน Supply ต้าน ➔ ระวังโดนทุบสวน! รอเบรกทะลุหรือรอย่อลง Demand"
+                                   : "🛑 ราคาอยู่ในโซน Demand รับ ➔ ระวังเด้งสวน! รอหลุดกรอบ Demand หรือรอเด้งขึ้นค่อย SELL";
+      }
       else if(isEngulfCF)
       {
-         dtdGradeStr  = "⭐ เกรดสัญญาณ: [ B ⚠️ กลืนกินนอกโซน ระวังเด้งสั้น ]";
+         dtdGradeStr  = "⭐ เกรดสัญญาณ: [ B ⚠️ กลืนกินกลางทาง • รอย่อ/เด้งเข้าโซนจะคุ้มกว่า ]";
          dtdGradeCol  = clrOrange;
-         dtdChecklist = isBuySetup ? "⚠️ อยู่นอก Demand (เสี่ยงเด้งหลอก รอย่อเข้าโซนจะปลอดภัยกว่า)" : "⚠️ อยู่นอก Supply (เสี่ยงเด้งหลอก รอเด้งเข้าโซนจะปลอดภัยกว่า)";
+         dtdChecklist = isBuySetup ? "⚠️ อยู่นอก Demand (เสี่ยงย่อลึก รอดักย่อเส้นไส้สั้นหรือเข้าโซนรับจะปลอดภัยกว่า)"
+                                   : "⚠️ อยู่นอก Supply (เสี่ยงเด้งสวน รอดักเด้งเส้นไส้สั้นหรือเข้าโซนต้านจะปลอดภัยกว่า)";
       }
       else if(inTargetZone)
       {
@@ -7583,32 +8685,7 @@ void RenderDashboard()
    int cardH3 = 24;
    if(g_Card3_Expanded)
    {
-      int h3 = 24; // title
-      h3 += (StringLen(card3SigDesc) > 56 ? 32 : 16);
-      if(InpUseDTD_CF_M1)
-      {
-         h3 += (StringLen(dtdGradeStr) > 56 ? 32 : 16);
-         h3 += (StringLen(dtdChecklist) > 56 ? 32 : 16);
-      }
-      h3 += (StringLen(entryStr) > 56 ? 32 : 16);
-      h3 += (StringLen(slStr) > 56 ? 32 : 16);
-      h3 += (StringLen(tpStr) > 56 ? 32 : 16);
-      h3 += (StringLen(posInfo) > 56 ? 32 : 16);
-      if(InpUseDTD_CF_M1)
-      {
-         h3 += (StringLen(g_DTD.mmPlanText) > 56 ? 32 : 16);
-      }
-      h3 += 6;  // spacing before buttons
-      h3 += 28; // btn row 1 (lot / close)
-      if(InpUseDTD_CF_M1)
-      {
-         h3 += 6;
-         h3 += 26; // btn row DTD Lot
-      }
-      h3 += 8;  // spacing between btn rows
-      h3 += 38; // btn row 2 (buy / sell)
-      h3 += 12; // bottom padding
-      cardH3 = h3;
+      cardH3 = 310; // จะถูกปรับขนาดจริงแบบพอดีเป๊ะที่ท้ายบล็อก
    }
 
    // 1. CREATE BACKGROUND RECTANGLE FIRST (Bottom layer)
@@ -7621,27 +8698,47 @@ void RenderDashboard()
    if(g_Card3_Expanded)
    {
       int lineY = curY + 24;
-      RenderWrappedLabel(GUI_PREFIX + "C3_L_SIG", baseX + 14, lineY, card3SigDesc, card3SigCol, 8, true, 56, 16);
-      RenderWrappedLabel(GUI_PREFIX + "C3_L1", baseX + 14, lineY, entryStr, clrWhite, 8, true, 56, 16);
-      RenderWrappedLabel(GUI_PREFIX + "C3_L2", baseX + 14, lineY, slStr, C'255,110,110', 8, false, 56, 16);
-      RenderWrappedLabel(GUI_PREFIX + "C3_L3", baseX + 14, lineY, tpStr, C'100,255,160', 8, false, 56, 16);
-      RenderWrappedLabel(GUI_PREFIX + "C3_L5", baseX + 14, lineY, posInfo, clrWhite, 8, false, 56, 16);
+      RenderWrappedLabel(GUI_PREFIX + "C3_L_SIG", baseX + 14, lineY, card3SigDesc, card3SigCol, 8, true, 58, 16);
 
-      if(InpUseDTD_CF_M1)
+      if(InpUseDualForecast)
       {
-         RenderWrappedLabel(GUI_PREFIX + "C3_L_GRADE", baseX + 14, lineY, dtdGradeStr, dtdGradeCol, 8, true, 56, 16);
-         RenderWrappedLabel(GUI_PREFIX + "C3_L_CHK", baseX + 14, lineY, dtdChecklist, clrWhite, 8, false, 56, 16);
-         RenderWrappedLabel(GUI_PREFIX + "C3_L_DTD", baseX + 14, lineY, g_DTD.mmPlanText, clrGold, 8, true, 56, 16);
+         // แสดงแผนคาดการณ์ทั้ง 2 ฝั่ง (BUY & SELL) ขนานกันอย่างชัดเจน
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_B1", baseX + 14, lineY, g_Forecast.buyPlanLine1, C'70,255,155', 8, true, 60, 15);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_B2", baseX + 14, lineY, g_Forecast.buyPlanLine2, C'180,250,210', 8, false, 60, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_S1", baseX + 14, lineY, g_Forecast.sellPlanLine1, C'255,115,125', 8, true, 60, 15);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_S2", baseX + 14, lineY, g_Forecast.sellPlanLine2, C'255,195,205', 8, false, 60, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L1", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L2", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L3", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
       }
       else
       {
-         ObjectDelete(0, GUI_PREFIX + "C3_L_GRADE");
-         ObjectDelete(0, GUI_PREFIX + "C3_L_CHK");
-         ObjectDelete(0, GUI_PREFIX + "C3_L_DTD");
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_B1", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_B2", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_S1", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_FC_S2", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L1", baseX + 14, lineY, entryStr, clrWhite, 8, true, 56, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L2", baseX + 14, lineY, slStr, C'255,110,110', 8, false, 56, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L3", baseX + 14, lineY, tpStr, C'100,255,160', 8, false, 56, 16);
       }
 
-      int btnY1 = lineY + 6;
-      int btnY_DTD = btnY1 + 34;
+      RenderWrappedLabel(GUI_PREFIX + "C3_L5", baseX + 14, lineY, posInfo, clrWhite, 8, false, 58, 16);
+
+      if(InpUseDTD_CF_M1)
+      {
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_GRADE", baseX + 14, lineY, dtdGradeStr, dtdGradeCol, 8, true, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_CHK", baseX + 14, lineY, dtdChecklist, clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_DTD", baseX + 14, lineY, g_DTD.mmPlanText, clrGold, 8, true, 58, 16);
+      }
+      else
+      {
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_GRADE", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_CHK", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+         RenderWrappedLabel(GUI_PREFIX + "C3_L_DTD", baseX + 14, lineY, "", clrWhite, 8, false, 58, 16);
+      }
+
+      int btnY1 = lineY + 4;
+      int btnY_DTD = btnY1 + 32;
       int btnY2 = btnY_DTD;
 
       CreateButton(GUI_PREFIX + "LOT_MINUS",   baseX + 14,  btnY1, 30, 28, "-", C'45,55,75', clrWhite, 11);
@@ -7654,13 +8751,17 @@ void RenderDashboard()
 
       if(InpUseDTD_CF_M1)
       {
-         CreateButton(GUI_PREFIX + "BTN_DTD_LOT", baseX + 14, btnY_DTD, w - 28, 26, StringFormat("🎯 คลิกใช้ขนาด Lot อ.เดช: %.2f (แผน MM 1R:3R)", g_DTD.recommendedLot), C'25,55,90', clrGold, 8);
-         btnY2 = btnY_DTD + 32;
+         ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT");
+         CreateButton(GUI_PREFIX + "BTN_DTD_LOT_BUY",  baseX + 14,  btnY_DTD, 181, 25, StringFormat("🎯 ใช้ Lot แผน BUY: %.2f (3R)", g_Forecast.buyLot), C'20,65,45', C'100,255,170', 8);
+         CreateButton(GUI_PREFIX + "BTN_DTD_LOT_SELL", baseX + 205, btnY_DTD, 181, 25, StringFormat("🎯 ใช้ Lot แผน SELL: %.2f (3R)", g_Forecast.sellLot), C'75,25,35', C'255,150,160', 8);
+         btnY2 = btnY_DTD + 30;
       }
       else
       {
          ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT");
-         btnY2 = btnY1 + 34;
+         ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT_BUY");
+         ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT_SELL");
+         btnY2 = btnY1 + 32;
       }
       CreateButton(GUI_PREFIX + "BTN_BUY",  baseX + 14,  btnY2, 181, 38, "🟢 กด BUY", C'30,120,60', clrWhite, 11);
       CreateButton(GUI_PREFIX + "BTN_SELL", baseX + 205, btnY2, 181, 38, "🔴 กด SELL", C'150,40,40', clrWhite, 11);
@@ -7679,6 +8780,8 @@ void RenderDashboard()
       ObjectsDeleteAll(0, GUI_PREFIX + "BTN_BUY");
       ObjectsDeleteAll(0, GUI_PREFIX + "BTN_SELL");
       ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT");
+      ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT_BUY");
+      ObjectDelete(0, GUI_PREFIX + "BTN_DTD_LOT_SELL");
    }
 }
 //+------------------------------------------------------------------+
