@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.05"
-#property description "DTD Multiverse V1.05 - Zero-Popup Clean Cockpit & Unhindered Manual Execution Suite"
+#property version     "1.06"
+#property description "DTD Multiverse V1.06 - True 1R:3R Setup Distances, Background Trendlines & Clean Cockpit"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -1355,6 +1355,7 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, fiboOTE, OBJPROP_STYLE, STYLE_DASH);
          ObjectSetInteger(0, fiboOTE, OBJPROP_WIDTH, 2);
          ObjectSetInteger(0, fiboOTE, OBJPROP_RAY_RIGHT, false);
+         ObjectSetInteger(0, fiboOTE, OBJPROP_BACK, true);
       }
       else
       {
@@ -1372,6 +1373,7 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, targetLine, OBJPROP_STYLE, STYLE_SOLID);
          ObjectSetInteger(0, targetLine, OBJPROP_WIDTH, 2);
          ObjectSetInteger(0, targetLine, OBJPROP_RAY_RIGHT, false);
+         ObjectSetInteger(0, targetLine, OBJPROP_BACK, true);
       }
       else
       {
@@ -1408,7 +1410,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineUp, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineUp, OBJPROP_WIDTH, 1);
             ObjectSetInteger(0, lineUp, OBJPROP_RAY_RIGHT, false);
-            ObjectSetInteger(0, lineUp, OBJPROP_BACK, false);
+            ObjectSetInteger(0, lineUp, OBJPROP_BACK, true);
          }
          else
          {
@@ -1417,26 +1419,29 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineUp, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineUp, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingHighPrice);
             ObjectSetInteger(0, lineUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lineUp, OBJPROP_BACK, true);
          }
 
          string lblUp = DTD_PREFIX + "M1_LBL_UP";
          string txtUp = StringFormat("ขึ้น (%s)", DoubleToString(g_DTD_M1.m1SwingHighPrice, _Digits));
+         datetime tUpLbl = tEnd - (tfSec * 2);
          if(ObjectFind(0, lblUp) < 0)
          {
-            ObjectCreate(0, lblUp, OBJ_TEXT, 0, tUpStart, g_DTD_M1.m1SwingHighPrice);
+            ObjectCreate(0, lblUp, OBJ_TEXT, 0, tUpLbl, g_DTD_M1.m1SwingHighPrice);
             ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
             ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblUp, OBJPROP_FONTSIZE, 8);
             ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_LOWER);
+            ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
             ObjectSetInteger(0, lblUp, OBJPROP_BACK, false);
          }
          else
          {
-            ObjectSetInteger(0, lblUp, OBJPROP_TIME, 0, tUpStart);
+            ObjectSetInteger(0, lblUp, OBJPROP_TIME, 0, tUpLbl);
             ObjectSetDouble(0, lblUp, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingHighPrice);
             ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
             ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
             ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
          }
       }
@@ -1453,7 +1458,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineDn, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineDn, OBJPROP_WIDTH, 1);
             ObjectSetInteger(0, lineDn, OBJPROP_RAY_RIGHT, false);
-            ObjectSetInteger(0, lineDn, OBJPROP_BACK, false);
+            ObjectSetInteger(0, lineDn, OBJPROP_BACK, true);
          }
          else
          {
@@ -1462,26 +1467,29 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineDn, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineDn, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingLowPrice);
             ObjectSetInteger(0, lineDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lineDn, OBJPROP_BACK, true);
          }
 
          string lblDn = DTD_PREFIX + "M1_LBL_DOWN";
          string txtDn = StringFormat("ลง (%s)", DoubleToString(g_DTD_M1.m1SwingLowPrice, _Digits));
+         datetime tDnLbl = tEnd - (tfSec * 2);
          if(ObjectFind(0, lblDn) < 0)
          {
-            ObjectCreate(0, lblDn, OBJ_TEXT, 0, tDnStart, g_DTD_M1.m1SwingLowPrice);
+            ObjectCreate(0, lblDn, OBJ_TEXT, 0, tDnLbl, g_DTD_M1.m1SwingLowPrice);
             ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
             ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblDn, OBJPROP_FONTSIZE, 8);
             ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_UPPER);
+            ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
             ObjectSetInteger(0, lblDn, OBJPROP_BACK, false);
          }
          else
          {
-            ObjectSetInteger(0, lblDn, OBJPROP_TIME, 0, tDnStart);
+            ObjectSetInteger(0, lblDn, OBJPROP_TIME, 0, tDnLbl);
             ObjectSetDouble(0, lblDn, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingLowPrice);
             ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
             ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
             ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
          }
       }
@@ -1622,7 +1630,7 @@ void DrawMultiverseVisuals()
             }
 
             string lblTP1 = DTD_PREFIX + "M1_LBL_TP1R";
-            double tp1Dist = MathAbs(g_DTD_M1.confirmTP1RPrice - curBid) / _Point;
+            double tp1Dist = (g_DTD_M1.tp1RPoints > 0.0) ? g_DTD_M1.tp1RPoints : (MathAbs(g_DTD_M1.confirmTP1RPrice - g_DTD_M1.confirmEntryPrice) / _Point);
             string tp1Txt  = StringFormat(" 🛡️ TP 1R (1:1): %s (+%s) ", DoubleToString(g_DTD_M1.confirmTP1RPrice, _Digits), FormatMoneyOrPoints(tp1Dist));
             if(ObjectFind(0, lblTP1) < 0)
             {
@@ -1665,7 +1673,7 @@ void DrawMultiverseVisuals()
             }
 
             string lblTP2 = DTD_PREFIX + "M1_LBL_TP2R";
-            double tp2Dist = MathAbs(g_DTD_M1.confirmTP2RPrice - curBid) / _Point;
+            double tp2Dist = (g_DTD_M1.tp2RPoints > 0.0) ? g_DTD_M1.tp2RPoints : (MathAbs(g_DTD_M1.confirmTP2RPrice - g_DTD_M1.confirmEntryPrice) / _Point);
             string tp2Txt  = StringFormat(" 🎯 TP 2R (1:2): %s (+%s) ", DoubleToString(g_DTD_M1.confirmTP2RPrice, _Digits), FormatMoneyOrPoints(tp2Dist));
             if(ObjectFind(0, lblTP2) < 0)
             {
@@ -1706,8 +1714,8 @@ void DrawMultiverseVisuals()
          }
 
          string lblTP3 = DTD_PREFIX + "M1_LBL_TP3R";
-         double tpDist = MathAbs(g_DTD_M1.confirmTP3RPrice - curBid) / _Point;
-         string tpTxt  = StringFormat(" 🏆 TP 3R (1:3): %s (+%s) [เป้าหลัก อ.เดช] ", DoubleToString(g_DTD_M1.confirmTP3RPrice, _Digits), FormatMoneyOrPoints(tpDist));
+         double tpDist = (g_DTD_M1.tp3RPoints > 0.0) ? g_DTD_M1.tp3RPoints : (MathAbs(g_DTD_M1.confirmTP3RPrice - g_DTD_M1.confirmEntryPrice) / _Point);
+         string tpTxt  = StringFormat(" 🏆 TP 3R (1:3): %s (+%s) ★เป้าหลัก ", DoubleToString(g_DTD_M1.confirmTP3RPrice, _Digits), FormatMoneyOrPoints(tpDist));
          if(ObjectFind(0, lblTP3) < 0)
          {
             ObjectCreate(0, lblTP3, OBJ_TEXT, 0, bEnd, g_DTD_M1.confirmTP3RPrice);
@@ -1746,7 +1754,7 @@ void DrawMultiverseVisuals()
          }
 
          string lblSL = DTD_PREFIX + "M1_LBL_SL";
-         double slDist = MathAbs(g_DTD_M1.confirmSLPrice - curBid) / _Point;
+         double slDist = (g_DTD_M1.slPoints > 0.0) ? g_DTD_M1.slPoints : (MathAbs(g_DTD_M1.confirmEntryPrice - g_DTD_M1.confirmSLPrice) / _Point);
          string slPosTag = (g_DTD_M1.setupSide == 1) ? "[ใต้ชุดคอนเฟิร์ม]" : "[เหนือชุดคอนเฟิร์ม]";
          string slTxt  = StringFormat(" 🛑 SL 1R: %s (-%s) %s ", DoubleToString(g_DTD_M1.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist), slPosTag);
          if(ObjectFind(0, lblSL) < 0)
