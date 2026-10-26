@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.25"
-#property description "DeungDang_Trade V2.25 - 2-Card Master HUD, Anti-Collision Chart Labels & Live Gold Precision Suite"
+#property version     "2.26"
+#property description "DeungDang_Trade V2.26 - 2-Card Master HUD, Anti-Collision Chart Labels & Live Gold Precision Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -4060,11 +4060,24 @@ double GetChartMinLabelSepPrice()
    if(chartH > 50 && pMax > pMin)
    {
       double pricePerPx = (pMax - pMin) / (double)chartH;
-      return MathMax(pricePerPx * 14.5, 15.0 * _Point);
+      return MathMax(pricePerPx * 18.0, 18.0 * _Point);
    }
    if(g_Asset.assetType == ASSET_CRYPTO) return (SymbolInfoDouble(_Symbol, SYMBOL_BID) * 0.0007);
    if(g_Asset.assetType == ASSET_GOLD)   return 110.0 * _Point;
    return 25.0 * _Point;
+}
+
+
+//+------------------------------------------------------------------+
+//| GET DYNAMIC ANTI-CHASING THRESHOLD ACCORDING TO ASSET & SL DIST  |
+//+------------------------------------------------------------------+
+double GetAntiChasingThreshold(double slDistPts)
+{
+   if(g_Asset.assetType == ASSET_GOLD)
+      return MathMax(250.0, slDistPts * 0.45);
+   if(g_Asset.assetType == ASSET_CRYPTO)
+      return MathMax(2500.0, slDistPts * 0.45);
+   return MathMax(80.0, slDistPts * 0.45);
 }
 
 double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
@@ -4658,13 +4671,14 @@ void ScanDTD_CF_M1()
    double buyRecommendedLot = CapLotByFreeMargin(buyCalcLot, ORDER_TYPE_BUY, curAsk, minLot, maxLot, stepLot);
 
    // 2B. HTF Supply Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวต้านใหญ่ H1/H4)
+   // กฎเหล็ก: TP3 (1:3R) ต้องสูงกว่า TP2 (1:2R) เสมอ! ห้ามร่นเป้า TP3 ต่ำกว่า TP2 โดยเด็ดขาด
    for(int z = 0; z < g_ZoneCount; z++)
    {
       if(!g_Zones[z].isActive || g_Zones[z].isDemand) continue;
       if(g_Zones[z].low > buyEntryPrice && g_Zones[z].low < buyTP3RPrice)
       {
          double frontRunTP = NormalizeDouble(g_Zones[z].low - (15.0 * _Point), _Digits);
-         if(frontRunTP > buyTP1RPrice)
+         if(frontRunTP >= buyTP2RPrice + (40.0 * _Point))
          {
             buyTP3RPrice = frontRunTP;
          }
@@ -4736,13 +4750,14 @@ void ScanDTD_CF_M1()
    double sellRecommendedLot = CapLotByFreeMargin(sellCalcLot, ORDER_TYPE_SELL, curBid, minLot, maxLot, stepLot);
 
    // 3B. HTF Demand Obstacle Guard (ป้องกันการตั้งเป้า TP3 ทะลุทะลวงแนวรับใหญ่ H1/H4)
+   // กฎเหล็ก: TP3 (1:3R) ต้องต่ำกว่า TP2 (1:2R) เสมอ! ห้ามร่นเป้า TP3 สูงกว่า TP2 โดยเด็ดขาด
    for(int z = 0; z < g_ZoneCount; z++)
    {
       if(!g_Zones[z].isActive || !g_Zones[z].isDemand) continue;
       if(g_Zones[z].high < sellEntryPrice && g_Zones[z].high > sellTP3RPrice)
       {
          double frontRunTP = NormalizeDouble(g_Zones[z].high + (15.0 * _Point), _Digits);
-         if(frontRunTP < sellTP1RPrice)
+         if(frontRunTP <= sellTP2RPrice - (40.0 * _Point))
          {
             sellTP3RPrice = frontRunTP;
          }
@@ -5073,7 +5088,7 @@ void ScanDTD_CF_M1()
       g_DTD.confirmTP3RPrice  = buyTP3RPrice;
       g_DTD.tp1RDistPoints    = buySLDist * 1.0;
       g_DTD.tp2RDistPoints    = buySLDist * 2.0;
-      g_DTD.tp3RDistPoints    = buySLDist * InpDTD_TargetRR;
+      g_DTD.tp3RDistPoints    = (buyTP3RPrice > buyEntryPrice) ? ((buyTP3RPrice - buyEntryPrice) / _Point) : (buySLDist * InpDTD_TargetRR);
       g_DTD.recommendedLot    = buyRecommendedLot;
 
       if(buyConfirmed)
@@ -5128,7 +5143,7 @@ void ScanDTD_CF_M1()
       g_DTD.confirmTP3RPrice  = sellTP3RPrice;
       g_DTD.tp1RDistPoints    = sellSLDist * 1.0;
       g_DTD.tp2RDistPoints    = sellSLDist * 2.0;
-      g_DTD.tp3RDistPoints    = sellSLDist * InpDTD_TargetRR;
+      g_DTD.tp3RDistPoints    = (sellTP3RPrice > 0.0 && sellTP3RPrice < sellEntryPrice) ? ((sellEntryPrice - sellTP3RPrice) / _Point) : (sellSLDist * InpDTD_TargetRR);
       g_DTD.recommendedLot    = sellRecommendedLot;
 
       if(sellConfirmed)
@@ -6285,6 +6300,8 @@ void CalculateDualPriceForecast()
    g_Forecast.buyTP1Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP1RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP1RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * 1.0);
    g_Forecast.buyTP2Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP2RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP2RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * 2.0);
    g_Forecast.buyTP3Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP3RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP3RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * InpDTD_TargetRR);
+   if(g_Forecast.buyTP3Price <= g_Forecast.buyTP2Price)
+      g_Forecast.buyTP3Price = g_Forecast.buyEntryPrice + (g_Forecast.buySLDistPts * _Point * InpDTD_TargetRR);
    g_Forecast.buyLot           = (g_DTD.buyRecommendedLot > 0.0) ? g_DTD.buyRecommendedLot : g_CurrentLot;
 
    string buyStateTag = g_Forecast.buyIsReady ? "✅คอนเฟิร์ม" : "⏳รอกลืนกิน";
@@ -6312,6 +6329,8 @@ void CalculateDualPriceForecast()
    g_Forecast.sellTP1Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP1RPrice > 0.0 && g_DTD.sellConfirmTP1RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP1RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * 1.0);
    g_Forecast.sellTP2Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP2RPrice > 0.0 && g_DTD.sellConfirmTP2RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP2RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * 2.0);
    g_Forecast.sellTP3Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP3RPrice > 0.0 && g_DTD.sellConfirmTP3RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP3RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * InpDTD_TargetRR);
+   if(g_Forecast.sellTP3Price >= g_Forecast.sellTP2Price)
+      g_Forecast.sellTP3Price = g_Forecast.sellEntryPrice - (g_Forecast.sellSLDistPts * _Point * InpDTD_TargetRR);
    g_Forecast.sellLot           = (g_DTD.sellRecommendedLot > 0.0) ? g_DTD.sellRecommendedLot : g_CurrentLot;
 
    string sellStateTag = g_Forecast.sellIsReady ? "✅คอนเฟิร์ม" : "⏳รอกลืนกิน";
@@ -7961,7 +7980,11 @@ void RenderDashboard()
 
    // Header & Subtitle
    CreateRect(GUI_PREFIX + "DASH_BG", baseX, baseY, w, 38, C'12,18,28', C'35,50,75');
-   string titleStr = "DeungDang_Trade V2.25 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + g_Asset.name;
+   string assetClean = g_Asset.name;
+   int pParen = StringFind(assetClean, "(");
+   if(pParen > 0) assetClean = StringSubstr(assetClean, 0, pParen);
+   StringTrimRight(assetClean);
+   string titleStr = "DeungDang_Trade V2.26 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
    CreateLabel(GUI_PREFIX + "L_TITLE", baseX + 14, baseY + 6, titleStr, clrGold, 9, true);
    CreateLabel(GUI_PREFIX + "L_SUBTITLE", baseX + 14, baseY + 21, "กำนันบอล + อ.เดช CF M1 (1:3R) + พี่ชนัฐ + SAMURAI MTF 36 แท่ง", C'140,165,195', 7, false);
 
@@ -8035,23 +8058,24 @@ void RenderDashboard()
       }
    }
 
-   // 2. Anti-Chasing Guard evaluation
+   // 2. Anti-Chasing Guard evaluation (Dynamic asset-scaled threshold)
    bool isRunaway = false;
    if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
    {
       double entryRef = (g_DTD.confirmEntryPrice > 0.0) ? g_DTD.confirmEntryPrice : g_DTD.latchedEntryPrice;
       double tp1Ref   = (g_DTD.confirmTP1RPrice > 0.0) ? g_DTD.confirmTP1RPrice : g_DTD.latchedTP1Price;
+      double runawayLimit = GetAntiChasingThreshold(g_DTD.slDistPoints);
       if(g_DTD.setupSide == 1)
       {
          double pnlPts = (curBid - entryRef) / _Point;
          bool isHitTP1 = (tp1Ref > 0.0 && curBid >= tp1Ref);
-         if(pnlPts > 80.0 && !isHitTP1) isRunaway = true;
+         if(pnlPts > runawayLimit && !isHitTP1) isRunaway = true;
       }
       else if(g_DTD.setupSide == -1)
       {
          double pnlPts = (entryRef - curAsk) / _Point;
          bool isHitTP1 = (tp1Ref > 0.0 && curAsk <= tp1Ref);
-         if(pnlPts > 80.0 && !isHitTP1) isRunaway = true;
+         if(pnlPts > runawayLimit && !isHitTP1) isRunaway = true;
       }
    }
 
@@ -8267,7 +8291,8 @@ void RenderDashboard()
          bool isHitTP2     = (tp2Ref > 0.0 && curBid >= tp2Ref);
          bool isHitTP1     = (tp1Ref > 0.0 && curBid >= tp1Ref);
          bool isRetesting  = (MathAbs(retestDist) <= 40.0);
-         bool isRunawayNow = (pnlPts > 80.0 && !isHitTP1);
+         double runawayLimit = GetAntiChasingThreshold(g_DTD.slDistPoints);
+         bool isRunawayNow = (pnlPts > runawayLimit && !isHitTP1);
 
          if(isHitTP3)
          {
@@ -8320,7 +8345,8 @@ void RenderDashboard()
          bool isHitTP2     = (tp2Ref > 0.0 && curAsk <= tp2Ref);
          bool isHitTP1     = (tp1Ref > 0.0 && curAsk <= tp1Ref);
          bool isRetesting  = (MathAbs(retestDist) <= 40.0);
-         bool isRunawayNow = (pnlPts > 80.0 && !isHitTP1);
+         double runawayLimit = GetAntiChasingThreshold(g_DTD.slDistPoints);
+         bool isRunawayNow = (pnlPts > runawayLimit && !isHitTP1);
 
          if(isHitTP3)
          {

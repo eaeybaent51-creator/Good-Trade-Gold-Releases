@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.06"
+#property version     "1.07"
 #property description "DTD Multiverse V1.06 - True 1R:3R Setup Distances, Background Trendlines & Clean Cockpit"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
@@ -1055,7 +1055,7 @@ void ScanDTD_CF_M1_Always()
                g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🟢 [จังหวะย่อรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ BUY ราคาดีที่สุด!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
                g_DTD_M1.statusColor = C'0,255,200';
             }
-            else if(pnlPts > 80.0)
+            else if(pnlPts > (StringFind(_Symbol, "BTC") >= 0 ? 2500.0 : ((StringFind(_Symbol, "XAU") >= 0 || StringFind(_Symbol, "GOLD") >= 0) ? MathMax(250.0, g_DTD_M1.slPoints * 0.45) : 80.0)))
             {
                g_DTD_M1.statusText  = StringFormat("⚠️ CF M1: 🟢 [แผน BUY วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคาเด็ดขาด!]", pnlPts);
                g_DTD_M1.statusColor = clrGold;
@@ -1103,7 +1103,7 @@ void ScanDTD_CF_M1_Always()
                g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🔴 [จังหวะดีดรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ SELL ราคาดีที่สุด!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
                g_DTD_M1.statusColor = C'255,180,80';
             }
-            else if(pnlPts > 80.0)
+            else if(pnlPts > (StringFind(_Symbol, "BTC") >= 0 ? 2500.0 : ((StringFind(_Symbol, "XAU") >= 0 || StringFind(_Symbol, "GOLD") >= 0) ? MathMax(250.0, g_DTD_M1.slPoints * 0.45) : 80.0)))
             {
                g_DTD_M1.statusText  = StringFormat("⚠️ CF M1: 🔴 [แผน SELL วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคาเด็ดขาด!]", pnlPts);
                g_DTD_M1.statusColor = clrGold;
