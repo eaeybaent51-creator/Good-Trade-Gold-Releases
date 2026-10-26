@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.26"
-#property description "DeungDang_Trade V2.26 - 2-Card Master HUD, Anti-Collision Chart Labels & Live Gold Precision Suite"
+#property version     "2.27"
+#property description "DeungDang_Trade V2.27 - Exact EMA14 Line Anchor, Zero-Distortion Label Alignment & 2-Card Master HUD"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -4106,8 +4106,9 @@ double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
    double bestDist  = 9999999.0;
    int stepDir1 = (preferDir != 0) ? preferDir : 1;
    int stepDir2 = -stepDir1;
+   double maxAllowedDist = minSep * 2.2; // Strict clamp: never displace vertically by more than 2.2 slots
 
-   for(int step = 1; step <= 16; step++)
+   for(int step = 1; step <= 4; step++)
    {
       int dirs[2];
       dirs[0] = stepDir1;
@@ -4115,10 +4116,13 @@ double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
       for(int d = 0; d < 2; d++)
       {
          double cand = rawPrice + (dirs[d] * step * minSep * 0.60);
+         double dist = MathAbs(cand - rawPrice);
+         if(dist > maxAllowedDist) continue;
+
          bool slotFree = true;
          for(int k = 0; k < g_RightLabelCount; k++)
          {
-            if(MathAbs(cand - g_RightLabelPrices[k]) < minSep * 0.90)
+            if(MathAbs(cand - g_RightLabelPrices[k]) < minSep * 0.85)
             {
                slotFree = false;
                break;
@@ -4126,7 +4130,6 @@ double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
          }
          if(slotFree)
          {
-            double dist = MathAbs(cand - rawPrice);
             if(dist < bestDist)
             {
                bestDist  = dist;
@@ -4136,6 +4139,10 @@ double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
       }
       if(bestDist < 9999990.0) break;
    }
+
+   // If no nearby micro-nudge slot is available, maintain rawPrice to prevent visual distortion
+   if(bestDist >= 9999990.0)
+      bestPrice = rawPrice;
 
    if(g_RightLabelCount < MAX_CHART_RIGHT_LABELS)
       g_RightLabelPrices[g_RightLabelCount++] = bestPrice;
@@ -6870,6 +6877,7 @@ void DrawMultiTF_EMA14_Lines()
    datetime tStart   = TimeCurrent() - (PeriodSeconds() * 60);
    datetime tBaseEnd = TimeCurrent() + (PeriodSeconds() * 6);
    int secPerBar     = PeriodSeconds();
+   double minSep     = GetChartMinLabelSepPrice();
 
    for(int i = 0; i < NUM_EMA14_TFS; i++)
    {
@@ -6893,8 +6901,20 @@ void DrawMultiTF_EMA14_Lines()
                            MathAbs(val - g_DTD.confirmTP1RPrice)  <= emaColTol ||
                            MathAbs(val - g_DTD.confirmTP2RPrice)  <= emaColTol ||
                            MathAbs(val - g_DTD.confirmTP3RPrice)  <= emaColTol);
-      int extraBars     = nearDTDLine ? 12 : 0;
-      datetime tLineEnd = tBaseEnd + (datetime)(secPerBar * (((i % 3) * 2) + extraBars));
+
+      // Horizontal tier offset: check collision with earlier enabled EMAs
+      int hColCount = 0;
+      for(int k = 0; k < i; k++)
+      {
+         if(IsEMA14Enabled(k) && g_EMA14_Vals[k] > 0)
+         {
+            if(MathAbs(val - g_EMA14_Vals[k]) < minSep)
+               hColCount++;
+         }
+      }
+
+      int extraBars     = (nearDTDLine ? 10 : 0) + (hColCount * 3);
+      datetime tLineEnd = tBaseEnd + (datetime)(secPerBar * (((i % 2) * 2) + extraBars));
       datetime tLbl     = tLineEnd + (datetime)(secPerBar * 1);
 
       // 1. Draw horizontal dotted EMA 14 level line
@@ -6916,12 +6936,12 @@ void DrawMultiTF_EMA14_Lines()
          if((color)ObjectGetInteger(0, lineName, OBJPROP_COLOR) != tfCol) ObjectSetInteger(0, lineName, OBJPROP_COLOR, tfCol);
       }
 
-      // 2. Draw label at the right tip of the line
-      string valStr  = (_Digits > 2) ? StringFormat("%.1f", val) : StringFormat("%.2f", val);
-      string icon    = InpUseTF_Colors_EMA14 ? g_EMA14_Icons[i] : "🟣";
+      // 2. Draw label strictly attached at the right tip of the line (Exact 100% true price, zero vertical displacement)
+      string valStr  = DoubleToString(val, _Digits);
+      string icon    = InpUseTF_Colors_EMA14 ? g_EMA14_Icons[i] : "●";
       string expText = StringFormat(" %s EMA 14 [%s]: %s ", icon, g_EMA14_Tags[i], valStr);
 
-      double lblVal = ResolveRightChartLabelPrice(val, 0);
+      double lblVal  = val; // Fixed directly to the dotted line price — eliminates Y-scale price inversion!
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_TEXT, 0, tLbl, lblVal);
@@ -7984,7 +8004,7 @@ void RenderDashboard()
    int pParen = StringFind(assetClean, "(");
    if(pParen > 0) assetClean = StringSubstr(assetClean, 0, pParen);
    StringTrimRight(assetClean);
-   string titleStr = "DeungDang_Trade V2.26 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
+   string titleStr = "DeungDang_Trade V2.27 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
    CreateLabel(GUI_PREFIX + "L_TITLE", baseX + 14, baseY + 6, titleStr, clrGold, 9, true);
    CreateLabel(GUI_PREFIX + "L_SUBTITLE", baseX + 14, baseY + 21, "กำนันบอล + อ.เดช CF M1 (1:3R) + พี่ชนัฐ + SAMURAI MTF 36 แท่ง", C'140,165,195', 7, false);
 
