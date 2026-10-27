@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.27"
-#property description "DeungDang_Trade V2.27 - Exact EMA14 Line Anchor, Zero-Distortion Label Alignment & 2-Card Master HUD"
+#property version     "2.28"
+#property description "DeungDang_Trade V2.28 - Deep 80-Bar Order Block Radar, Confluence Support & Clear 1:3R Reward Tags"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -2834,11 +2834,11 @@ void ScanDemandSupplyZones(const MqlRates &rates[], int total)
 
       MqlRates mtfRates[];
       ArraySetAsSeries(mtfRates, true);
-      int copied = CopyRates(_Symbol, tfs[t], 0, 30, mtfRates);
+      int copied = CopyRates(_Symbol, tfs[t], 0, 100, mtfRates);
       if(copied < 10)
          continue;
 
-      int maxScan = MathMin(20, copied - 3);
+      int maxScan = MathMin(80, copied - 3);
 
       // 1. Bullish Demand Order Block (Natural Candle Range)
       for(int i = 2; i < maxScan; i++)
@@ -2882,7 +2882,7 @@ void ScanDemandSupplyZones(const MqlRates &rates[], int total)
                }
             }
 
-            if(!merged && g_ZoneCount < 40)
+            if(!merged && g_ZoneCount < 60)
             {
                int z = g_ZoneCount++;
                g_Zones[z].time         = mtfRates[i].time;
@@ -2943,7 +2943,7 @@ void ScanDemandSupplyZones(const MqlRates &rates[], int total)
                }
             }
 
-            if(!merged && g_ZoneCount < 40)
+            if(!merged && g_ZoneCount < 60)
             {
                int z = g_ZoneCount++;
                g_Zones[z].time         = mtfRates[i].time;
@@ -5444,6 +5444,27 @@ void DrawDTD_M1_Visuals()
          ObjectSetDouble(0, boxTP, OBJPROP_PRICE, 0, tpTop);
          ObjectSetInteger(0, boxTP, OBJPROP_TIME, 1, bEnd);
          ObjectSetDouble(0, boxTP, OBJPROP_PRICE, 1, tpBtm);
+      }
+
+      // Tag for TP Box so traders never confuse it with a Demand Zone
+      string tpTag = GUI_PREFIX + "DTD_TP_TAG";
+      double tagPrice = (g_DTD.setupSide == -1) ? tpTop : tpBtm;
+      datetime tagTime = bStart + (datetime)(PeriodSeconds() * 1);
+      if(ObjectFind(0, tpTag) < 0)
+      {
+         ObjectCreate(0, tpTag, OBJ_TEXT, 0, tagTime, tagPrice);
+         ObjectSetString(0, tpTag, OBJPROP_TEXT, " 🎯 [ โซนเป้าหมายกำไร 1:3R (REWARD ZONE) • ไม่ใช่ Demand Zone ] ");
+         ObjectSetString(0, tpTag, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetInteger(0, tpTag, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, tpTag, OBJPROP_COLOR, C'50,230,130');
+         ObjectSetInteger(0, tpTag, OBJPROP_ANCHOR, (g_DTD.setupSide == -1) ? ANCHOR_LEFT_UPPER : ANCHOR_LEFT_LOWER);
+         ObjectSetInteger(0, tpTag, OBJPROP_BACK, false);
+      }
+      else
+      {
+         ObjectSetInteger(0, tpTag, OBJPROP_TIME, tagTime);
+         ObjectSetDouble(0, tpTag, OBJPROP_PRICE, tagPrice);
+         ObjectSetInteger(0, tpTag, OBJPROP_ANCHOR, (g_DTD.setupSide == -1) ? ANCHOR_LEFT_UPPER : ANCHOR_LEFT_LOWER);
       }
 
       // เส้น & ป้าย TP 1R (1:1)
@@ -8004,7 +8025,7 @@ void RenderDashboard()
    int pParen = StringFind(assetClean, "(");
    if(pParen > 0) assetClean = StringSubstr(assetClean, 0, pParen);
    StringTrimRight(assetClean);
-   string titleStr = "DeungDang_Trade V2.27 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
+   string titleStr = "DeungDang_Trade V2.28 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
    CreateLabel(GUI_PREFIX + "L_TITLE", baseX + 14, baseY + 6, titleStr, clrGold, 9, true);
    CreateLabel(GUI_PREFIX + "L_SUBTITLE", baseX + 14, baseY + 21, "กำนันบอล + อ.เดช CF M1 (1:3R) + พี่ชนัฐ + SAMURAI MTF 36 แท่ง", C'140,165,195', 7, false);
 
@@ -8075,6 +8096,19 @@ void RenderDashboard()
                nearSZShort = StringFormat("%s [%s] (+%s)", DoubleToString(g_Zones[z].low, _Digits), g_Zones[z].tfName, FormatMoneyOrPoints(d / _Point));
             }
          }
+      }
+   }
+
+   // If no SMC Demand Zone within range, check for CME Put Wall or SSL Support Confluence
+   if(nearDZShort == "ไม่มี")
+   {
+      if(g_CME_NearSupStrike > 0.0 && curBid > g_CME_NearSupStrike)
+      {
+         nearDZShort = StringFormat("ไม่มี (มีด่าน CME %.0f)", g_CME_NearSupStrike);
+      }
+      else if(g_LQ.ssl1.price > 0.0 && curBid > g_LQ.ssl1.price)
+      {
+         nearDZShort = StringFormat("ไม่มี (มีด่าน SSL %s)", DoubleToString(g_LQ.ssl1.price, _Digits));
       }
    }
 
