@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.28"
-#property description "DeungDang_Trade V2.28 - Deep 80-Bar Order Block Radar, Confluence Support & Clear 1:3R Reward Tags"
+#property version     "2.29"
+#property description "DeungDang_Trade V2.29 - Calibrated CME Gold Options Matrix (26/10/2569), Deep 80-Bar Zone Radar & Confluence"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -3622,212 +3622,220 @@ string FormatOI_Number(int count)
 
 //+------------------------------------------------------------------+
 //| 14.2 CME OPTIONS MATRIX & OPEN INTEREST DATA (DEC 2026 OGZ6)     |
-//| Calibrated: 21/10/2569 (33.03 DTE, Ref Futures $4,060.2)         |
+//| Calibrated: 26/10/2569 (28.50 DTE, Ref Futures $4,018.8)         |
 //+------------------------------------------------------------------+
 const SCME_Level g_CME_Levels[] = {
-   {3650.0,    0, 1533, false,  true}, // Half-Century Put 3650 (1.5k OI)
-   {3655.0,    0,  267, false, false},
-   {3660.0,    2,   61, false, false},
-   {3670.0,    1,  130, false, false},
-   {3675.0,    0,  179, false, false},
-   {3680.0,    1,   60, false, false},
-   {3685.0,    1,  407, false, false},
-   {3700.0,  145, 3538,  true, false}, // Major Put Base 3700 (3.5k OI)
-   {3710.0,    2,  156, false, false},
-   {3715.0,    0,  156, false, false},
-   {3725.0,    0,  207, false, false},
-   {3730.0,    0,  403, false, false},
-   {3735.0,    0,  171, false, false},
-   {3740.0,    0,  103, false, false},
-   {3750.0,    8, 1861, false,  true}, // Half-Century Put 3750 (1.9k OI)
-   {3760.0,    2,  146, false, false},
-   {3775.0,    2,   89, false, false},
-   {3785.0,    4,   90, false, false},
-   {3790.0,    2,  214, false, false},
-   {3800.0,   27, 2009,  true, false}, // Major Put Base 3800 (2.0k OI)
-   {3805.0,    1,  153, false, false},
-   {3810.0,    0,  118, false, false},
-   {3825.0,    1,  203, false, false},
-   {3840.0,    1,  245, false, false},
-   {3850.0,    1,  981, false,  true}, // Half-Century Put 3850
-   {3875.0,    1,  159, false, false},
-   {3895.0,    3,  286, false, false},
-   {3900.0,   41, 4299,  true, false}, // Major Put Wall 3900 (4.30k OI)
-   {3915.0,    4,  243, false, false},
-   {3925.0,    0,  450, false, false},
-   {3930.0,    1,  112, false, false},
-   {3935.0,   12,  185, false, false},
-   {3940.0,    1,  307, false, false},
-   {3950.0,    7, 3001, false,  true}, // Half-Century Put 3950 (3.0k OI)
-   {3960.0,    1,  478, false, false},
-   {3975.0,    0,  953, false, false},
-   {3980.0,    1,  267, false, false},
-   {3990.0,    4,  457, false, false},
-   {4000.0,  248, 4696,  true, false}, // MEGA Put Base 4000 (4.7k OI)
-   {4005.0,    6,  202, false, false},
-   {4015.0,    1,   78, false, false},
-   {4025.0,    2, 1088, false, false},
-   {4030.0,   13,  116, false, false},
-   {4040.0,   40,  102, false, false},
-   {4050.0,  972, 1990, false,  true}, // Half-Century Put 4050 (1.99k OI)
-   {4060.0,  106,  151, false, false},
-   {4075.0,   22,  376, false, false},
-   {4080.0,  140,  598, false, false},
-   {4090.0,   44,  243, false, false},
-   {4100.0, 1566, 2350,  true, false}, // Major Put/Call Wall 4100 (2.35k Put / 1.57k Call)
-   {4110.0,  210,   77, false, false},
-   {4120.0,   42,  692, false, false},
-   {4125.0,  179,  344, false, false},
-   {4130.0,  717,  725, false, false}, // Dual Speed Bump 4130
-   {4140.0,   86,  114, false, false},
-   {4150.0,  715, 1468, false,  true}, // Half-Century Put 4150 (1.47k OI)
-   {4160.0,  165,  343, false, false},
-   {4170.0,  162,  341, false, false},
-   {4175.0, 1066,  440, false, false}, // Pivot Call/Put 4175 (1.07k Call OI)
-   {4180.0,  278,  273, false, false},
-   {4190.0,  391,  511, false, false},
-   {4200.0, 3544, 2498,  true, false}, // Heavy Pivot / Call Wall 4200 (3.54k Call / 2.50k Put)
-   {4205.0,  419,   73, false, false},
-   {4210.0,   51,  107, false, false},
-   {4215.0,  100,  227, false, false},
-   {4220.0,  246,   62, false, false},
-   {4225.0,  581,  321, false, false},
-   {4230.0,  100,  441, false, false},
-   {4235.0,   30,  123, false, false},
-   {4240.0,   73,   73, false, false},
-   {4245.0,  208,   44, false, false},
-   {4250.0, 1385, 2468, false,  true}, // Intermediate Put 4250 (2.47k Put / 1.39k Call)
-   {4255.0,  131,   38, false, false},
-   {4260.0,  327,   79, false, false},
-   {4265.0,   29,  115, false, false},
-   {4275.0,   67,  154, false, false},
-   {4280.0,  122,  176, false, false},
-   {4290.0,   98,  242, false, false},
-   {4295.0,  116,   93, false, false},
-   {4300.0, 2654, 3296,  true, false}, // Tactical Put Wall / Pivot 4300 (3.30k Put / 2.65k Call)
-   {4310.0,   63,  237, false, false},
-   {4320.0,  201,  264, false, false},
-   {4325.0,  264,  866, false, false},
-   {4330.0,  176,   46, false, false},
-   {4340.0,  103,  115, false, false},
-   {4345.0,  221,   24, false, false},
-   {4350.0, 1433,  717, false,  true}, // Intermediate Call 4350 (1.43k Call OI)
-   {4360.0,   67,   99, false, false},
-   {4365.0,   72,  243, false, false},
-   {4375.0,  529,  196, false, false},
-   {4380.0,  636,  156, false, false},
-   {4390.0,   83,  226, false, false},
-   {4395.0,  121,   30, false, false},
-   {4400.0, 2890, 1183,  true, false}, // Tactical Call Wall 4400 (2.89k Call OI)
-   {4405.0,  139,   74, false, false},
-   {4410.0,  131,   91, false, false},
-   {4415.0,  203,   11, false, false},
-   {4420.0,  558,   45, false, false},
-   {4425.0,  682,  255, false, false},
-   {4430.0,  135,  171, false, false},
-   {4435.0,   80,  164, false, false},
-   {4445.0,   50,  197, false, false},
-   {4450.0, 1549,  589, false,  true}, // Half-Century Call 4450 (1.55k OI)
-   {4455.0,  391,   47, false, false},
-   {4460.0,  220,   73, false, false},
-   {4465.0,  151,   84, false, false},
-   {4470.0,  366,  171, false, false},
-   {4475.0,  473,  223, false, false},
-   {4480.0,  159,   52, false, false},
-   {4500.0,10618, 1730,  true, false}, // MEGA Call Wall 4500 (10.6k OI)
-   {4510.0, 5061,   20,  true, false}, // Super Strike 4510 (5.06k OI)
-   {4515.0,  116,  270, false, false},
-   {4525.0,  880,  384, false, false},
-   {4530.0,   74,  334, false, false},
-   {4535.0,  110,  109, false, false},
-   {4545.0,  120,   61, false, false},
-   {4550.0, 2281,  322, false,  true}, // Half-Century Call 4550 (2.28k OI)
-   {4560.0,  606,   11, false, false},
-   {4575.0,  309,  221, false, false},
-   {4580.0,  290,  179, false, false},
-   {4585.0,  315,  351, false, false},
-   {4590.0,  117,   13, false, false},
-   {4600.0, 7103,  971,  true, false}, // Major Call Wall 4600 (7.10k OI)
-   {4610.0,   75,   22, false, false},
-   {4620.0,  100,   62, false, false},
-   {4625.0,  552,   59, false, false},
-   {4630.0,  159,    4, false, false},
-   {4640.0,  211,  120, false, false},
-   {4650.0, 1519,  235, false,  true}, // Half-Century Call 4650 (1.52k OI)
-   {4660.0,  284,  122, false, false},
-   {4675.0,  358,   16, false, false},
-   {4680.0,  202,   64, false, false},
-   {4690.0,  272,  146, false, false},
-   {4695.0,  326,   33, false, false},
-   {4700.0, 6149,  682,  true, false}, // Major Call Wall 4700 (6.15k OI)
-   {4705.0,  153,   17, false, false},
-   {4715.0,  118,   12, false, false},
-   {4720.0,  147,   15, false, false},
-   {4725.0, 9564,  142,  true, false}, // Super Cluster 4725 (9.56k OI)
-   {4730.0,  147,    8, false, false},
-   {4750.0, 3802,   74, false,  true}, // Half-Century Call 4750 (3.80k OI)
-   {4760.0,  163,   25, false, false},
-   {4775.0,  320,    6, false, false},
-   {4790.0,  243,   73, false, false},
-   {4795.0,  147,    1, false, false},
-   {4800.0, 9045,  362,  true, false}, // Super Cluster 4800 (9.05k OI)
-   {4820.0,  210,   24, false, false},
-   {4825.0,  264,  114, false, false},
-   {4835.0,  169,  126, false, false},
-   {4840.0,  174,    0, false, false},
-   {4850.0, 3324,   15, false,  true}, // Half-Century Call 4850 (3.32k OI)
-   {4855.0,  138,    3, false, false},
-   {4875.0,  233,   16, false, false},
-   {4880.0,  313,   11, false, false},
-   {4895.0,  255,    2, false, false},
-   {4900.0, 5411,  110,  true, false}, // Major Call Wall 4900 (5.41k OI)
-   {4910.0, 2042,    0, false, false},
-   {4920.0,  143,    4, false, false},
-   {4925.0,  426,  240, false, false},
-   {4950.0,  661,   25, false,  true}, // Half-Century Call 4950
-   {4960.0,  162,    0, false, false},
-   {4965.0,  142,    1, false, false},
-   {4970.0,  198,    1, false, false},
-   {4990.0,  509,    2, false, false},
-   {5000.0,12332,  554,  true, false}, // MONSTER Call Wall 5000 (12.3k OI)
-   {5020.0,  101,   10, false, false},
-   {5025.0,  457,  217, false, false},
-   {5030.0,  119,    3, false, false},
-   {5050.0,  751,  201, false,  true}, // Half-Century Call 5050
-   {5075.0,  135,  100, false, false},
-   {5100.0, 3653,   28,  true, false}, // Major Call Wall 5100 (3.65k OI)
-   {5115.0,  114,    0, false, false},
-   {5120.0,  130,    0, false, false},
-   {5135.0,  136,    0, false, false},
-   {5150.0,  926,    0, false,  true}, // Half-Century Call 5150
-   {5175.0,  231,    0, false, false},
-   {5200.0, 2664,  138,  true, false}, // Major Call Wall 5200
-   {5210.0,  148,    0, false, false},
-   {5215.0,  120,    0, false, false},
-   {5220.0,  111,    0, false, false},
-   {5225.0, 9411,    0,  true, false}, // Super Cluster 5225 (9.4k OI)
-   {5250.0, 1859,   35, false,  true}, // Half-Century Call 5250
-   {5300.0, 2375,    3,  true, false}, // Major Call Wall 5300
-   {5350.0,  901,    0, false,  true}, // Half-Century Call 5350
-   {5360.0,  119,   60, false, false},
-   {5390.0,  214,    0, false, false},
-   {5400.0, 4202,   61,  true, false}, // Major Call Wall 5400
-   {5425.0,  269,    0, false, false},
-   {5450.0,  442,    0, false,  true}, // Half-Century Call 5450
-   {5475.0,  588,    0, false, false},
-   {5480.0,   98,   25, false, false},
-   {5495.0,  100,    0, false, false},
-   {5500.0,17102,    0,  true, false}, // COLOSSAL Call Wall 5500 (17.1k OI)
-   {5525.0,  129,    1, false, false},
-   {5550.0,  447,    0, false,  true}, // Half-Century Call 5550
-   {5570.0,  257,    0, false, false},
-   {5600.0, 3068,    0,  true, false}, // Major Call Wall 5600
-   {5650.0,  352,    0, false,  true}, // Half-Century Call 5650
-   {5670.0,  161,    0, false, false},
-   {5700.0,  865,    0,  true, false}, // Major Call Wall 5700
-   {5800.0, 2178,    0,  true, false}, // Extended Call Wall 5800
-   {5900.0, 1090,    0,  true, false}, // Extended Call Wall 5900
-   {6000.0,14976,    0,  true, false}  // MONSTER Call Wall 6000 (15.0k OI)
+   {3650.0,     0,  1558, false,  true}, // Half-Century Put 3650 (1.56k OI)
+   {3655.0,     0,   240, false, false},
+   {3660.0,     2,    61, false, false},
+   {3670.0,     1,    94, false, false},
+   {3675.0,     0,   164, false, false},
+   {3680.0,     1,    70, false, false},
+   {3685.0,     1,   409, false, false},
+   {3700.0,   145,  4871,  true, false}, // Major Put Wall 3700 (4.87k OI)
+   {3710.0,     2,   167, false, false},
+   {3715.0,     0,   174, false, false},
+   {3725.0,     1,   232, false, false},
+   {3730.0,     0,   403, false, false},
+   {3735.0,     0,   183, false, false},
+   {3740.0,     0,    80, false, false},
+   {3750.0,     0,  1820, false,  true}, // Half-Century Put 3750 (1.82k OI)
+   {3760.0,     2,   149, false, false},
+   {3775.0,     2,    82, false, false},
+   {3785.0,     4,    97, false, false},
+   {3790.0,     2,   212, false, false},
+   {3800.0,    27,  2850,  true, false}, // Major Put Wall 3800 (2.85k OI)
+   {3805.0,     4,   146, false, false},
+   {3810.0,     0,   125, false, false},
+   {3825.0,     1,   235, false, false},
+   {3840.0,     1,   244, false, false},
+   {3850.0,     2,  1405, false,  true}, // Half-Century Level 3850
+   {3875.0,     0,   178, false, false},
+   {3895.0,     3,   188, false, false},
+   {3900.0,    75,  5473,  true, false}, // Major Put Wall 3900 (5.47k OI)
+   {3915.0,     7,   274, false, false},
+   {3925.0,    13,   452, false, false},
+   {3930.0,     1,   142, false, false},
+   {3935.0,    17,   166, false, false},
+   {3940.0,     7,   279, false, false},
+   {3950.0,    24,  4342, false,  true}, // Half-Century Put 3950 (4.34k OI)
+   {3955.0,  1065,   147, false, false},
+   {3960.0,    12,   408, false, false},
+   {3975.0,    39,   966, false, false},
+   {3980.0,     6,   261, false, false},
+   {3990.0,     7,   448, false, false},
+   {4000.0,   301,  5150,  true, false}, // Major Put Wall 4000 (5.15k OI)
+   {4005.0,     7,   202, false, false},
+   {4015.0,    15,    86, false, false},
+   {4025.0,    45,  1143, false, false},
+   {4030.0,    46,   134, false, false},
+   {4040.0,   285,   128, false, false},
+   {4050.0,  1026,  2418, false,  true}, // Half-Century Put 4050 (2.42k OI)
+   {4060.0,   153,   187, false, false},
+   {4075.0,    76,   377, false, false},
+   {4080.0,   428,   595, false, false},
+   {4090.0,    55,   246, false, false},
+   {4100.0,  1696,  2238,  true, false}, // Major Put Wall 4100 (2.24k OI)
+   {4110.0,   228,    83, false, false},
+   {4120.0,   163,   693, false, false},
+   {4125.0,   187,   344, false, false},
+   {4130.0,   737,   723, false, false},
+   {4140.0,   118,   114, false, false},
+   {4150.0,   966,  1411, false,  true}, // Half-Century Level 4150
+   {4160.0,   188,   345, false, false},
+   {4170.0,   150,   339, false, false},
+   {4175.0,   970,   444, false, false},
+   {4180.0,   282,   213, false, false},
+   {4190.0,   396,   511, false, false},
+   {4200.0,  3853,  2362,  true, false}, // Major Call Wall 4200 (3.85k OI)
+   {4205.0,   470,    72, false, false},
+   {4210.0,    62,   106, false, false},
+   {4215.0,   118,   227, false, false},
+   {4220.0,   224,    62, false, false},
+   {4225.0,  1847,   321, false, false},
+   {4230.0,   106,   441, false, false},
+   {4235.0,    37,   120, false, false},
+   {4240.0,    94,    69, false, false},
+   {4245.0,   210,    44, false, false},
+   {4250.0,  1638,  2467, false,  true}, // Half-Century Put 4250 (2.47k OI)
+   {4255.0,   132,    38, false, false},
+   {4260.0,   445,    78, false, false},
+   {4265.0,    49,   129, false, false},
+   {4275.0,    93,   149, false, false},
+   {4280.0,   142,   178, false, false},
+   {4290.0,   195,   239, false, false},
+   {4295.0,   109,    93, false, false},
+   {4300.0,  3659,  3298,  true, false}, // Major Pivot Wall 4300 (3.66k Call / 3.30k Put)
+   {4310.0,    69,   236, false, false},
+   {4320.0,   211,   264, false, false},
+   {4325.0,   298,   866, false, false},
+   {4330.0,   182,    46, false, false},
+   {4340.0,   138,   115, false, false},
+   {4345.0,   229,    23, false, false},
+   {4350.0,  1771,   717, false,  true}, // Half-Century Call 4350 (1.77k OI)
+   {4360.0,    73,    99, false, false},
+   {4365.0,   139,   243, false, false},
+   {4375.0,   536,   196, false, false},
+   {4380.0,   635,   156, false, false},
+   {4390.0,   100,   245, false, false},
+   {4395.0,   122,    30, false, false},
+   {4400.0,  3980,  1182,  true, false}, // Major Call Wall 4400 (3.98k OI)
+   {4405.0,   198,    74, false, false},
+   {4410.0,   132,    91, false, false},
+   {4415.0,   199,    11, false, false},
+   {4420.0,  1048,    45, false, false},
+   {4425.0,   728,   255, false, false},
+   {4430.0,   135,   171, false, false},
+   {4435.0,    89,   164, false, false},
+   {4445.0,    79,   200, false, false},
+   {4450.0,  1485,   588, false,  true}, // Half-Century Level 4450
+   {4455.0,   390,    47, false, false},
+   {4460.0,   369,    73, false, false},
+   {4465.0,   160,    84, false, false},
+   {4470.0,   358,   171, false, false},
+   {4475.0,   476,   223, false, false},
+   {4480.0,   167,    52, false, false},
+   {4500.0, 10493,  1739,  true, false}, // MONSTER Call Wall 4500 (10.5k OI)
+   {4510.0,  5069,    20,  true, false}, // Super Cluster 4510 (5.07k Call OI)
+   {4515.0,   113,   271, false, false},
+   {4525.0,   737,   384, false, false},
+   {4530.0,    71,   334, false, false},
+   {4535.0,   115,   109, false, false},
+   {4545.0,   120,    61, false, false},
+   {4550.0,  2549,   321, false,  true}, // Half-Century Call 4550 (2.55k OI)
+   {4560.0,   596,    11, false, false},
+   {4575.0,   310,   221, false, false},
+   {4580.0,   349,   179, false, false},
+   {4585.0,   314,   351, false, false},
+   {4590.0,   118,    13, false, false},
+   {4600.0,  6825,   973,  true, false}, // Major Call Wall 4600 (6.83k OI)
+   {4610.0,    75,    22, false, false},
+   {4620.0,   108,    62, false, false},
+   {4625.0,   543,    59, false, false},
+   {4630.0,   159,     4, false, false},
+   {4640.0,   206,   120, false, false},
+   {4650.0,  1594,   235, false,  true}, // Half-Century Call 4650 (1.59k OI)
+   {4660.0,   283,   122, false, false},
+   {4675.0,   350,    16, false, false},
+   {4680.0,   202,    64, false, false},
+   {4690.0,   273,   145, false, false},
+   {4695.0,   325,    33, false, false},
+   {4700.0,  6058,   682,  true, false}, // Major Call Wall 4700 (6.06k OI)
+   {4705.0,   152,    17, false, false},
+   {4715.0,   117,    12, false, false},
+   {4720.0,   144,    15, false, false},
+   {4725.0,  9561,   142,  true, false}, // Super Cluster 4725 (9.56k Call OI)
+   {4730.0,   147,     8, false, false},
+   {4750.0,  3786,    71, false,  true}, // Half-Century Call 4750 (3.79k OI)
+   {4760.0,   164,    25, false, false},
+   {4775.0,   320,     6, false, false},
+   {4790.0,   242,    73, false, false},
+   {4795.0,   144,     1, false, false},
+   {4800.0,  8848,   361,  true, false}, // Major Call Wall 4800 (8.85k OI)
+   {4820.0,   210,    24, false, false},
+   {4825.0,   263,   114, false, false},
+   {4835.0,   169,   126, false, false},
+   {4840.0,   175,     0, false, false},
+   {4850.0,  3326,    14, false,  true}, // Half-Century Call 4850 (3.33k OI)
+   {4855.0,   138,     3, false, false},
+   {4875.0,   233,    16, false, false},
+   {4880.0,   313,    11, false, false},
+   {4895.0,   243,     2, false, false},
+   {4900.0,  5383,   115,  true, false}, // Major Call Wall 4900 (5.38k OI)
+   {4910.0,  2042,     0, false, false},
+   {4920.0,   142,     4, false, false},
+   {4925.0,   426,   240, false, false},
+   {4950.0,   645,    25, false,  true}, // Half-Century Level 4950
+   {4960.0,   162,     0, false, false},
+   {4965.0,   142,     0, false, false},
+   {4970.0,   200,     1, false, false},
+   {4990.0,   509,     2, false, false},
+   {4995.0,   535,    32, false, false},
+   {5000.0, 12255,   531,  true, false}, // MONSTER Call Wall 5000 (12.3k OI)
+   {5005.0,   516,     0, false, false},
+   {5020.0,   102,    10, false, false},
+   {5025.0,   457,   217, false, false},
+   {5030.0,   119,     3, false, false},
+   {5050.0,   751,   201, false,  true}, // Half-Century Level 5050
+   {5075.0,   145,   100, false, false},
+   {5100.0,  3643,    16,  true, false}, // Major Call Wall 5100 (3.64k OI)
+   {5115.0,   114,     0, false, false},
+   {5120.0,   130,     0, false, false},
+   {5135.0,   136,     0, false, false},
+   {5150.0,   935,     0, false,  true}, // Half-Century Level 5150
+   {5175.0,   231,     0, false, false},
+   {5195.0,   537,     5, false, false},
+   {5200.0,  2657,     1,  true, false}, // Major Call Wall 5200 (2.66k OI)
+   {5205.0,   504,     0, false, false},
+   {5210.0,   148,     0, false, false},
+   {5215.0,   120,     0, false, false},
+   {5220.0,   111,     0, false, false},
+   {5225.0,  9411,     0,  true, false}, // Super Cluster 5225 (9.41k Call OI)
+   {5250.0,  1847,     0, false,  true}, // Half-Century Call 5250 (1.85k OI)
+   {5300.0,  2365,     0,  true, false}, // Major Call Wall 5300 (2.37k OI)
+   {5350.0,   901,     0, false,  true}, // Half-Century Level 5350
+   {5360.0,   119,     0, false, false},
+   {5390.0,   214,     0, false, false},
+   {5400.0,  4232,     1,  true, false}, // Major Call Wall 5400 (4.23k OI)
+   {5425.0,   269,     0, false, false},
+   {5450.0,   392,     0, false,  true}, // Half-Century Level 5450
+   {5475.0,   588,     0, false, false},
+   {5480.0,    98,     0, false, false},
+   {5495.0,   100,     0, false, false},
+   {5500.0, 16933,     0,  true, false}, // MONSTER Call Wall 5500 (16.9k OI)
+   {5525.0,   129,     0, false, false},
+   {5550.0,   472,     0, false,  true}, // Half-Century Level 5550
+   {5570.0,   257,     0, false, false},
+   {5600.0,  3070,     0,  true, false}, // Major Call Wall 5600 (3.07k OI)
+   {5650.0,   347,     0, false,  true}, // Half-Century Level 5650
+   {5670.0,   161,     0, false, false},
+   {5700.0,   865,     0,  true, false}, // Major Strike 5700
+   {5750.0,   532,     0, false,  true}, // Half-Century Level 5750
+   {5800.0,  2179,     0,  true, false}, // Major Call Wall 5800 (2.18k OI)
+   {5850.0,   140,     0, false,  true}, // Half-Century Level 5850
+   {5900.0,  1063,     0,  true, false}, // Major Strike 5900
+   {5950.0,   202,     0, false,  true}, // Half-Century Level 5950
+   {6000.0, 14961,     0,  true, false} // MONSTER Call Wall 6000 (15.0k OI)
 };
 
 
