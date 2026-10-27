@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.29"
-#property description "DeungDang_Trade V2.29 - Calibrated CME Gold Options Matrix (26/10/2569), Deep 80-Bar Zone Radar & Confluence"
+#property version     "2.30"
+#property description "DeungDang_Trade V2.30 - Strict Chart Focus Guard, On-Screen Viewport TP Clamping & Card 2 Sync Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -5388,17 +5388,19 @@ void DrawDTD_M1_Visuals()
    if(g_DTD.isEngulfConfirmed && g_DTD.confirmEntryPrice > 0.0)
    {
       string markName = GUI_PREFIX + "DTD_MARK_ENTRY";
+      datetime tMark = (g_DTD.isLatched && g_DTD.latchedTime > 0) ? g_DTD.latchedTime : ((g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : TimeCurrent());
       if(ObjectFind(0, markName) < 0)
       {
-         ObjectCreate(0, markName, OBJ_ARROW_CHECK, 0, TimeCurrent(), g_DTD.confirmEntryPrice);
+         ObjectCreate(0, markName, OBJ_ARROW_CHECK, 0, tMark, g_DTD.confirmEntryPrice);
          ObjectSetInteger(0, markName, OBJPROP_COLOR, (g_DTD.setupSide == 1 ? C'0,255,136' : C'255,80,90'));
          ObjectSetInteger(0, markName, OBJPROP_WIDTH, 2);
          ObjectSetInteger(0, markName, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_TOP : ANCHOR_BOTTOM));
       }
       else
       {
-         ObjectSetInteger(0, markName, OBJPROP_TIME, 0, TimeCurrent());
+         ObjectSetInteger(0, markName, OBJPROP_TIME, 0, tMark);
          ObjectSetDouble(0, markName, OBJPROP_PRICE, 0, g_DTD.confirmEntryPrice);
+         ObjectSetInteger(0, markName, OBJPROP_COLOR, (g_DTD.setupSide == 1 ? C'0,255,136' : C'255,80,90'));
       }
    }
    else
@@ -5456,8 +5458,8 @@ void DrawDTD_M1_Visuals()
 
       // Tag for TP Box so traders never confuse it with a Demand Zone
       string tpTag = GUI_PREFIX + "DTD_TP_TAG";
-      double tagPrice = (g_DTD.setupSide == -1) ? tpTop : tpBtm;
-      datetime tagTime = bStart + (datetime)(PeriodSeconds() * 1);
+      double tagPrice = (tpTop + tpBtm) * 0.50; // วางไว้กึ่งกลางกล่องเขียวเสมอ ป้องกันการทับซ้อนกับราคาเข้า!
+      datetime tagTime = bStart + (datetime)(tfSec * 1);
       if(ObjectFind(0, tpTag) < 0)
       {
          ObjectCreate(0, tpTag, OBJ_TEXT, 0, tagTime, tagPrice);
@@ -5563,6 +5565,12 @@ void DrawDTD_M1_Visuals()
          }
       }
 
+      // ตรวจสอบระดับขอบจอเพื่อทำ Viewport On-Screen Clamping ให้ป้าย TP ไม่ลอยหลุดนอกจอ
+      double chartPMax = 0.0, chartPMin = 0.0;
+      ChartGetDouble(0, CHART_PRICE_MAX, 0, chartPMax);
+      ChartGetDouble(0, CHART_PRICE_MIN, 0, chartPMin);
+      double vpSep = GetChartMinLabelSepPrice();
+
       // เส้น & ป้าย TP 3R (1:3 เป้าหลักอาจารย์เดช)
       string lineTP3 = GUI_PREFIX + "DTD_LINE_TP3R";
       if(ObjectFind(0, lineTP3) < 0)
@@ -5584,7 +5592,21 @@ void DrawDTD_M1_Visuals()
       string lblTP3 = GUI_PREFIX + "DTD_LBL_TP3R";
       double tp3SetupDist = (g_DTD.tp3RDistPoints > 0.0) ? g_DTD.tp3RDistPoints : (MathAbs(g_DTD.confirmTP3RPrice - g_DTD.confirmEntryPrice) / _Point);
       double tp3LblPrice  = ResolveRightChartLabelPrice(g_DTD.confirmTP3RPrice, 1);
-      string tp3Txt       = StringFormat(" 🏆 TP 3R (1:3): %s (+%s) ★เป้าหลัก ", DoubleToString(g_DTD.confirmTP3RPrice, _Digits), FormatMoneyOrPoints(tp3SetupDist));
+      string tp3PinSuffix = "★เป้าหลัก";
+
+      // On-Screen Clamping: หาก TP3 อยู่สูงกว่าขอบจอบนหรือต่ำกว่าขอบจอล่าง ให้ตรึงป้ายไว้ที่ขอบจอพร้อมลูกศรชี้เป้า
+      if(chartPMax > 0.0 && g_DTD.setupSide == 1 && g_DTD.confirmTP3RPrice > chartPMax)
+      {
+         tp3LblPrice  = chartPMax - (vpSep * 0.90);
+         tp3PinSuffix = "★เป้าหลัก [อยู่เหนือจอ ▲]";
+      }
+      else if(chartPMin > 0.0 && g_DTD.setupSide == -1 && g_DTD.confirmTP3RPrice < chartPMin)
+      {
+         tp3LblPrice  = chartPMin + (vpSep * 0.90);
+         tp3PinSuffix = "★เป้าหลัก [อยู่ใต้จอ ▼]";
+      }
+
+      string tp3Txt       = StringFormat(" 🏆 TP 3R (1:3): %s (+%s) %s ", DoubleToString(g_DTD.confirmTP3RPrice, _Digits), FormatMoneyOrPoints(tp3SetupDist), tp3PinSuffix);
       if(ObjectFind(0, lblTP3) < 0)
       {
          ObjectCreate(0, lblTP3, OBJ_TEXT, 0, bEnd, tp3LblPrice);
@@ -5661,7 +5683,10 @@ void DrawDTD_M1_Visuals()
    }
 
    // 7. วาดเส้นคาดการณ์ฝั่งตรงข้าม (Dual-Directional Opposite Forecast Projection)
-   if(InpUseDualForecast && InpDrawDualForecastOnChart)
+   // กฎเหล็ก: เมื่อแผนหลักคอนเฟิร์มแล้ว (isEngulfConfirmed หรือ isLatched) ห้ามวาดเส้นฝั่งตรงข้ามบนกราฟเด็ดขาด!
+   // เพื่อป้องกันความสับสน เส้นทับซ้อน และการรบกวนสัญญาณหลัก (แผนรองจะแสดงเฉพาะข้อความบน Card 2)
+   bool allowOppChartDraw = (InpUseDualForecast && InpDrawDualForecastOnChart && !g_DTD.isEngulfConfirmed && !g_DTD.isLatched);
+   if(allowOppChartDraw)
    {
       int oppSide = (g_DTD.setupSide == 1) ? -1 : 1;
       double oppWick = (oppSide == 1) ? g_DTD.buyShortestWickPrice : g_DTD.sellShortestWickPrice;
@@ -5673,8 +5698,10 @@ void DrawDTD_M1_Visuals()
       string oppLineTP   = GUI_PREFIX + "DTD_OPP_TP3_LINE";
       string oppLblTP    = GUI_PREFIX + "DTD_OPP_TP3_LBL";
 
-      double minOppSep = (g_Asset.assetType == ASSET_CRYPTO) ? (oppWick * 0.0006) : ((g_Asset.assetType == ASSET_GOLD) ? (45.0 * _Point) : (20.0 * _Point));
-      if(oppWick > 0.0 && MathAbs(oppWick - g_DTD.shortestWickPrice) > minOppSep)
+      double minOppSep = (g_Asset.assetType == ASSET_CRYPTO) ? (oppWick * 0.0010) : ((g_Asset.assetType == ASSET_GOLD) ? (150.0 * _Point) : (50.0 * _Point));
+      double curBidPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(curBidPrice <= 0) curBidPrice = iClose(_Symbol, _Period, 0);
+      if(oppWick > 0.0 && MathAbs(oppWick - g_DTD.shortestWickPrice) > minOppSep && MathAbs(oppWick - curBidPrice) > minOppSep)
       {
          datetime tOppEnd = tEnd + (tfSec * 4);
          if(ObjectFind(0, oppLineWick) < 0)
@@ -6327,18 +6354,43 @@ void CalculateDualPriceForecast()
    g_Forecast.buyProbPct  = buyScore;
    g_Forecast.sellProbPct = sellScore;
 
-   // 2. สร้างแผนคาดการณ์ฝั่ง BUY (Bullish Forecast - คำนวณระยะ SL และ TP1..3 จากราคาเข้าที่แสดงผลตรงกัน 100%)
-   g_Forecast.buyIsReady       = g_DTD.buyEngulfConfirmed;
-   g_Forecast.buyPullbackPrice = (g_DTD.buyShortestWickPrice > 0.0) ? g_DTD.buyShortestWickPrice : curAsk;
-   g_Forecast.buyEntryPrice    = g_Forecast.buyIsReady ? ((g_DTD.buyConfirmEntryPrice > 0.0) ? g_DTD.buyConfirmEntryPrice : curAsk) : g_Forecast.buyPullbackPrice;
-   g_Forecast.buySLPrice       = (g_DTD.buyConfirmSLPrice > 0.0 && g_DTD.buyConfirmSLPrice < g_Forecast.buyEntryPrice) ? g_DTD.buyConfirmSLPrice : (g_Forecast.buyEntryPrice - g_Asset.slPoints * _Point);
-   g_Forecast.buySLDistPts     = MathMax(10.0, (g_Forecast.buyEntryPrice - g_Forecast.buySLPrice) / _Point);
-   g_Forecast.buyTP1Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP1RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP1RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * 1.0);
-   g_Forecast.buyTP2Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP2RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP2RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * 2.0);
-   g_Forecast.buyTP3Price      = g_Forecast.buyIsReady && g_DTD.buyConfirmTP3RPrice > g_Forecast.buyEntryPrice ? g_DTD.buyConfirmTP3RPrice : (g_Forecast.buyEntryPrice + g_Forecast.buySLDistPts * _Point * InpDTD_TargetRR);
+   // 2. สร้างแผนคาดการณ์ฝั่ง BUY (Bullish Forecast - เชื่อมตรงกับสถาปัตยกรรมหลัก g_DTD ซิงค์ตรงกัน 100%)
+   g_Forecast.buyIsReady = (g_DTD.buyEngulfConfirmed || (g_DTD.isLatched && g_DTD.latchedSide == 1));
+   if(g_DTD.isLatched && g_DTD.latchedSide == 1)
+   {
+      g_Forecast.buyPullbackPrice = g_DTD.latchedShortestWick;
+      g_Forecast.buyEntryPrice    = g_DTD.latchedEntryPrice;
+      g_Forecast.buySLPrice       = g_DTD.latchedSLPrice;
+      g_Forecast.buySLDistPts     = g_DTD.latchedSLDist;
+      g_Forecast.buyTP1Price      = g_DTD.latchedTP1Price;
+      g_Forecast.buyTP2Price      = g_DTD.latchedTP2Price;
+      g_Forecast.buyTP3Price      = g_DTD.latchedTP3Price;
+      g_Forecast.buyLot           = g_DTD.latchedLot;
+   }
+   else if(g_DTD.isEngulfConfirmed && g_DTD.setupSide == 1)
+   {
+      g_Forecast.buyPullbackPrice = g_DTD.shortestWickPrice;
+      g_Forecast.buyEntryPrice    = g_DTD.confirmEntryPrice;
+      g_Forecast.buySLPrice       = g_DTD.confirmSLPrice;
+      g_Forecast.buySLDistPts     = g_DTD.slDistPoints;
+      g_Forecast.buyTP1Price      = g_DTD.confirmTP1RPrice;
+      g_Forecast.buyTP2Price      = g_DTD.confirmTP2RPrice;
+      g_Forecast.buyTP3Price      = g_DTD.confirmTP3RPrice;
+      g_Forecast.buyLot           = g_DTD.recommendedLot;
+   }
+   else
+   {
+      g_Forecast.buyPullbackPrice = (g_DTD.buyShortestWickPrice > 0.0) ? g_DTD.buyShortestWickPrice : curAsk;
+      g_Forecast.buyEntryPrice    = g_Forecast.buyPullbackPrice;
+      g_Forecast.buySLPrice       = (g_DTD.buyConfirmSLPrice > 0.0 && g_DTD.buyConfirmSLPrice < g_Forecast.buyEntryPrice) ? g_DTD.buyConfirmSLPrice : (g_Forecast.buyEntryPrice - g_Asset.slPoints * _Point);
+      g_Forecast.buySLDistPts     = MathMax(10.0, (g_Forecast.buyEntryPrice - g_Forecast.buySLPrice) / _Point);
+      g_Forecast.buyTP1Price      = g_Forecast.buyEntryPrice + (g_Forecast.buySLDistPts * _Point * 1.0);
+      g_Forecast.buyTP2Price      = g_Forecast.buyEntryPrice + (g_Forecast.buySLDistPts * _Point * 2.0);
+      g_Forecast.buyTP3Price      = g_Forecast.buyEntryPrice + (g_Forecast.buySLDistPts * _Point * InpDTD_TargetRR);
+      g_Forecast.buyLot           = (g_DTD.buyRecommendedLot > 0.0) ? g_DTD.buyRecommendedLot : g_CurrentLot;
+   }
    if(g_Forecast.buyTP3Price <= g_Forecast.buyTP2Price)
       g_Forecast.buyTP3Price = g_Forecast.buyEntryPrice + (g_Forecast.buySLDistPts * _Point * InpDTD_TargetRR);
-   g_Forecast.buyLot           = (g_DTD.buyRecommendedLot > 0.0) ? g_DTD.buyRecommendedLot : g_CurrentLot;
 
    string buyStateTag = g_Forecast.buyIsReady ? "✅คอนเฟิร์ม" : "⏳รอกลืนกิน";
    string bslMagnetTag = g_LQ.bsl1.isValid ? StringFormat(" | 🧲ดูดหา BSL %s", DoubleToString(g_LQ.bsl1.price, _Digits)) : "";
@@ -6356,18 +6408,43 @@ void CalculateDualPriceForecast()
                                           DoubleToString(g_Forecast.buyTP3Price, _Digits),
                                           bslMagnetTag);
 
-   // 3. สร้างแผนคาดการณ์ฝั่ง SELL (Bearish Forecast - คำนวณระยะ SL และ TP1..3 จากราคาเข้าที่แสดงผลตรงกัน 100%)
-   g_Forecast.sellIsReady       = g_DTD.sellEngulfConfirmed;
-   g_Forecast.sellPullbackPrice = (g_DTD.sellShortestWickPrice > 0.0) ? g_DTD.sellShortestWickPrice : curBid;
-   g_Forecast.sellEntryPrice    = g_Forecast.sellIsReady ? ((g_DTD.sellConfirmEntryPrice > 0.0) ? g_DTD.sellConfirmEntryPrice : curBid) : g_Forecast.sellPullbackPrice;
-   g_Forecast.sellSLPrice       = (g_DTD.sellConfirmSLPrice > g_Forecast.sellEntryPrice) ? g_DTD.sellConfirmSLPrice : (g_Forecast.sellEntryPrice + g_Asset.slPoints * _Point);
-   g_Forecast.sellSLDistPts     = MathMax(10.0, (g_Forecast.sellSLPrice - g_Forecast.sellEntryPrice) / _Point);
-   g_Forecast.sellTP1Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP1RPrice > 0.0 && g_DTD.sellConfirmTP1RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP1RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * 1.0);
-   g_Forecast.sellTP2Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP2RPrice > 0.0 && g_DTD.sellConfirmTP2RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP2RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * 2.0);
-   g_Forecast.sellTP3Price      = g_Forecast.sellIsReady && g_DTD.sellConfirmTP3RPrice > 0.0 && g_DTD.sellConfirmTP3RPrice < g_Forecast.sellEntryPrice ? g_DTD.sellConfirmTP3RPrice : (g_Forecast.sellEntryPrice - g_Forecast.sellSLDistPts * _Point * InpDTD_TargetRR);
+   // 3. สร้างแผนคาดการณ์ฝั่ง SELL (Bearish Forecast - เชื่อมตรงกับสถาปัตยกรรมหลัก g_DTD ซิงค์ตรงกัน 100%)
+   g_Forecast.sellIsReady = (g_DTD.sellEngulfConfirmed || (g_DTD.isLatched && g_DTD.latchedSide == -1));
+   if(g_DTD.isLatched && g_DTD.latchedSide == -1)
+   {
+      g_Forecast.sellPullbackPrice = g_DTD.latchedShortestWick;
+      g_Forecast.sellEntryPrice    = g_DTD.latchedEntryPrice;
+      g_Forecast.sellSLPrice       = g_DTD.latchedSLPrice;
+      g_Forecast.sellSLDistPts     = g_DTD.latchedSLDist;
+      g_Forecast.sellTP1Price      = g_DTD.latchedTP1Price;
+      g_Forecast.sellTP2Price      = g_DTD.latchedTP2Price;
+      g_Forecast.sellTP3Price      = g_DTD.latchedTP3Price;
+      g_Forecast.sellLot           = g_DTD.latchedLot;
+   }
+   else if(g_DTD.isEngulfConfirmed && g_DTD.setupSide == -1)
+   {
+      g_Forecast.sellPullbackPrice = g_DTD.shortestWickPrice;
+      g_Forecast.sellEntryPrice    = g_DTD.confirmEntryPrice;
+      g_Forecast.sellSLPrice       = g_DTD.confirmSLPrice;
+      g_Forecast.sellSLDistPts     = g_DTD.slDistPoints;
+      g_Forecast.sellTP1Price      = g_DTD.confirmTP1RPrice;
+      g_Forecast.sellTP2Price      = g_DTD.confirmTP2RPrice;
+      g_Forecast.sellTP3Price      = g_DTD.confirmTP3RPrice;
+      g_Forecast.sellLot           = g_DTD.recommendedLot;
+   }
+   else
+   {
+      g_Forecast.sellPullbackPrice = (g_DTD.sellShortestWickPrice > 0.0) ? g_DTD.sellShortestWickPrice : curBid;
+      g_Forecast.sellEntryPrice    = g_Forecast.sellPullbackPrice;
+      g_Forecast.sellSLPrice       = (g_DTD.sellConfirmSLPrice > g_Forecast.sellEntryPrice) ? g_DTD.sellConfirmSLPrice : (g_Forecast.sellEntryPrice + g_Asset.slPoints * _Point);
+      g_Forecast.sellSLDistPts     = MathMax(10.0, (g_Forecast.sellSLPrice - g_Forecast.sellEntryPrice) / _Point);
+      g_Forecast.sellTP1Price      = g_Forecast.sellEntryPrice - (g_Forecast.sellSLDistPts * _Point * 1.0);
+      g_Forecast.sellTP2Price      = g_Forecast.sellEntryPrice - (g_Forecast.sellSLDistPts * _Point * 2.0);
+      g_Forecast.sellTP3Price      = g_Forecast.sellEntryPrice - (g_Forecast.sellSLDistPts * _Point * InpDTD_TargetRR);
+      g_Forecast.sellLot           = (g_DTD.sellRecommendedLot > 0.0) ? g_DTD.sellRecommendedLot : g_CurrentLot;
+   }
    if(g_Forecast.sellTP3Price >= g_Forecast.sellTP2Price)
       g_Forecast.sellTP3Price = g_Forecast.sellEntryPrice - (g_Forecast.sellSLDistPts * _Point * InpDTD_TargetRR);
-   g_Forecast.sellLot           = (g_DTD.sellRecommendedLot > 0.0) ? g_DTD.sellRecommendedLot : g_CurrentLot;
 
    string sellStateTag = g_Forecast.sellIsReady ? "✅คอนเฟิร์ม" : "⏳รอกลืนกิน";
    string sslMagnetTag = g_LQ.ssl1.isValid ? StringFormat(" | 🧲ดูดหา SSL %s", DoubleToString(g_LQ.ssl1.price, _Digits)) : "";
