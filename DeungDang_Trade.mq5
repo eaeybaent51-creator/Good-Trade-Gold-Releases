@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.32"
-#property description "DeungDang_Trade V2.32 - Ajarn Dech High-Contrast White Structure Radar (Up/Down), Universal Multi-TF & 3R Confluence Suite"
+#property version     "2.33"
+#property description "DeungDang_Trade V2.33 - Ajarn Dech High-Contrast White Structure Radar (Up/Down), Universal Multi-TF & 3R Confluence Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -21,7 +21,7 @@
 //| MACROS & ENUMS                                                   |
 //+------------------------------------------------------------------+
 #define GUI_PREFIX "DT_"
-#define APP_VERSION "2.32"
+#define APP_VERSION "2.33"
 
 enum ENUM_ASSET_CLASS
 {
@@ -5337,6 +5337,10 @@ void ScanDTD_CF_M1()
 //+------------------------------------------------------------------+
 void DrawDTD_M1_Visuals()
 {
+   // ลบป้ายซ้ำซ้อนเดิมที่เคยสร้างความสับสนออกถาวร
+   ObjectDelete(0, GUI_PREFIX + "DTD_LBL_UP_START");
+   ObjectDelete(0, GUI_PREFIX + "DTD_LBL_DN_START");
+
    if(!InpUseDTD_CF_M1 || !InpDrawDTD_M1_Visuals || g_DTD.shortestWickPrice <= 0.0)
    {
       ObjectDelete(0, GUI_PREFIX + "DTD_LINE_UP");
@@ -5407,33 +5411,10 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lineUp, OBJPROP_BACK, false);
       }
 
-      // ป้ายบอกจุดกำเนิด "▲ ขึ้น [TF]" สีขาว หนา คมชัด
-      string lblUpStart = GUI_PREFIX + "DTD_LBL_UP_START";
-      string txtUpStart = "▲ ขึ้น" + tfTag;
-      if(ObjectFind(0, lblUpStart) < 0)
-      {
-         ObjectCreate(0, lblUpStart, OBJ_TEXT, 0, tUpStart, g_DTD.m1SwingHighPrice);
-         ObjectSetString(0, lblUpStart, OBJPROP_TEXT, txtUpStart);
-         ObjectSetString(0, lblUpStart, OBJPROP_FONT, "Segoe UI Black");
-         ObjectSetInteger(0, lblUpStart, OBJPROP_FONTSIZE, 9);
-         ObjectSetInteger(0, lblUpStart, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, lblUpStart, OBJPROP_ANCHOR, ANCHOR_LOWER);
-         ObjectSetInteger(0, lblUpStart, OBJPROP_BACK, false);
-      }
-      else
-      {
-         ObjectSetInteger(0, lblUpStart, OBJPROP_TIME, 0, tUpStart);
-         ObjectSetDouble(0, lblUpStart, OBJPROP_PRICE, 0, g_DTD.m1SwingHighPrice);
-         ObjectSetString(0, lblUpStart, OBJPROP_TEXT, txtUpStart);
-         ObjectSetInteger(0, lblUpStart, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, lblUpStart, OBJPROP_ANCHOR, ANCHOR_LOWER);
-         ObjectSetString(0, lblUpStart, OBJPROP_FONT, "Segoe UI Black");
-      }
-
-      // ป้ายขอบขวาพร้อมราคา "ขึ้น [TF] (ราคา)" สีขาว
+      // ป้ายขอบขวาจุดเดียวจบ "▲ ขึ้น [TF] (ราคา)" สีขาว ลอยเด่นเหนือเส้น ป้องกันการซ้อนทับ 100%
       string lblUp = GUI_PREFIX + "DTD_LBL_UP";
-      string txtUp = StringFormat("ขึ้น%s (%s)", tfTag, DoubleToString(g_DTD.m1SwingHighPrice, _Digits));
-      datetime tUpLbl = tEnd - (tfSec * 2);
+      string txtUp = StringFormat("▲ ขึ้น%s (%s)", tfTag, DoubleToString(g_DTD.m1SwingHighPrice, _Digits));
+      datetime tUpLbl = tEnd;
       if(ObjectFind(0, lblUp) < 0)
       {
          ObjectCreate(0, lblUp, OBJ_TEXT, 0, tUpLbl, g_DTD.m1SwingHighPrice);
@@ -5452,6 +5433,7 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
          ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, lblUp, OBJPROP_BACK, false);
       }
    }
    else
@@ -5486,33 +5468,10 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lineDn, OBJPROP_BACK, false);
       }
 
-      // ป้ายบอกจุดกำเนิด "▼ ลง [TF]" สีขาว หนา คมชัด
-      string lblDnStart = GUI_PREFIX + "DTD_LBL_DN_START";
-      string txtDnStart = "▼ ลง" + tfTag;
-      if(ObjectFind(0, lblDnStart) < 0)
-      {
-         ObjectCreate(0, lblDnStart, OBJ_TEXT, 0, tDnStart, g_DTD.m1SwingLowPrice);
-         ObjectSetString(0, lblDnStart, OBJPROP_TEXT, txtDnStart);
-         ObjectSetString(0, lblDnStart, OBJPROP_FONT, "Segoe UI Black");
-         ObjectSetInteger(0, lblDnStart, OBJPROP_FONTSIZE, 9);
-         ObjectSetInteger(0, lblDnStart, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, lblDnStart, OBJPROP_ANCHOR, ANCHOR_UPPER);
-         ObjectSetInteger(0, lblDnStart, OBJPROP_BACK, false);
-      }
-      else
-      {
-         ObjectSetInteger(0, lblDnStart, OBJPROP_TIME, 0, tDnStart);
-         ObjectSetDouble(0, lblDnStart, OBJPROP_PRICE, 0, g_DTD.m1SwingLowPrice);
-         ObjectSetString(0, lblDnStart, OBJPROP_TEXT, txtDnStart);
-         ObjectSetInteger(0, lblDnStart, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, lblDnStart, OBJPROP_ANCHOR, ANCHOR_UPPER);
-         ObjectSetString(0, lblDnStart, OBJPROP_FONT, "Segoe UI Black");
-      }
-
-      // ป้ายขอบขวาพร้อมราคา "ลง [TF] (ราคา)" สีขาว
+      // ป้ายขอบขวาจุดเดียวจบ "▼ ลง [TF] (ราคา)" สีขาว ลอยเด่นใต้เส้น ป้องกันการซ้อนทับ 100%
       string lblDn = GUI_PREFIX + "DTD_LBL_DOWN";
-      string txtDn = StringFormat("ลง%s (%s)", tfTag, DoubleToString(g_DTD.m1SwingLowPrice, _Digits));
-      datetime tDnLbl = tEnd - (tfSec * 2);
+      string txtDn = StringFormat("▼ ลง%s (%s)", tfTag, DoubleToString(g_DTD.m1SwingLowPrice, _Digits));
+      datetime tDnLbl = tEnd;
       if(ObjectFind(0, lblDn) < 0)
       {
          ObjectCreate(0, lblDn, OBJ_TEXT, 0, tDnLbl, g_DTD.m1SwingLowPrice);
@@ -5531,6 +5490,7 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
          ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
          ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, lblDn, OBJPROP_BACK, false);
       }
    }
    else
