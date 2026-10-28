@@ -1,12 +1,12 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                           DTD_Multiverse_EA.mq5 |
 //|          ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD |
 //|               ระบบฝึกเทรดวิเคราะห์โครงสร้างตลาดและค็อกพิทมือถือ |
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.07"
-#property description "DTD Multiverse V1.06 - True 1R:3R Setup Distances, Background Trendlines & Clean Cockpit"
+#property version     "1.08"
+#property description "DTD Multiverse V1.08 - True 1R:3R Setup Distances, Background Trendlines & Clean Cockpit"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -26,8 +26,8 @@ input ENUM_TIMEFRAMES InpMTF                 = PERIOD_M15;       // 🏛️ ไ�
 input ENUM_TIMEFRAMES InpLTF                 = PERIOD_CURRENT;   // 🎯 ไทม์เฟรมวิเคราะห์โครงสร้าง (PERIOD_CURRENT = ใช้ได้ทุก TF อัตโนมัติ!)
 input int             InpSwingLookback       = 15;               // 🔍 จำนวนแท่งตรวจจับจุดสวิง High / Low
 input bool            InpShowThaiStructText  = true;             // 🏷️ แสดงป้ายโครงสร้างภาษาไทย ("ขึ้น" / "ลง")
-input color           InpColorBullBreak      = C'0,255,136';     // 🟢 สีโครงสร้าง "ขึ้น" (Bullish BOS/CHoCH)
-input color           InpColorBearBreak      = C'255,80,90';     // 🔴 สีโครงสร้าง "ลง" (Bearish BOS/CHoCH)
+input color           InpColorBullBreak      = clrWhite;             // 🟢 สีโครงสร้าง "ขึ้น" (Bullish BOS/CHoCH)
+input color           InpColorBearBreak      = clrWhite;             // 🔴 สีโครงสร้าง "ลง" (Bearish BOS/CHoCH)
 
 input group "=== [ 2. โซนคุณภาพ POI & ดักจับ LIQUIDITY SWEEP ] ==="
 input bool            InpDrawPOI_Zones       = true;             // 🏛️ แสดงกล่องโซนคุณภาพ POI BUY & POI SELL
@@ -1410,7 +1410,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineUp, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineUp, OBJPROP_WIDTH, 2);
             ObjectSetInteger(0, lineUp, OBJPROP_RAY_RIGHT, false);
-            ObjectSetInteger(0, lineUp, OBJPROP_BACK, true);
+            ObjectSetInteger(0, lineUp, OBJPROP_BACK, false);
          }
          else
          {
@@ -1419,7 +1419,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineUp, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineUp, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingHighPrice);
             ObjectSetInteger(0, lineUp, OBJPROP_COLOR, InpColorBullBreak);
-            ObjectSetInteger(0, lineUp, OBJPROP_BACK, true);
+            ObjectSetInteger(0, lineUp, OBJPROP_BACK, false);
          }
 
          string lblUp = DTD_PREFIX + "M1_LBL_UP";
@@ -1458,7 +1458,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineDn, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineDn, OBJPROP_WIDTH, 2);
             ObjectSetInteger(0, lineDn, OBJPROP_RAY_RIGHT, false);
-            ObjectSetInteger(0, lineDn, OBJPROP_BACK, true);
+            ObjectSetInteger(0, lineDn, OBJPROP_BACK, false);
          }
          else
          {
@@ -1467,7 +1467,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lineDn, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineDn, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingLowPrice);
             ObjectSetInteger(0, lineDn, OBJPROP_COLOR, InpColorBearBreak);
-            ObjectSetInteger(0, lineDn, OBJPROP_BACK, true);
+            ObjectSetInteger(0, lineDn, OBJPROP_BACK, false);
          }
 
          string lblDn = DTD_PREFIX + "M1_LBL_DOWN";
