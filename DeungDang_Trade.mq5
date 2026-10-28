@@ -1,4 +1,4 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                            DeungDang_Trade.mq5   |
 //|                    Good Trade Gold & Kamnan Ball Trading Suite   |
 //|               Visual Training Co-Pilot & Manual Precision Radar  |
@@ -8110,7 +8110,7 @@ void RenderDashboard()
    int pParen = StringFind(assetClean, "(");
    if(pParen > 0) assetClean = StringSubstr(assetClean, 0, pParen);
    StringTrimRight(assetClean);
-   string titleStr = "DeungDang_Trade V2.28 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
+   string titleStr = "DeungDang_Trade V2.30 ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
    CreateLabel(GUI_PREFIX + "L_TITLE", baseX + 14, baseY + 6, titleStr, clrGold, 9, true);
    CreateLabel(GUI_PREFIX + "L_SUBTITLE", baseX + 14, baseY + 21, "กำนันบอล + อ.เดช CF M1 (1:3R) + พี่ชนัฐ + SAMURAI MTF 36 แท่ง", C'140,165,195', 7, false);
 
