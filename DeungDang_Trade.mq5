@@ -8380,7 +8380,8 @@ void RenderDashboard()
    StringTrimRight(assetClean);
    string titleStr = "DeungDang_Trade V" + APP_VERSION + " ● " + _Symbol + " [" + GetCleanTFName((ENUM_TIMEFRAMES)_Period) + "] - " + assetClean;
    CreateLabel(GUI_PREFIX + "L_TITLE", baseX + 14, baseY + 6, titleStr, clrGold, 9, true);
-   CreateLabel(GUI_PREFIX + "L_SUBTITLE", baseX + 14, baseY + 21, "กำนันบอล + อ.เดช CF M1 (1:3R) + พี่ชนัฐ + SAMURAI MTF 36 แท่ง", C'140,165,195', 7, false);
+   string dtdSub = StringFormat("กำนันบอล + อ.เดช CF %s (1:3R) + พี่ชนัฐ + SAMURAI MTF 36 แท่ง", g_DTD.tfName);
+   CreateLabel(GUI_PREFIX + "L_SUBTITLE", baseX + 14, baseY + 21, dtdSub, C'140,165,195', 7, false);
 
    // Master Dashboard Collapse Button
    CreateButton(GUI_PREFIX + "BTN_HIDE_DASH", baseX + w - 66, baseY + 7, 56, 24, "◀ พับเก็บ", C'140,40,50', clrWhite, 8);
@@ -8529,9 +8530,9 @@ void RenderDashboard()
    else if(InpUseDTD_CF_M1 && g_DTD.isEngulfConfirmed)
    {
       if(g_DTD.setupSide == -1)
-         sigCombined = "📢 โครงสร้าง: จบแท่งกลืนกิน CF M1 (SELL 🔴) ➔ ดูแผนในการ์ด 2";
+         sigCombined = StringFormat("📢 โครงสร้าง: จบแท่งกลืนกิน CF %s (SELL 🔴) ➔ ดูแผนในการ์ด 2", g_DTD.tfName);
       else
-         sigCombined = "📢 โครงสร้าง: จบแท่งกลืนกิน CF M1 (BUY 🟢) ➔ ดูแผนในการ์ด 2";
+         sigCombined = StringFormat("📢 โครงสร้าง: จบแท่งกลืนกิน CF %s (BUY 🟢) ➔ ดูแผนในการ์ด 2", g_DTD.tfName);
       sigCombClr = (g_DTD.setupSide == 1) ? C'80,250,160' : C'255,100,120';
    }
    else if(g_WaveCycleCompleted)
@@ -8740,7 +8741,7 @@ void RenderDashboard()
          {
             card3BgCol = C'10,32,22'; card3BorderCol = C'0,255,180'; card3TitleCol = C'0,255,200';
             card3Title   = "🟢 2. [ จบแท่งกลืนกิน BUY • พร้อมลั่นไก 1:3R! ]";
-            card3SigDesc = "🚀 จบแท่งกลืนกิน M1 คอนเฟิร์ม ➔ เข้า BUY ที่ราคาปิดแท่ง SL ใต้ชุดคอนเฟิร์ม!";
+            card3SigDesc = StringFormat("🚀 จบแท่งกลืนกิน %s คอนเฟิร์ม ➔ เข้า BUY ที่ราคาปิดแท่ง SL ใต้ชุดคอนเฟิร์ม!", g_DTD.tfName);
             card3SigCol  = C'50,255,180';
          }
       }
@@ -8794,16 +8795,16 @@ void RenderDashboard()
          {
             card3BgCol = C'38,12,18'; card3BorderCol = C'255,50,90'; card3TitleCol = C'255,80,110';
             card3Title   = "🔴 2. [ จบแท่งกลืนกิน SELL • พร้อมลั่นไก 1:3R! ]";
-            card3SigDesc = "🚀 จบแท่งกลืนกิน M1 คอนเฟิร์ม ➔ เข้า SELL ที่ราคาปิดแท่ง SL เหนือชุดคอนเฟิร์ม!";
+            card3SigDesc = StringFormat("🚀 จบแท่งกลืนกิน %s คอนเฟิร์ม ➔ เข้า SELL ที่ราคาปิดแท่ง SL เหนือชุดคอนเฟิร์ม!", g_DTD.tfName);
             card3SigCol  = C'255,80,90';
          }
       }
    }
    else if(InpUseDTD_CF_M1 && g_DTD.shortestWickPrice > 0.0)
    {
-      card3Title   = "⏳ 2. [ รอ CF M1 กลืนกิน • แผน 1R-3R ]";
-      card3SigDesc = (g_DTD.setupSide == -1) ? StringFormat("👀 แตะ Supply แล้ว ➔ รอ M1 ปิดกลืนกินไส้ %s เพื่อ SELL 🔴", DoubleToString(g_DTD.shortestWickPrice, _Digits))
-                                             : StringFormat("👀 แตะ Demand แล้ว ➔ รอ M1 ปิดกลืนกินไส้ %s เพื่อ BUY 🟢", DoubleToString(g_DTD.shortestWickPrice, _Digits));
+      card3Title   = StringFormat("⏳ 2. [ รอ CF %s กลืนกิน • แผน 1R-3R ]", g_DTD.tfName);
+      card3SigDesc = (g_DTD.setupSide == -1) ? StringFormat("👀 แตะ Supply แล้ว ➔ รอ %s ปิดกลืนกินไส้ %s เพื่อ SELL 🔴", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
+                                             : StringFormat("👀 แตะ Demand แล้ว ➔ รอ %s ปิดกลืนกินไส้ %s เพื่อ BUY 🟢", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
       card3SigCol  = clrGold;
    }
 
@@ -8820,27 +8821,27 @@ void RenderDashboard()
 
       if(inTargetZone && isLQSwept && isEngulfCF)
       {
-         combinedGradeStr = "⭐ เกรด A+ (ครบสูตร): ✅โซน DZ/SZ + ✅Sweep SL + ✅M1 กลืนกิน (3R)";
+         combinedGradeStr = StringFormat("⭐ เกรด A+ (ครบสูตร): ✅โซน DZ/SZ + ✅Sweep SL + ✅%s กลืนกิน (3R)", g_DTD.tfName);
          combinedGradeCol = C'0,255,136';
       }
       else if(inTargetZone && isEngulfCF)
       {
-         combinedGradeStr = "⭐ เกรด A (โซนหลัก): ✅แตะโซน + ✅M1 กลืนกิน (เทรดได้ 1:3R)";
+         combinedGradeStr = StringFormat("⭐ เกรด A (โซนหลัก): ✅แตะโซน + ✅%s กลืนกิน (เทรดได้ 1:3R)", g_DTD.tfName);
          combinedGradeCol = C'50,230,150';
       }
       else if(isLQSwept && isEngulfCF)
       {
-         combinedGradeStr = "⭐ เกรด A (สไนเปอร์): ✅Sweep SL เจ้ามือ + ✅M1 กลืนกิน (1:3R)";
+         combinedGradeStr = StringFormat("⭐ เกรด A (สไนเปอร์): ✅Sweep SL เจ้ามือ + ✅%s กลืนกิน (1:3R)", g_DTD.tfName);
          combinedGradeCol = clrGold;
       }
       else if(isEngulfCF)
       {
-         combinedGradeStr = "⭐ เกรด B (กลางทาง): ✅M1 กลืนกิน • รอย่อ/เด้งแตะเส้นไส้สั้นจะคุ้มกว่า";
+         combinedGradeStr = StringFormat("⭐ เกรด B (กลางทาง): ✅%s กลืนกิน • รอย่อ/เด้งแตะเส้นไส้สั้นจะคุ้มกว่า", g_DTD.tfName);
          combinedGradeCol = clrOrange;
       }
       else if(inTargetZone)
       {
-         combinedGradeStr = "⏳ รอคอนเฟิร์ม: ✅แตะโซนแล้ว ➔ รอแท่ง M1 ปิดเนื้อกลืนกินไส้สั้นสุด";
+         combinedGradeStr = StringFormat("⏳ รอคอนเฟิร์ม: ✅แตะโซนแล้ว ➔ รอแท่ง %s ปิดเนื้อกลืนกินไส้สั้นสุด", g_DTD.tfName);
          combinedGradeCol = clrGold;
       }
       else
