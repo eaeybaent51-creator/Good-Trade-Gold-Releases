@@ -1,4 +1,4 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                           DTD_Multiverse_EA.mq5 |
 //|          ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD |
 //|               ระบบฝึกเทรดวิเคราะห์โครงสร้างตลาดและค็อกพิทมือถือ |
@@ -23,7 +23,7 @@
 input group "=== [ 1. โครงสร้างตลาด MULTIVERSE 3-TIMEFRAME ] ==="
 input ENUM_TIMEFRAMES InpHTF                 = PERIOD_H1;        // 🌐 ไทม์เฟรมใหญ่ HTF (เจตนาตลาดและทิศทางหลัก)
 input ENUM_TIMEFRAMES InpMTF                 = PERIOD_M15;       // 🏛️ ไทม์เฟรมกลาง MTF (โซนคุณภาพ POI & LQ Sweep)
-input ENUM_TIMEFRAMES InpLTF                 = PERIOD_M1;        // 🎯 ไทม์เฟรมเล็ก LTF (จุดคอนเฟิร์ม CF M1 เสมอ)
+input ENUM_TIMEFRAMES InpLTF                 = PERIOD_CURRENT;   // 🎯 ไทม์เฟรมวิเคราะห์โครงสร้าง (PERIOD_CURRENT = ใช้ได้ทุก TF อัตโนมัติ!)
 input int             InpSwingLookback       = 15;               // 🔍 จำนวนแท่งตรวจจับจุดสวิง High / Low
 input bool            InpShowThaiStructText  = true;             // 🏷️ แสดงป้ายโครงสร้างภาษาไทย ("ขึ้น" / "ลง")
 input color           InpColorBullBreak      = C'0,255,136';     // 🟢 สีโครงสร้าง "ขึ้น" (Bullish BOS/CHoCH)
@@ -1406,9 +1406,9 @@ void DrawMultiverseVisuals()
          if(ObjectFind(0, lineUp) < 0)
          {
             ObjectCreate(0, lineUp, OBJ_TREND, 0, tUpStart, g_DTD_M1.m1SwingHighPrice, tEnd, g_DTD_M1.m1SwingHighPrice);
-            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, InpColorBullBreak);
             ObjectSetInteger(0, lineUp, OBJPROP_STYLE, STYLE_SOLID);
-            ObjectSetInteger(0, lineUp, OBJPROP_WIDTH, 1);
+            ObjectSetInteger(0, lineUp, OBJPROP_WIDTH, 2);
             ObjectSetInteger(0, lineUp, OBJPROP_RAY_RIGHT, false);
             ObjectSetInteger(0, lineUp, OBJPROP_BACK, true);
          }
@@ -1418,7 +1418,7 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lineUp, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingHighPrice);
             ObjectSetInteger(0, lineUp, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineUp, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingHighPrice);
-            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lineUp, OBJPROP_COLOR, InpColorBullBreak);
             ObjectSetInteger(0, lineUp, OBJPROP_BACK, true);
          }
 
@@ -1431,7 +1431,7 @@ void DrawMultiverseVisuals()
             ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
             ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblUp, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, InpColorBullBreak);
             ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
             ObjectSetInteger(0, lblUp, OBJPROP_BACK, false);
          }
@@ -1440,7 +1440,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lblUp, OBJPROP_TIME, 0, tUpLbl);
             ObjectSetDouble(0, lblUp, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingHighPrice);
             ObjectSetString(0, lblUp, OBJPROP_TEXT, txtUp);
-            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblUp, OBJPROP_COLOR, InpColorBullBreak);
             ObjectSetInteger(0, lblUp, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
             ObjectSetString(0, lblUp, OBJPROP_FONT, "Segoe UI Black");
          }
@@ -1454,9 +1454,9 @@ void DrawMultiverseVisuals()
          if(ObjectFind(0, lineDn) < 0)
          {
             ObjectCreate(0, lineDn, OBJ_TREND, 0, tDnStart, g_DTD_M1.m1SwingLowPrice, tEnd, g_DTD_M1.m1SwingLowPrice);
-            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, InpColorBearBreak);
             ObjectSetInteger(0, lineDn, OBJPROP_STYLE, STYLE_SOLID);
-            ObjectSetInteger(0, lineDn, OBJPROP_WIDTH, 1);
+            ObjectSetInteger(0, lineDn, OBJPROP_WIDTH, 2);
             ObjectSetInteger(0, lineDn, OBJPROP_RAY_RIGHT, false);
             ObjectSetInteger(0, lineDn, OBJPROP_BACK, true);
          }
@@ -1466,7 +1466,7 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lineDn, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingLowPrice);
             ObjectSetInteger(0, lineDn, OBJPROP_TIME, 1, tEnd);
             ObjectSetDouble(0, lineDn, OBJPROP_PRICE, 1, g_DTD_M1.m1SwingLowPrice);
-            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lineDn, OBJPROP_COLOR, InpColorBearBreak);
             ObjectSetInteger(0, lineDn, OBJPROP_BACK, true);
          }
 
@@ -1479,7 +1479,7 @@ void DrawMultiverseVisuals()
             ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
             ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, lblDn, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, InpColorBearBreak);
             ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
             ObjectSetInteger(0, lblDn, OBJPROP_BACK, false);
          }
@@ -1488,7 +1488,7 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lblDn, OBJPROP_TIME, 0, tDnLbl);
             ObjectSetDouble(0, lblDn, OBJPROP_PRICE, 0, g_DTD_M1.m1SwingLowPrice);
             ObjectSetString(0, lblDn, OBJPROP_TEXT, txtDn);
-            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblDn, OBJPROP_COLOR, InpColorBearBreak);
             ObjectSetInteger(0, lblDn, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
             ObjectSetString(0, lblDn, OBJPROP_FONT, "Segoe UI Black");
          }
