@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.08"
-#property description "DTD Multiverse V1.08 - True 1R:3R Setup Distances, Background Trendlines & Clean Cockpit"
+#property version     "1.09"
+#property description "DTD Multiverse V1.09 - Ajarn Dech True SMC Structure, LQ Sweep & On-Candle Retest/CF Suite"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -45,6 +45,9 @@ input color           InpColorFiboTarget     = C'50,225,130';    // 🏆 สี�
 input group "=== [ 4. เรดาร์คอนเฟิร์ม CF M1 เสมอ (อาจารย์เดช DTD) ] ==="
 input bool            InpUseDTD_CF_M1        = true;             // 🎯 เปิดเรดาร์คอนเฟิร์ม CF M1 (เกาะปลายไส้สั้นสุด + แท่งกลืนกิน)
 input bool            InpDrawM1Visuals       = true;             // 📐 แสดงเส้นระดับไส้สั้นสุดและกล่อง 1R:3R บนชาร์ต
+input bool            InpDrawDTD_LQ_Line     = true;             // 💧 แสดงเส้นประและป้าย '• • • LQ • • •' สไตล์ อ.เดช
+input bool            InpDrawDTD_CandleStickers = true;          // 🏷️ แปะป้ายสติกเกอร์ 'RETEST' และ 'CF' บนตัวแท่งเทียนจริง
+input bool            InpDTD_TradingViewStyle= true;             // 🎨 กล่องวัดระยะ 1R:3R สไตล์ TradingView (เทา-ฟ้า โปร่งแสง)
 input int             InpDTD_SL_BufferPts    = 35;               // 🛡️ ระยะเผื่อสเปรดใต้/เหนือจุดสวิงคอนเฟิร์ม (จุด)
 input double          InpTargetRR            = 3.0;              // 🏆 เป้าความคุ้มค่า RR ขั้นต่ำ (แนะนำ 3.0 เท่า = 3R)
 input bool            InpRequireM15_Alignment= true;              // 🎯 กฎเหล็ก: M1 และ M15 ต้องไปในทิศทางเดียวกัน 100% (ห้ามสวนเทรนด์ M15)
@@ -157,6 +160,22 @@ struct SDTD_M1_Engine
    double   latchedSLPoints;
    double   latchedLot;
    double   latchedShortestWick;
+   datetime latchedRetestTime;
+   double   latchedRetestPrice;
+   datetime latchedConfirmTime;
+   double   latchedConfirmPrice;
+   double   latchedLQPrice;
+   datetime latchedLQTime;
+   bool     latchedLQSwept;
+
+   // On-Candle Badges & Ajarn Dech Signature Elements
+   datetime retestBarTime;               // เวลาแท่งที่ย่อเทสต์ (สำหรับแปะป้าย RETEST)
+   double   retestBarPrice;              // ราคาแท่งที่ย่อเทสต์
+   datetime confirmBarTime;              // เวลาแท่งที่คอนเฟิร์มกลืนกิน (สำหรับแปะป้าย CF)
+   double   confirmBarPrice;             // ราคาแท่งที่คอนเฟิร์มกลืนกิน
+   double   lqLinePrice;                 // ระดับราคาเส้น LQ สไตล์ อ.เดช
+   datetime lqLineTime;                  // เวลาจุดกำเนิดเส้น LQ
+   bool     lqIsSwept;                   // จริงเมื่อเกิดการกวาด Sweep ไส้ทะลุ
 };
 
 //+------------------------------------------------------------------+
@@ -737,24 +756,40 @@ void ScanDTD_CF_M1_Always()
       return;
    }
 
-   // 1. ตรวจจับโครงสร้างสวิงบน M1 ("ขึ้น" / "ลง") ใน 25 แท่งล่าสุด สไตล์อาจารย์เดช
-   int highestM1Bar = 1;
-   int lowestM1Bar = 1;
-   double highestM1High = ratesM1[1].high;
-   double lowestM1Low = ratesM1[1].low;
+   // 1. ตรวจจับโครงสร้างสวิงบน M1 สไตล์ อ.เดช (True SMC Fractal Swings)
+   int highestM1Bar = -1;
+   int lowestM1Bar  = -1;
+   double highestM1High = -1.0;
+   double lowestM1Low   = 999999999.0;
 
-   for(int i = 1; i < 25 && i < copied; i++)
+   for(int i = 2; i < 35 && i < copied - 2; i++)
    {
-      if(ratesM1[i].high > highestM1High)
+      bool isPeak = (ratesM1[i].high > ratesM1[i+1].high && ratesM1[i].high > ratesM1[i+2].high &&
+                     ratesM1[i].high >= ratesM1[i-1].high);
+      bool isValley = (ratesM1[i].low < ratesM1[i+1].low && ratesM1[i].low < ratesM1[i+2].low &&
+                       ratesM1[i].low <= ratesM1[i-1].low);
+      if(isPeak && ratesM1[i].high > highestM1High)
       {
          highestM1High = ratesM1[i].high;
-         highestM1Bar = i;
+         highestM1Bar  = i;
       }
-      if(ratesM1[i].low < lowestM1Low)
+      if(isValley && ratesM1[i].low < lowestM1Low)
       {
          lowestM1Low = ratesM1[i].low;
          lowestM1Bar = i;
       }
+   }
+   if(highestM1Bar < 0 || highestM1High <= 0.0)
+   {
+      highestM1Bar = 1; highestM1High = ratesM1[1].high;
+      for(int i = 1; i < 25 && i < copied; i++)
+         if(ratesM1[i].high > highestM1High) { highestM1High = ratesM1[i].high; highestM1Bar = i; }
+   }
+   if(lowestM1Bar < 0 || lowestM1Low >= 999999999.0)
+   {
+      lowestM1Bar = 1; lowestM1Low = ratesM1[1].low;
+      for(int i = 1; i < 25 && i < copied; i++)
+         if(ratesM1[i].low < lowestM1Low) { lowestM1Low = ratesM1[i].low; lowestM1Bar = i; }
    }
 
    g_DTD_M1.m1SwingHighPrice = highestM1High;
@@ -976,6 +1011,24 @@ void ScanDTD_CF_M1_Always()
          g_DTD_M1.latchedSLPoints     = 0.0;
          g_DTD_M1.latchedLot          = 0.0;
          g_DTD_M1.latchedShortestWick = 0.0;
+         g_DTD_M1.latchedRetestTime   = 0;
+         g_DTD_M1.latchedRetestPrice  = 0.0;
+         g_DTD_M1.latchedConfirmTime  = 0;
+         g_DTD_M1.latchedConfirmPrice = 0.0;
+         g_DTD_M1.latchedLQPrice      = 0.0;
+         g_DTD_M1.latchedLQTime       = 0;
+         g_DTD_M1.latchedLQSwept      = false;
+         g_DTD_M1.retestBarTime       = 0;
+         g_DTD_M1.retestBarPrice      = 0.0;
+         g_DTD_M1.confirmBarTime      = 0;
+         g_DTD_M1.confirmBarPrice     = 0.0;
+         g_DTD_M1.lqLinePrice         = 0.0;
+         g_DTD_M1.lqLineTime          = 0;
+         g_DTD_M1.lqIsSwept           = false;
+         ObjectDelete(0, DTD_PREFIX + "M1_LINE_LQ");
+         ObjectDelete(0, DTD_PREFIX + "M1_LBL_LQ");
+         ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+         ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
          g_DTD_M1.isEngulfConfirmed   = false;
          g_DTD_M1.buyEngulfConfirmed  = false;
          g_DTD_M1.sellEngulfConfirmed = false;
@@ -1000,6 +1053,10 @@ void ScanDTD_CF_M1_Always()
          ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP3R");
          ObjectDelete(0, DTD_PREFIX + "M1_LINE_SL");
          ObjectDelete(0, DTD_PREFIX + "M1_LBL_SL");
+      ObjectDelete(0, DTD_PREFIX + "M1_LINE_LQ");
+      ObjectDelete(0, DTD_PREFIX + "M1_LBL_LQ");
+      ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+      ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
          ObjectDelete(0, DTD_PREFIX + "M1_MARK_ENTRY");
       }
       else
@@ -1207,6 +1264,13 @@ void ScanDTD_CF_M1_Always()
             g_DTD_M1.latchedSLPoints     = buySLPoints;
             g_DTD_M1.latchedLot          = buyRecommendedLot;
             g_DTD_M1.latchedShortestWick = buyTargetPrice;
+            g_DTD_M1.latchedRetestTime   = g_DTD_M1.retestBarTime;
+            g_DTD_M1.latchedRetestPrice  = g_DTD_M1.retestBarPrice;
+            g_DTD_M1.latchedConfirmTime  = g_DTD_M1.confirmBarTime;
+            g_DTD_M1.latchedConfirmPrice = g_DTD_M1.confirmBarPrice;
+            g_DTD_M1.latchedLQPrice      = g_DTD_M1.lqLinePrice;
+            g_DTD_M1.latchedLQTime       = g_DTD_M1.lqLineTime;
+            g_DTD_M1.latchedLQSwept      = g_DTD_M1.lqIsSwept;
             Print(">>> [DTD_Multiverse] 🔒 ล็อกกรอบแผนเทรด BUY นิ่งสนิท! Entry: ", buyEntryPrice, " SL: ", buySLPrice, " TP3: ", buyTP3RPrice);
          }
          g_DTD_M1.statusText  = "🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
@@ -1259,6 +1323,13 @@ void ScanDTD_CF_M1_Always()
             g_DTD_M1.latchedSLPoints     = sellSLPoints;
             g_DTD_M1.latchedLot          = sellRecommendedLot;
             g_DTD_M1.latchedShortestWick = sellTargetPrice;
+            g_DTD_M1.latchedRetestTime   = g_DTD_M1.retestBarTime;
+            g_DTD_M1.latchedRetestPrice  = g_DTD_M1.retestBarPrice;
+            g_DTD_M1.latchedConfirmTime  = g_DTD_M1.confirmBarTime;
+            g_DTD_M1.latchedConfirmPrice = g_DTD_M1.confirmBarPrice;
+            g_DTD_M1.latchedLQPrice      = g_DTD_M1.lqLinePrice;
+            g_DTD_M1.latchedLQTime       = g_DTD_M1.lqLineTime;
+            g_DTD_M1.latchedLQSwept      = g_DTD_M1.lqIsSwept;
             Print(">>> [DTD_Multiverse] 🔒 ล็อกกรอบแผนเทรด SELL นิ่งสนิท! Entry: ", sellEntryPrice, " SL: ", sellSLPrice, " TP3: ", sellTP3RPrice);
          }
          g_DTD_M1.statusText  = "🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
@@ -1494,6 +1565,59 @@ void DrawMultiverseVisuals()
          }
       }
 
+      // 4B_LQ. เส้นประและป้าย "• • • • LQ • • • •" สไตล์ อ.เดช
+      if(InpDrawDTD_LQ_Line && g_DTD_M1.lqLinePrice > 0.0)
+      {
+         string lineLQ = DTD_PREFIX + "M1_LINE_LQ";
+         datetime tLQStart = (g_DTD_M1.lqLineTime > 0) ? g_DTD_M1.lqLineTime : (TimeCurrent() - (tfSec * 20));
+         if(ObjectFind(0, lineLQ) < 0)
+         {
+            ObjectCreate(0, lineLQ, OBJ_TREND, 0, tLQStart, g_DTD_M1.lqLinePrice, tEnd, g_DTD_M1.lqLinePrice);
+            ObjectSetInteger(0, lineLQ, OBJPROP_COLOR, C'255,100,120');
+            ObjectSetInteger(0, lineLQ, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, lineLQ, OBJPROP_WIDTH, 1);
+            ObjectSetInteger(0, lineLQ, OBJPROP_RAY_RIGHT, false);
+            ObjectSetInteger(0, lineLQ, OBJPROP_BACK, false);
+         }
+         else
+         {
+            ObjectSetInteger(0, lineLQ, OBJPROP_TIME, 0, tLQStart);
+            ObjectSetDouble(0, lineLQ, OBJPROP_PRICE, 0, g_DTD_M1.lqLinePrice);
+            ObjectSetInteger(0, lineLQ, OBJPROP_TIME, 1, tEnd);
+            ObjectSetDouble(0, lineLQ, OBJPROP_PRICE, 1, g_DTD_M1.lqLinePrice);
+            ObjectSetInteger(0, lineLQ, OBJPROP_COLOR, C'255,100,120');
+            ObjectSetInteger(0, lineLQ, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, lineLQ, OBJPROP_WIDTH, 1);
+         }
+
+         string lblLQ = DTD_PREFIX + "M1_LBL_LQ";
+         datetime tLQLbl = tLQStart + (datetime)((tEnd - tLQStart) * 0.40);
+         string txtLQ = g_DTD_M1.lqIsSwept ? "• • • • LQ (SWEPT ⚡) • • • •" : "• • • • LQ • • • •";
+         if(ObjectFind(0, lblLQ) < 0)
+         {
+            ObjectCreate(0, lblLQ, OBJ_TEXT, 0, tLQLbl, g_DTD_M1.lqLinePrice);
+            ObjectSetString(0, lblLQ, OBJPROP_TEXT, txtLQ);
+            ObjectSetString(0, lblLQ, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetInteger(0, lblLQ, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, C'255,120,135');
+            ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, (g_DTD_M1.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+            ObjectSetInteger(0, lblLQ, OBJPROP_BACK, false);
+         }
+         else
+         {
+            ObjectSetInteger(0, lblLQ, OBJPROP_TIME, 0, tLQLbl);
+            ObjectSetDouble(0, lblLQ, OBJPROP_PRICE, 0, g_DTD_M1.lqLinePrice);
+            ObjectSetString(0, lblLQ, OBJPROP_TEXT, txtLQ);
+            ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, C'255,120,135');
+            ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, (g_DTD_M1.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+         }
+      }
+      else
+      {
+         ObjectDelete(0, DTD_PREFIX + "M1_LINE_LQ");
+         ObjectDelete(0, DTD_PREFIX + "M1_LBL_LQ");
+      }
+
       // 4C. เส้นเกณฑ์ปลายไส้สั้นสุด
       string wickLine = DTD_PREFIX + "M1_WICK_LINE";
       color  wickCol  = g_DTD_M1.isEngulfConfirmed ? (g_DTD_M1.setupSide == 1 ? C'0,255,136' : C'255,80,90') : clrGold;
@@ -1539,6 +1663,71 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
       }
 
+      // 4C_STICKERS. ป้ายสติกเกอร์ "RETEST" และ "CF M1" แนบบนแท่งเทียนจริง
+      if(InpDrawDTD_CandleStickers)
+      {
+         if(g_DTD_M1.retestBarTime > 0 && g_DTD_M1.retestBarPrice > 0.0)
+         {
+            string badgeRetest = DTD_PREFIX + "M1_BADGE_RETEST";
+            string txtRetest   = "▰ RETEST ▰";
+            if(ObjectFind(0, badgeRetest) < 0)
+            {
+               ObjectCreate(0, badgeRetest, OBJ_TEXT, 0, g_DTD_M1.retestBarTime, g_DTD_M1.retestBarPrice);
+               ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
+               ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
+               ObjectSetInteger(0, badgeRetest, OBJPROP_FONTSIZE, 7);
+               ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, C'210,120,255');
+               ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, (g_DTD_M1.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+               ObjectSetInteger(0, badgeRetest, OBJPROP_BACK, false);
+            }
+            else
+            {
+               ObjectSetInteger(0, badgeRetest, OBJPROP_TIME, 0, g_DTD_M1.retestBarTime);
+               ObjectSetDouble(0, badgeRetest, OBJPROP_PRICE, 0, g_DTD_M1.retestBarPrice);
+               ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
+               ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, C'210,120,255');
+               ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, (g_DTD_M1.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+            }
+         }
+         else
+         {
+            ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+         }
+
+         if(g_DTD_M1.confirmBarTime > 0 && g_DTD_M1.confirmBarPrice > 0.0 && (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched))
+         {
+            string badgeCF = DTD_PREFIX + "M1_BADGE_CF";
+            string txtCF   = "▰ CF M1 ▰";
+            if(ObjectFind(0, badgeCF) < 0)
+            {
+               ObjectCreate(0, badgeCF, OBJ_TEXT, 0, g_DTD_M1.confirmBarTime, g_DTD_M1.confirmBarPrice);
+               ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
+               ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
+               ObjectSetInteger(0, badgeCF, OBJPROP_FONTSIZE, 7);
+               ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, C'50,235,140');
+               ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, (g_DTD_M1.setupSide == 1 ? ANCHOR_LOWER : ANCHOR_UPPER));
+               ObjectSetInteger(0, badgeCF, OBJPROP_BACK, false);
+            }
+            else
+            {
+               ObjectSetInteger(0, badgeCF, OBJPROP_TIME, 0, g_DTD_M1.confirmBarTime);
+               ObjectSetDouble(0, badgeCF, OBJPROP_PRICE, 0, g_DTD_M1.confirmBarPrice);
+               ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
+               ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, C'50,235,140');
+               ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, (g_DTD_M1.setupSide == 1 ? ANCHOR_LOWER : ANCHOR_UPPER));
+            }
+         }
+         else
+         {
+            ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
+         }
+      }
+      else
+      {
+         ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+         ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
+      }
+
       // 4D. สัญลักษณ์จุดลั่นไก (Entry Tick Mark สไตล์อาจารย์เดช)
       if(g_DTD_M1.isEngulfConfirmed && g_DTD_M1.confirmEntryPrice > 0.0)
       {
@@ -1569,15 +1758,17 @@ void DrawMultiverseVisuals()
          double curBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
          if(curBid <= 0) curBid = iClose(_Symbol, _Period, 0);
 
-         // กล่อง SL (1R Risk Box)
+         // กล่อง SL (1R Risk Box) - สีเทาเข้ม Slate Grey สไตล์ TradingView
          string boxSL = DTD_PREFIX + "BOX_1R_SL";
          double slTop = MathMax(g_DTD_M1.confirmEntryPrice, g_DTD_M1.confirmSLPrice);
          double slBtm = MathMin(g_DTD_M1.confirmEntryPrice, g_DTD_M1.confirmSLPrice);
+         color slBorder = InpDTD_TradingViewStyle ? C'65,70,80' : C'180,40,50';
+         color slBg     = InpDTD_TradingViewStyle ? C'40,43,50' : C'80,20,25';
          if(ObjectFind(0, boxSL) < 0)
          {
             ObjectCreate(0, boxSL, OBJ_RECTANGLE, 0, bStart, slTop, bEnd, slBtm);
-            ObjectSetInteger(0, boxSL, OBJPROP_COLOR, C'180,40,50');
-            ObjectSetInteger(0, boxSL, OBJPROP_BGCOLOR, C'80,20,25');
+            ObjectSetInteger(0, boxSL, OBJPROP_COLOR, slBorder);
+            ObjectSetInteger(0, boxSL, OBJPROP_BGCOLOR, slBg);
             ObjectSetInteger(0, boxSL, OBJPROP_FILL, true);
             ObjectSetInteger(0, boxSL, OBJPROP_BACK, true);
          }
@@ -1587,17 +1778,21 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, boxSL, OBJPROP_PRICE, 0, slTop);
             ObjectSetInteger(0, boxSL, OBJPROP_TIME, 1, bEnd);
             ObjectSetDouble(0, boxSL, OBJPROP_PRICE, 1, slBtm);
+            ObjectSetInteger(0, boxSL, OBJPROP_COLOR, slBorder);
+            ObjectSetInteger(0, boxSL, OBJPROP_BGCOLOR, slBg);
          }
 
-         // กล่อง TP (3R Reward Box)
+         // กล่อง TP (3R Reward Box) - สีฟ้าซอฟต์ Soft Navy Blue สไตล์ TradingView
          string boxTP = DTD_PREFIX + "BOX_3R_TP";
          double tpTop = MathMax(g_DTD_M1.confirmEntryPrice, g_DTD_M1.confirmTP3RPrice);
          double tpBtm = MathMin(g_DTD_M1.confirmEntryPrice, g_DTD_M1.confirmTP3RPrice);
+         color tpBorder = InpDTD_TradingViewStyle ? C'40,90,160' : C'30,140,80';
+         color tpBg     = InpDTD_TradingViewStyle ? C'25,55,100' : C'15,60,35';
          if(ObjectFind(0, boxTP) < 0)
          {
             ObjectCreate(0, boxTP, OBJ_RECTANGLE, 0, bStart, tpTop, bEnd, tpBtm);
-            ObjectSetInteger(0, boxTP, OBJPROP_COLOR, C'30,140,80');
-            ObjectSetInteger(0, boxTP, OBJPROP_BGCOLOR, C'15,60,35');
+            ObjectSetInteger(0, boxTP, OBJPROP_COLOR, tpBorder);
+            ObjectSetInteger(0, boxTP, OBJPROP_BGCOLOR, tpBg);
             ObjectSetInteger(0, boxTP, OBJPROP_FILL, true);
             ObjectSetInteger(0, boxTP, OBJPROP_BACK, true);
          }
@@ -1607,12 +1802,15 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, boxTP, OBJPROP_PRICE, 0, tpTop);
             ObjectSetInteger(0, boxTP, OBJPROP_TIME, 1, bEnd);
             ObjectSetDouble(0, boxTP, OBJPROP_PRICE, 1, tpBtm);
+            ObjectSetInteger(0, boxTP, OBJPROP_COLOR, tpBorder);
+            ObjectSetInteger(0, boxTP, OBJPROP_BGCOLOR, tpBg);
          }
 
-         // เส้น & ป้าย TP 1R (1:1)
-         if(g_DTD_M1.confirmTP1RPrice > 0.0)
+         // เส้น & ป้าย TP 1R (1:1) - ซ่อนในโหมด TradingView
+         string lineTP1 = DTD_PREFIX + "M1_LINE_TP1R";
+         string lblTP1  = DTD_PREFIX + "M1_LBL_TP1R";
+         if(!InpDTD_TradingViewStyle && g_DTD_M1.confirmTP1RPrice > 0.0)
          {
-            string lineTP1 = DTD_PREFIX + "M1_LINE_TP1R";
             if(ObjectFind(0, lineTP1) < 0)
             {
                ObjectCreate(0, lineTP1, OBJ_TREND, 0, bStart, g_DTD_M1.confirmTP1RPrice, bEnd, g_DTD_M1.confirmTP1RPrice);
@@ -1628,8 +1826,6 @@ void DrawMultiverseVisuals()
                ObjectSetInteger(0, lineTP1, OBJPROP_TIME, 1, bEnd);
                ObjectSetDouble(0, lineTP1, OBJPROP_PRICE, 1, g_DTD_M1.confirmTP1RPrice);
             }
-
-            string lblTP1 = DTD_PREFIX + "M1_LBL_TP1R";
             double tp1Dist = (g_DTD_M1.tp1RPoints > 0.0) ? g_DTD_M1.tp1RPoints : (MathAbs(g_DTD_M1.confirmTP1RPrice - g_DTD_M1.confirmEntryPrice) / _Point);
             string tp1Txt  = StringFormat(" 🛡️ TP 1R (1:1): %s (+%s) ", DoubleToString(g_DTD_M1.confirmTP1RPrice, _Digits), FormatMoneyOrPoints(tp1Dist));
             if(ObjectFind(0, lblTP1) < 0)
@@ -1651,16 +1847,22 @@ void DrawMultiverseVisuals()
                ObjectSetString(0, lblTP1, OBJPROP_FONT, "Segoe UI Black");
             }
          }
+         else
+         {
+            ObjectDelete(0, lineTP1);
+            ObjectDelete(0, lblTP1);
+         }
 
-         // เส้น & ป้าย TP 2R (1:2)
+         // เส้น & ป้าย TP 2R (1:2) - สไตล์ อ.เดช: เส้นแดงบาง ป้าย "TP 1 2R"
          if(g_DTD_M1.confirmTP2RPrice > 0.0)
          {
             string lineTP2 = DTD_PREFIX + "M1_LINE_TP2R";
+            color tp2Col = InpDTD_TradingViewStyle ? C'255,100,120' : C'70,235,160';
             if(ObjectFind(0, lineTP2) < 0)
             {
                ObjectCreate(0, lineTP2, OBJ_TREND, 0, bStart, g_DTD_M1.confirmTP2RPrice, bEnd, g_DTD_M1.confirmTP2RPrice);
-               ObjectSetInteger(0, lineTP2, OBJPROP_COLOR, C'70,235,160');
-               ObjectSetInteger(0, lineTP2, OBJPROP_STYLE, STYLE_DASH);
+               ObjectSetInteger(0, lineTP2, OBJPROP_COLOR, tp2Col);
+               ObjectSetInteger(0, lineTP2, OBJPROP_STYLE, STYLE_SOLID);
                ObjectSetInteger(0, lineTP2, OBJPROP_WIDTH, 1);
                ObjectSetInteger(0, lineTP2, OBJPROP_RAY_RIGHT, false);
             }
@@ -1670,18 +1872,20 @@ void DrawMultiverseVisuals()
                ObjectSetDouble(0, lineTP2, OBJPROP_PRICE, 0, g_DTD_M1.confirmTP2RPrice);
                ObjectSetInteger(0, lineTP2, OBJPROP_TIME, 1, bEnd);
                ObjectSetDouble(0, lineTP2, OBJPROP_PRICE, 1, g_DTD_M1.confirmTP2RPrice);
+               ObjectSetInteger(0, lineTP2, OBJPROP_COLOR, tp2Col);
             }
 
             string lblTP2 = DTD_PREFIX + "M1_LBL_TP2R";
             double tp2Dist = (g_DTD_M1.tp2RPoints > 0.0) ? g_DTD_M1.tp2RPoints : (MathAbs(g_DTD_M1.confirmTP2RPrice - g_DTD_M1.confirmEntryPrice) / _Point);
-            string tp2Txt  = StringFormat(" 🎯 TP 2R (1:2): %s (+%s) ", DoubleToString(g_DTD_M1.confirmTP2RPrice, _Digits), FormatMoneyOrPoints(tp2Dist));
+            string tp2Txt  = InpDTD_TradingViewStyle ? " TP 1 2R " : StringFormat(" 🎯 TP 2R (1:2): %s (+%s) ", DoubleToString(g_DTD_M1.confirmTP2RPrice, _Digits), FormatMoneyOrPoints(tp2Dist));
+            color tp2LblCol = InpDTD_TradingViewStyle ? C'255,120,135' : clrWhite;
             if(ObjectFind(0, lblTP2) < 0)
             {
                ObjectCreate(0, lblTP2, OBJ_TEXT, 0, bEnd, g_DTD_M1.confirmTP2RPrice);
                ObjectSetString(0, lblTP2, OBJPROP_TEXT, tp2Txt);
-               ObjectSetString(0, lblTP2, OBJPROP_FONT, "Segoe UI Black");
+               ObjectSetString(0, lblTP2, OBJPROP_FONT, InpDTD_TradingViewStyle ? "Segoe UI Semibold" : "Segoe UI Black");
                ObjectSetInteger(0, lblTP2, OBJPROP_FONTSIZE, 8);
-               ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, clrWhite);
+               ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, tp2LblCol);
                ObjectSetInteger(0, lblTP2, OBJPROP_ANCHOR, ANCHOR_LEFT);
                ObjectSetInteger(0, lblTP2, OBJPROP_BACK, false);
             }
@@ -1690,19 +1894,20 @@ void DrawMultiverseVisuals()
                ObjectSetInteger(0, lblTP2, OBJPROP_TIME, 0, bEnd);
                ObjectSetDouble(0, lblTP2, OBJPROP_PRICE, 0, g_DTD_M1.confirmTP2RPrice);
                ObjectSetString(0, lblTP2, OBJPROP_TEXT, tp2Txt);
-               ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, clrWhite);
-               ObjectSetString(0, lblTP2, OBJPROP_FONT, "Segoe UI Black");
+               ObjectSetInteger(0, lblTP2, OBJPROP_COLOR, tp2LblCol);
+               ObjectSetString(0, lblTP2, OBJPROP_FONT, InpDTD_TradingViewStyle ? "Segoe UI Semibold" : "Segoe UI Black");
             }
          }
 
-         // เส้น & ป้าย TP 3R (1:3 เป้าหลักอาจารย์เดช)
+         // เส้น & ป้าย TP 3R (1:3 เป้าหลักอาจารย์เดช) - สไตล์ อ.เดช: เส้นแดงบาง ป้าย "TP 2 3R"
          string lineTP3 = DTD_PREFIX + "M1_LINE_TP3R";
+         color tp3Col = InpDTD_TradingViewStyle ? C'255,100,120' : C'50,255,130';
          if(ObjectFind(0, lineTP3) < 0)
          {
             ObjectCreate(0, lineTP3, OBJ_TREND, 0, bStart, g_DTD_M1.confirmTP3RPrice, bEnd, g_DTD_M1.confirmTP3RPrice);
-            ObjectSetInteger(0, lineTP3, OBJPROP_COLOR, C'50,255,130');
+            ObjectSetInteger(0, lineTP3, OBJPROP_COLOR, tp3Col);
             ObjectSetInteger(0, lineTP3, OBJPROP_STYLE, STYLE_SOLID);
-            ObjectSetInteger(0, lineTP3, OBJPROP_WIDTH, 2);
+            ObjectSetInteger(0, lineTP3, OBJPROP_WIDTH, InpDTD_TradingViewStyle ? 1 : 2);
             ObjectSetInteger(0, lineTP3, OBJPROP_RAY_RIGHT, false);
          }
          else
@@ -1711,18 +1916,21 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lineTP3, OBJPROP_PRICE, 0, g_DTD_M1.confirmTP3RPrice);
             ObjectSetInteger(0, lineTP3, OBJPROP_TIME, 1, bEnd);
             ObjectSetDouble(0, lineTP3, OBJPROP_PRICE, 1, g_DTD_M1.confirmTP3RPrice);
+            ObjectSetInteger(0, lineTP3, OBJPROP_COLOR, tp3Col);
+            ObjectSetInteger(0, lineTP3, OBJPROP_WIDTH, InpDTD_TradingViewStyle ? 1 : 2);
          }
 
          string lblTP3 = DTD_PREFIX + "M1_LBL_TP3R";
          double tpDist = (g_DTD_M1.tp3RPoints > 0.0) ? g_DTD_M1.tp3RPoints : (MathAbs(g_DTD_M1.confirmTP3RPrice - g_DTD_M1.confirmEntryPrice) / _Point);
-         string tpTxt  = StringFormat(" 🏆 TP 3R (1:3): %s (+%s) ★เป้าหลัก ", DoubleToString(g_DTD_M1.confirmTP3RPrice, _Digits), FormatMoneyOrPoints(tpDist));
+         string tpTxt  = InpDTD_TradingViewStyle ? " TP 2 3R " : StringFormat(" 🏆 TP 3R (1:3): %s (+%s) ★เป้าหลัก ", DoubleToString(g_DTD_M1.confirmTP3RPrice, _Digits), FormatMoneyOrPoints(tpDist));
+         color tp3LblCol = InpDTD_TradingViewStyle ? C'255,120,135' : clrWhite;
          if(ObjectFind(0, lblTP3) < 0)
          {
             ObjectCreate(0, lblTP3, OBJ_TEXT, 0, bEnd, g_DTD_M1.confirmTP3RPrice);
             ObjectSetString(0, lblTP3, OBJPROP_TEXT, tpTxt);
-            ObjectSetString(0, lblTP3, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetString(0, lblTP3, OBJPROP_FONT, InpDTD_TradingViewStyle ? "Segoe UI Semibold" : "Segoe UI Black");
             ObjectSetInteger(0, lblTP3, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, tp3LblCol);
             ObjectSetInteger(0, lblTP3, OBJPROP_ANCHOR, ANCHOR_LEFT);
             ObjectSetInteger(0, lblTP3, OBJPROP_BACK, false);
          }
@@ -1731,16 +1939,17 @@ void DrawMultiverseVisuals()
             ObjectSetInteger(0, lblTP3, OBJPROP_TIME, 0, bEnd);
             ObjectSetDouble(0, lblTP3, OBJPROP_PRICE, 0, g_DTD_M1.confirmTP3RPrice);
             ObjectSetString(0, lblTP3, OBJPROP_TEXT, tpTxt);
-            ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, clrWhite);
-            ObjectSetString(0, lblTP3, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, lblTP3, OBJPROP_COLOR, tp3LblCol);
+            ObjectSetString(0, lblTP3, OBJPROP_FONT, InpDTD_TradingViewStyle ? "Segoe UI Semibold" : "Segoe UI Black");
          }
 
-         // เส้น & ป้าย SL (1R)
+         // เส้น & ป้าย SL (1R) - สไตล์ อ.เดช: เส้นแดงบาง ป้าย "SL: [ราคา]"
          string lineSL = DTD_PREFIX + "M1_LINE_SL";
+         color slCol = InpDTD_TradingViewStyle ? C'255,100,120' : C'255,80,90';
          if(ObjectFind(0, lineSL) < 0)
          {
             ObjectCreate(0, lineSL, OBJ_TREND, 0, bStart, g_DTD_M1.confirmSLPrice, bEnd, g_DTD_M1.confirmSLPrice);
-            ObjectSetInteger(0, lineSL, OBJPROP_COLOR, C'255,80,90');
+            ObjectSetInteger(0, lineSL, OBJPROP_COLOR, slCol);
             ObjectSetInteger(0, lineSL, OBJPROP_STYLE, STYLE_SOLID);
             ObjectSetInteger(0, lineSL, OBJPROP_WIDTH, 1);
             ObjectSetInteger(0, lineSL, OBJPROP_RAY_RIGHT, false);
@@ -1751,17 +1960,18 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lineSL, OBJPROP_PRICE, 0, g_DTD_M1.confirmSLPrice);
             ObjectSetInteger(0, lineSL, OBJPROP_TIME, 1, bEnd);
             ObjectSetDouble(0, lineSL, OBJPROP_PRICE, 1, g_DTD_M1.confirmSLPrice);
+            ObjectSetInteger(0, lineSL, OBJPROP_COLOR, slCol);
          }
 
          string lblSL = DTD_PREFIX + "M1_LBL_SL";
          double slDist = (g_DTD_M1.slPoints > 0.0) ? g_DTD_M1.slPoints : (MathAbs(g_DTD_M1.confirmEntryPrice - g_DTD_M1.confirmSLPrice) / _Point);
          string slPosTag = (g_DTD_M1.setupSide == 1) ? "[ใต้ชุดคอนเฟิร์ม]" : "[เหนือชุดคอนเฟิร์ม]";
-         string slTxt  = StringFormat(" 🛑 SL 1R: %s (-%s) %s ", DoubleToString(g_DTD_M1.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist), slPosTag);
+         string slTxt = InpDTD_TradingViewStyle ? StringFormat(" SL: %s ", DoubleToString(g_DTD_M1.confirmSLPrice, _Digits)) : StringFormat(" 🛑 SL 1R: %s (-%s) %s ", DoubleToString(g_DTD_M1.confirmSLPrice, _Digits), FormatMoneyOrPoints(slDist), slPosTag);
          if(ObjectFind(0, lblSL) < 0)
          {
             ObjectCreate(0, lblSL, OBJ_TEXT, 0, bEnd, g_DTD_M1.confirmSLPrice);
             ObjectSetString(0, lblSL, OBJPROP_TEXT, slTxt);
-            ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetString(0, lblSL, OBJPROP_FONT, InpDTD_TradingViewStyle ? "Segoe UI Semibold" : "Segoe UI Black");
             ObjectSetInteger(0, lblSL, OBJPROP_FONTSIZE, 8);
             ObjectSetInteger(0, lblSL, OBJPROP_COLOR, clrWhite);
             ObjectSetInteger(0, lblSL, OBJPROP_ANCHOR, ANCHOR_LEFT);
@@ -1773,7 +1983,7 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, lblSL, OBJPROP_PRICE, 0, g_DTD_M1.confirmSLPrice);
             ObjectSetString(0, lblSL, OBJPROP_TEXT, slTxt);
             ObjectSetInteger(0, lblSL, OBJPROP_COLOR, clrWhite);
-            ObjectSetString(0, lblSL, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetString(0, lblSL, OBJPROP_FONT, InpDTD_TradingViewStyle ? "Segoe UI Semibold" : "Segoe UI Black");
          }
       }
       else
