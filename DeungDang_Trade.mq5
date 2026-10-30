@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.35"
-#property description "DeungDang_Trade V2.35 - Ajarn Dech True SMC Structure, LQ Sweep & On-Candle Retest/CF Suite"
+#property version     "2.36"
+#property description "DeungDang_Trade V2.36 - Pure White Ajarn Dech Signature Elements, Zero-Overlap Clearance & Crisp Contrast"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -21,7 +21,7 @@
 //| MACROS & ENUMS                                                   |
 //+------------------------------------------------------------------+
 #define GUI_PREFIX "DT_"
-#define APP_VERSION "2.35"
+#define APP_VERSION "2.36"
 
 enum ENUM_ASSET_CLASS
 {
@@ -5535,12 +5535,16 @@ void DrawDTD_M1_Visuals()
    }
 
    int tfSec = PeriodSeconds((ENUM_TIMEFRAMES)_Period);
-   int forwardBars = 12;
-   if(_Period == PERIOD_M1)       forwardBars = 15;
-   else if(_Period <= PERIOD_M5)  forwardBars = 8;
-   else if(_Period <= PERIOD_M15) forwardBars = 6;
-   else if(_Period <= PERIOD_M30) forwardBars = 5;
-   else                           forwardBars = 4;
+   int forwardBars = 25;
+   if(_Period == PERIOD_M1)       forwardBars = 35;
+   else if(_Period <= PERIOD_M5)  forwardBars = 22;
+   else if(_Period <= PERIOD_M15) forwardBars = 18;
+   else if(_Period <= PERIOD_M30) forwardBars = 14;
+   else                           forwardBars = 10;
+   double tfMultiplier = 1.0;
+   if(_Period == PERIOD_M5)       tfMultiplier = 1.5;
+   else if(_Period == PERIOD_M15) tfMultiplier = 2.0;
+   else if(_Period >= PERIOD_M30) tfMultiplier = 3.0;
 
    datetime tStart   = (g_DTD.isLatched && g_DTD.latchedTime > 0) ? g_DTD.latchedTime : ((g_DTD.shortestWickTime > 0) ? g_DTD.shortestWickTime : (TimeCurrent() - (tfSec * 4)));
    datetime tEnd     = TimeCurrent() + (tfSec * forwardBars);
@@ -5661,7 +5665,7 @@ void DrawDTD_M1_Visuals()
       ObjectDelete(0, GUI_PREFIX + "DTD_LBL_DN_START");
    }
 
-   // 2A. เส้นประและป้าย "• • • • LQ • • • •" สไตล์ อ.เดช (Liquidity Pool Level)
+   // 2A. เส้นประและป้าย "• • • • LQ • • • •" สไตล์ อ.เดช (สีขาวสว่าง ชัดเจน ไม่โดนพื้นหลังกลืน 100%)
    if(InpDrawDTD_LQ_Line && g_DTD.lqLinePrice > 0.0)
    {
       string lineLQ = GUI_PREFIX + "DTD_LINE_LQ";
@@ -5687,25 +5691,29 @@ void DrawDTD_M1_Visuals()
       }
 
       string lblLQ = GUI_PREFIX + "DTD_LBL_LQ";
-      datetime tLQLbl = tLQStart + (datetime)((tEnd - tLQStart) * 0.40);
+      datetime tLQLbl = tLQStart + (datetime)((tEnd - tLQStart) * 0.45);
       string txtLQ = g_DTD.lqIsSwept ? "• • • • LQ (SWEPT ⚡) • • • •" : "• • • • LQ • • • •";
+      double lqLblPrice = (g_DTD.setupSide == 1) ? (g_DTD.lqLinePrice - (15.0 * _Point * tfMultiplier)) : (g_DTD.lqLinePrice + (15.0 * _Point * tfMultiplier));
+      ENUM_ANCHOR_POINT lqAnc = (g_DTD.setupSide == 1) ? ANCHOR_UPPER : ANCHOR_LOWER;
+
       if(ObjectFind(0, lblLQ) < 0)
       {
-         ObjectCreate(0, lblLQ, OBJ_TEXT, 0, tLQLbl, g_DTD.lqLinePrice);
+         ObjectCreate(0, lblLQ, OBJ_TEXT, 0, tLQLbl, lqLblPrice);
          ObjectSetString(0, lblLQ, OBJPROP_TEXT, txtLQ);
-         ObjectSetString(0, lblLQ, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblLQ, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, lblLQ, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, C'255,120,135');
-         ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+         ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, clrWhite);
+         ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, lqAnc);
          ObjectSetInteger(0, lblLQ, OBJPROP_BACK, false);
       }
       else
       {
          ObjectSetInteger(0, lblLQ, OBJPROP_TIME, 0, tLQLbl);
-         ObjectSetDouble(0, lblLQ, OBJPROP_PRICE, 0, g_DTD.lqLinePrice);
+         ObjectSetDouble(0, lblLQ, OBJPROP_PRICE, 0, lqLblPrice);
          ObjectSetString(0, lblLQ, OBJPROP_TEXT, txtLQ);
-         ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, C'255,120,135');
-         ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+         ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, clrWhite);
+         ObjectSetString(0, lblLQ, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, lqAnc);
       }
    }
    else
@@ -5713,7 +5721,6 @@ void DrawDTD_M1_Visuals()
       ObjectDelete(0, GUI_PREFIX + "DTD_LINE_LQ");
       ObjectDelete(0, GUI_PREFIX + "DTD_LBL_LQ");
    }
-
    // 2B. เส้นโครงสร้างสวิงซิกแซก (Structure Zigzag Path สไตล์ อ.เดช) - เส้นประบาง ไม่เกะกะแท่งเทียน
    for(int k = 0; k < MAX_DTD_M1_SWINGS; k++)
    {
@@ -5760,62 +5767,9 @@ void DrawDTD_M1_Visuals()
       }
    }
 
-   // 2C. สัญลักษณ์ลูกศรจุดเบรกทะลุโครงสร้าง (Breakout / BOS Arrow) - สีขาว คมชัด
-   if(g_DTD.hasM1Shift && g_DTD.m1ShiftTime > 0 && g_DTD.m1ShiftBreakPrice > 0.0)
-   {
-      if(g_DTD.m1StructDir == 1)
-      {
-         string brkUp = GUI_PREFIX + "DTD_BREAK_UP";
-         string txtBrkUp = StringFormat(" ▲ เบรก 'ขึ้น'%s ", tfTag);
-         if(ObjectFind(0, brkUp) < 0)
-         {
-            ObjectCreate(0, brkUp, OBJ_TEXT, 0, g_DTD.m1ShiftTime, g_DTD.m1ShiftBreakPrice);
-            ObjectSetString(0, brkUp, OBJPROP_TEXT, txtBrkUp);
-            ObjectSetString(0, brkUp, OBJPROP_FONT, "Segoe UI Black");
-            ObjectSetInteger(0, brkUp, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, brkUp, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, brkUp, OBJPROP_ANCHOR, ANCHOR_LOWER);
-            ObjectSetInteger(0, brkUp, OBJPROP_BACK, false);
-         }
-         else
-         {
-            ObjectSetInteger(0, brkUp, OBJPROP_TIME, 0, g_DTD.m1ShiftTime);
-            ObjectSetDouble(0, brkUp, OBJPROP_PRICE, 0, g_DTD.m1ShiftBreakPrice);
-            ObjectSetString(0, brkUp, OBJPROP_TEXT, txtBrkUp);
-            ObjectSetInteger(0, brkUp, OBJPROP_COLOR, clrWhite);
-         }
-         ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_DN");
-      }
-      else if(g_DTD.m1StructDir == -1)
-      {
-         string brkDn = GUI_PREFIX + "DTD_BREAK_DN";
-         string txtBrkDn = StringFormat(" ▼ หลุด 'ลง'%s ", tfTag);
-         if(ObjectFind(0, brkDn) < 0)
-         {
-            ObjectCreate(0, brkDn, OBJ_TEXT, 0, g_DTD.m1ShiftTime, g_DTD.m1ShiftBreakPrice);
-            ObjectSetString(0, brkDn, OBJPROP_TEXT, txtBrkDn);
-            ObjectSetString(0, brkDn, OBJPROP_FONT, "Segoe UI Black");
-            ObjectSetInteger(0, brkDn, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, brkDn, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, brkDn, OBJPROP_ANCHOR, ANCHOR_UPPER);
-            ObjectSetInteger(0, brkDn, OBJPROP_BACK, false);
-         }
-         else
-         {
-            ObjectSetInteger(0, brkDn, OBJPROP_TIME, 0, g_DTD.m1ShiftTime);
-            ObjectSetDouble(0, brkDn, OBJPROP_PRICE, 0, g_DTD.m1ShiftBreakPrice);
-            ObjectSetString(0, brkDn, OBJPROP_TEXT, txtBrkDn);
-            ObjectSetInteger(0, brkDn, OBJPROP_COLOR, clrWhite);
-         }
-         ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_UP");
-      }
-   }
-   else
-   {
-      ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_UP");
-      ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_DN");
-   }
-
+   // 2C. ลบป้ายเบรกซ้ำซ้อน DTD_BREAK_UP / DTD_BREAK_DN ออกถาวร ป้องกันการซ้อนทับกับป้ายสวิง HH/HL/LH/LL
+   ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_UP");
+   ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_DN");
    // 3. เส้นประแนวนอนเกาะ "ปลายไส้ที่สั้นที่สุด" (Shortest Wick Level) - แสดงเลเยอร์หน้าชัดเจน
    string wickLine = GUI_PREFIX + "DTD_WICK_LINE";
    color  wickCol  = g_DTD.isEngulfConfirmed ? (g_DTD.setupSide == 1 ? C'0,255,136' : C'255,80,90') : clrGold;
@@ -5868,30 +5822,34 @@ void DrawDTD_M1_Visuals()
       ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
    }
 
-   // 4B. ป้ายสติกเกอร์ "RETEST" และ "CF" แนบบนแท่งเทียนจริง (On-Candle Badges สไตล์ อ.เดช)
+   // 4B. ป้ายสติกเกอร์ "RETEST" และ "CF" แนบบนแท่งเทียนจริง (สีขาวสว่าง Segoe UI Black สบายตา ไม่โดนพื้นหลังกลืน)
    if(InpDrawDTD_CandleStickers)
    {
       if(g_DTD.retestBarTime > 0 && g_DTD.retestBarPrice > 0.0)
       {
          string badgeRetest = GUI_PREFIX + "DTD_BADGE_RETEST";
          string txtRetest   = "▰ RETEST ▰";
+         double retestOffsetPrice = (g_DTD.setupSide == 1) ? (g_DTD.retestBarPrice - (25.0 * _Point * tfMultiplier)) : (g_DTD.retestBarPrice + (25.0 * _Point * tfMultiplier));
+         ENUM_ANCHOR_POINT retestAnc = (g_DTD.setupSide == 1) ? ANCHOR_UPPER : ANCHOR_LOWER;
+
          if(ObjectFind(0, badgeRetest) < 0)
          {
-            ObjectCreate(0, badgeRetest, OBJ_TEXT, 0, g_DTD.retestBarTime, g_DTD.retestBarPrice);
+            ObjectCreate(0, badgeRetest, OBJ_TEXT, 0, g_DTD.retestBarTime, retestOffsetPrice);
             ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
             ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
-            ObjectSetInteger(0, badgeRetest, OBJPROP_FONTSIZE, 7);
-            ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, C'210,120,255');
-            ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+            ObjectSetInteger(0, badgeRetest, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, retestAnc);
             ObjectSetInteger(0, badgeRetest, OBJPROP_BACK, false);
          }
          else
          {
             ObjectSetInteger(0, badgeRetest, OBJPROP_TIME, 0, g_DTD.retestBarTime);
-            ObjectSetDouble(0, badgeRetest, OBJPROP_PRICE, 0, g_DTD.retestBarPrice);
+            ObjectSetDouble(0, badgeRetest, OBJPROP_PRICE, 0, retestOffsetPrice);
             ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
-            ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, C'210,120,255');
-            ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_UPPER : ANCHOR_LOWER));
+            ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, retestAnc);
          }
       }
       else
@@ -5903,23 +5861,28 @@ void DrawDTD_M1_Visuals()
       {
          string badgeCF = GUI_PREFIX + "DTD_BADGE_CF";
          string txtCF   = StringFormat("▰ CF %s ▰", g_DTD.tfName);
+         // ยกระดับตำแหน่งให้อยู่พ้นปลายไส้เทียนและพ้นป้ายสวิงโครงสร้าง (HL/LL/BOS/CHoCH) ป้องกันการซ้อนทับ 100%
+         double cfOffsetPrice = (g_DTD.setupSide == 1) ? (g_DTD.confirmBarPrice + (35.0 * _Point * tfMultiplier)) : (g_DTD.confirmBarPrice - (35.0 * _Point * tfMultiplier));
+         ENUM_ANCHOR_POINT cfAnc = (g_DTD.setupSide == 1) ? ANCHOR_LOWER : ANCHOR_UPPER;
+
          if(ObjectFind(0, badgeCF) < 0)
          {
-            ObjectCreate(0, badgeCF, OBJ_TEXT, 0, g_DTD.confirmBarTime, g_DTD.confirmBarPrice);
+            ObjectCreate(0, badgeCF, OBJ_TEXT, 0, g_DTD.confirmBarTime, cfOffsetPrice);
             ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
             ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
-            ObjectSetInteger(0, badgeCF, OBJPROP_FONTSIZE, 7);
-            ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, C'50,235,140');
-            ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_LOWER : ANCHOR_UPPER));
+            ObjectSetInteger(0, badgeCF, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, cfAnc);
             ObjectSetInteger(0, badgeCF, OBJPROP_BACK, false);
          }
          else
          {
             ObjectSetInteger(0, badgeCF, OBJPROP_TIME, 0, g_DTD.confirmBarTime);
-            ObjectSetDouble(0, badgeCF, OBJPROP_PRICE, 0, g_DTD.confirmBarPrice);
+            ObjectSetDouble(0, badgeCF, OBJPROP_PRICE, 0, cfOffsetPrice);
             ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
-            ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, C'50,235,140');
-            ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, (g_DTD.setupSide == 1 ? ANCHOR_LOWER : ANCHOR_UPPER));
+            ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, cfAnc);
          }
       }
       else
@@ -5932,7 +5895,6 @@ void DrawDTD_M1_Visuals()
       ObjectDelete(0, GUI_PREFIX + "DTD_BADGE_RETEST");
       ObjectDelete(0, GUI_PREFIX + "DTD_BADGE_CF");
    }
-
    // 5. สัญลักษณ์จุดลั่นไก (Entry Tick Mark สไตล์อาจารย์เดช)
    if(g_DTD.isEngulfConfirmed && g_DTD.confirmEntryPrice > 0.0)
    {
