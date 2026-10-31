@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.12"
-#property description "DTD Multiverse V1.12 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
+#property version     "1.13"
+#property description "DTD Multiverse V1.13 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -1583,28 +1583,38 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, wickLine, OBJPROP_COLOR, wickCol);
       }
 
-      string wickLbl = DTD_PREFIX + "M1_WICK_LBL";
-      string lblTxt  = StringFormat("🎯 เกณฑ์ CF M1 (ไส้สั้นสุด): %s %s", 
-                                    DoubleToString(g_DTD_M1.shortestWickPrice, _Digits),
-                                    (g_DTD_M1.isEngulfConfirmed ? "★ [CF กลืนกินสำเร็จ!]" : "[รอปิดแท่งกลืนกิน]"));
-      if(ObjectFind(0, wickLbl) < 0)
+      ObjectDelete(0, DTD_PREFIX + "M1_WICK_LBL");
+      string wickPill  = DTD_PREFIX + "M1_PILL_WICK";
+      bool   isBuyWick = (g_DTD_M1.setupSide == 1);
+      bool   isCFDone  = (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched);
+      string lblTxt    = "";
+      if(isCFDone)
       {
-         ObjectCreate(0, wickLbl, OBJ_TEXT, 0, tWickLbl, g_DTD_M1.shortestWickPrice);
-         ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-         ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
-         ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
-         ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
+         lblTxt = isBuyWick
+                  ? StringFormat("🟢 แนว 1.RETEST+CF: %s ➔ ย่อใกล้เส้นนี้ กด BUY!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits))
+                  : StringFormat("🔴 แนว 1.RETEST+CF: %s ➔ เด้งใกล้เส้นนี้ กด SELL!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
       }
       else
       {
-         ObjectSetInteger(0, wickLbl, OBJPROP_TIME, 0, tWickLbl);
-         ObjectSetDouble(0, wickLbl, OBJPROP_PRICE, 0, g_DTD_M1.shortestWickPrice);
-         ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-         ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
-         ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
-         ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
+         lblTxt = isBuyWick
+                  ? StringFormat("⏳ แนวไส้ 1.RETEST: %s ➔ รอ 2.CF ปิดเหนือเส้นเพื่อ BUY", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits))
+                  : StringFormat("⏳ แนวไส้ 1.RETEST: %s ➔ รอ 2.CF ปิดใต้เส้นเพื่อ SELL", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
+      }
+      color wickBgCol     = !isCFDone ? C'145,88,12' : (isBuyWick ? C'10,105,55' : C'135,18,38');
+      color wickBorderCol = !isCFDone ? clrGold      : (isBuyWick ? C'0,255,150' : C'255,95,115');
+      int wpx = 0, wpy = 0;
+      if(ChartTimePriceToXY(0, 0, tEnd, g_DTD_M1.shortestWickPrice, wpx, wpy) && wpx > 0 && wpy > 0)
+      {
+         int chartW = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
+         int pillW  = 295, pillH = 20;
+         int boxX   = wpx - pillW - 4;
+         if(chartW > pillW + 20 && boxX + pillW > chartW - 65) boxX = chartW - 65 - pillW;
+         if(boxX < 6) boxX = 6;
+         int boxY = MathMax(4, wpy - (pillH / 2));
+         CreateRect(wickPill + "_BG", boxX, boxY, pillW, pillH, wickBgCol, wickBorderCol);
+         ObjectSetInteger(0, wickPill + "_BG", OBJPROP_ZORDER, 34);
+         CreateLabel(wickPill + "_TXT", boxX + 8, boxY + 2, lblTxt, clrWhite, 8, true);
+         ObjectSetInteger(0, wickPill + "_TXT", OBJPROP_ZORDER, 39);
       }
 
       // 4C_SW_BOX. วาดกรอบคุม SW HIGH / SW LOW อัตโนมัติเมื่อตรวจพบตลาด Sideway

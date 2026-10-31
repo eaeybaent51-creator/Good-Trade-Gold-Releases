@@ -6,8 +6,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Good Trade Gold & Kamnan Ball Trading Suite"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "2.38"
-#property description "DeungDang_Trade V2.37 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
+#property version     "2.39"
+#property description "DeungDang_Trade V2.39 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
 #property description "CF M1 เสมอ (เส้นเกาะปลายไส้ที่สั้นที่สุด + แท่งกลืนกิน), คำนวณ Lot จากความเสี่ยง ÷ SL จุด (เก็บ 3R), Gann Grid 45°, Phase Space Energy (x, v, A), VSL Lock Floor (+10 pts), Samurai MTF Strip, CME Options Wall, สปีดไลน์, คลื่น A-B-C-D, กลับตัวหลอก, Demand/Supply, ICT Unicorn"
 
 #include <Trade\Trade.mqh>
@@ -21,7 +21,7 @@
 //| MACROS & ENUMS                                                   |
 //+------------------------------------------------------------------+
 #define GUI_PREFIX "DT_"
-#define APP_VERSION "2.37"
+#define APP_VERSION "2.39"
 
 enum ENUM_ASSET_CLASS
 {
@@ -4478,13 +4478,13 @@ void CalculateGannWaveEnergy(const MqlRates &rates[], int copied)
       if(g_GannEnergy.displacementPts > 0)
       {
          g_GannEnergy.stationDirection = 1; // หมดแรงที่ยอดดอย (เตือนเตรียมทุบ Sell)
-         g_GannEnergy.energyStatus = "⚡ จุดหมดแรงยอดดอย (v ≈ 0) • ระวังร่วง / ชิงปิดทำกำไร 🔴";
+         g_GannEnergy.energyStatus = "⚡ หมดแรงยอดดอย • ระวังร่วง 🔴";
          g_GannEnergy.statusColor  = C'255,80,90';
       }
       else
       {
          g_GannEnergy.stationDirection = -1; // หมดแรงที่ก้นเหว (เตือนเตรียมช้อน Buy)
-         g_GannEnergy.energyStatus = "⚡ จุดหมดแรงก้นเหว (v ≈ 0) • ระวังดีด / ชิงปิดทำกำไร 🟢";
+         g_GannEnergy.energyStatus = "⚡ หมดแรงก้นเหว • ระวังดีด 🟢";
          g_GannEnergy.statusColor  = C'50,255,150';
       }
    }
@@ -4496,17 +4496,17 @@ void CalculateGannWaveEnergy(const MqlRates &rates[], int copied)
       double absV = MathAbs(g_GannEnergy.velocityPtsSec);
       if(absV >= (8.0 * velScale))
       {
-         g_GannEnergy.energyStatus = "🚀 พุ่งตัวแรงเต็มสปีด • คลื่นกำลังขยายตัว";
+         g_GannEnergy.energyStatus = "🚀 พุ่งแรงเต็มสปีด • คลื่นขยายตัว";
          g_GannEnergy.statusColor  = clrAqua;
       }
       else if(absV >= (2.5 * velScale))
       {
-         g_GannEnergy.energyStatus = "🟢 คลื่นวิ่งปกติ • มีแรงส่งต่อเนื่อง";
+         g_GannEnergy.energyStatus = "🟢 วิ่งปกติ • มีแรงส่งต่อเนื่อง";
          g_GannEnergy.statusColor  = clrPaleGreen;
       }
       else
       {
-         g_GannEnergy.energyStatus = "🟡 สปีดเริ่มชะลอตัว • สะสมพลังใกล้จุดสมดุล";
+         g_GannEnergy.energyStatus = "🟡 ชะลอตัว • สะสมพลังใกล้เบรก";
          g_GannEnergy.statusColor  = clrGold;
       }
    }
@@ -5552,6 +5552,8 @@ void DrawDTD_M1_Visuals()
       ObjectDelete(0, GUI_PREFIX + "DTD_MARK_ENTRY");
       ObjectDelete(0, GUI_PREFIX + "DTD_WICK_LINE");
       ObjectDelete(0, GUI_PREFIX + "DTD_WICK_LBL");
+      ObjectDelete(0, GUI_PREFIX + "DTD_PILL_WICK_BG");
+      ObjectDelete(0, GUI_PREFIX + "DTD_PILL_WICK_TXT");
       ObjectDelete(0, GUI_PREFIX + "DTD_ARROW_RETEST");
       ObjectDelete(0, GUI_PREFIX + "DTD_STEM_RETEST");
       ObjectDelete(0, GUI_PREFIX + "DTD_BADGE_RETEST");
@@ -5833,12 +5835,15 @@ void DrawDTD_M1_Visuals()
    ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_UP");
    ObjectDelete(0, GUI_PREFIX + "DTD_BREAK_DN");
 
-   // 3. เส้นประแนวนอนเกาะ "ปลายไส้ที่สั้นที่สุด" (Shortest Wick Level)
+   // 3. เส้นประแนวนอนเชื่อมจากแท่ง 1.RETEST ➔ แท่ง 2.CF ➔ จุดดักย่อ BUY / ดักเด้ง SELL
    string wickLine = GUI_PREFIX + "DTD_WICK_LINE";
-   color  wickCol  = g_DTD.isEngulfConfirmed ? (g_DTD.setupSide == 1 ? C'0,255,136' : C'255,80,90') : clrGold;
+   bool   isBuyWick = (g_DTD.setupSide == 1);
+   bool   isCFDone  = (g_DTD.isEngulfConfirmed || g_DTD.isLatched);
+   color  wickCol   = isCFDone ? (isBuyWick ? C'0,255,150' : C'255,85,105') : clrGold;
+   datetime tWickLineStart = (g_DTD.retestBarTime > 0) ? g_DTD.retestBarTime : tStart;
    if(ObjectFind(0, wickLine) < 0)
-      ObjectCreate(0, wickLine, OBJ_TREND, 0, tStart, g_DTD.shortestWickPrice, tEnd, g_DTD.shortestWickPrice);
-   ObjectSetInteger(0, wickLine, OBJPROP_TIME, 0, tStart);
+      ObjectCreate(0, wickLine, OBJ_TREND, 0, tWickLineStart, g_DTD.shortestWickPrice, tEnd, g_DTD.shortestWickPrice);
+   ObjectSetInteger(0, wickLine, OBJPROP_TIME, 0, tWickLineStart);
    ObjectSetDouble(0, wickLine, OBJPROP_PRICE, 0, g_DTD.shortestWickPrice);
    ObjectSetInteger(0, wickLine, OBJPROP_TIME, 1, tEnd);
    ObjectSetDouble(0, wickLine, OBJPROP_PRICE, 1, g_DTD.shortestWickPrice);
@@ -5848,25 +5853,51 @@ void DrawDTD_M1_Visuals()
    ObjectSetInteger(0, wickLine, OBJPROP_RAY_RIGHT, false);
    ObjectSetInteger(0, wickLine, OBJPROP_BACK, false);
 
-   // 4. ป้ายข้อความบอกเกณฑ์ CF (วางชิดในกรอบขวา ANCHOR_RIGHT_LOWER ป้องกันข้อความถูกตัดขอบจอขวา 100%)
-   string wickLbl = GUI_PREFIX + "DTD_WICK_LBL";
-   string wickSideLabel = (g_DTD.setupSide == 1) ? "เกณฑ์กลืนกิน BUY" : "เกณฑ์กลืนกิน SELL";
-   string lblTxt  = StringFormat("🎯 %s%s: %s %s",
-                                 wickSideLabel,
-                                 tfTag,
-                                 DoubleToString(g_DTD.shortestWickPrice, _Digits),
-                                 (g_DTD.isEngulfConfirmed ? "★ [CF แล้ว]" : "[รอปิดแท่ง]"));
-   double wickResolvedPrice = ResolveRightChartLabelPrice(g_DTD.shortestWickPrice, (g_DTD.setupSide == 1 ? -1 : 1));
-   if(ObjectFind(0, wickLbl) < 0)
-      ObjectCreate(0, wickLbl, OBJ_TEXT, 0, tEnd, wickResolvedPrice);
-   ObjectSetInteger(0, wickLbl, OBJPROP_TIME, 0, tEnd);
-   ObjectSetDouble(0, wickLbl, OBJPROP_PRICE, 0, wickResolvedPrice);
-   ObjectSetString(0, wickLbl, OBJPROP_TEXT, lblTxt);
-   ObjectSetString(0, wickLbl, OBJPROP_FONT, "Segoe UI Black");
-   ObjectSetInteger(0, wickLbl, OBJPROP_FONTSIZE, 8);
-   ObjectSetInteger(0, wickLbl, OBJPROP_COLOR, clrWhite);
-   ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
-   ObjectSetInteger(0, wickLbl, OBJPROP_BACK, false);
+   // 4. ป้ายไฮไลต์ทึบแสงบอก "แนว 1.RETEST+CF (จุดดักย่อ BUY / เด้ง SELL)" สอดคล้องเป็นชุดเดียวกับ 1.RETEST & 2.CF 100%
+   ObjectDelete(0, GUI_PREFIX + "DTD_WICK_LBL");
+   string wickPill = GUI_PREFIX + "DTD_PILL_WICK";
+   string lblTxt   = "";
+   if(isCFDone)
+   {
+      lblTxt = isBuyWick
+               ? StringFormat("🟢 แนว 1.RETEST+CF [%s]: %s ➔ ย่อใกล้เส้นนี้ กด BUY!", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
+               : StringFormat("🔴 แนว 1.RETEST+CF [%s]: %s ➔ เด้งใกล้เส้นนี้ กด SELL!", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
+   }
+   else
+   {
+      lblTxt = isBuyWick
+               ? StringFormat("⏳ แนวไส้ 1.RETEST [%s]: %s ➔ รอ 2.CF ปิดเหนือเส้นเพื่อ BUY", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
+               : StringFormat("⏳ แนวไส้ 1.RETEST [%s]: %s ➔ รอ 2.CF ปิดใต้เส้นเพื่อ SELL", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
+   }
+   color wickBgCol     = !isCFDone ? C'145,88,12' : (isBuyWick ? C'10,105,55' : C'135,18,38');
+   color wickBorderCol = !isCFDone ? clrGold      : (isBuyWick ? C'0,255,150' : C'255,95,115');
+   int wpx = 0, wpy = 0;
+   if(ChartTimePriceToXY(0, 0, tEnd, g_DTD.shortestWickPrice, wpx, wpy) && wpx > 0 && wpy > 0)
+   {
+      int chartW = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
+      int chartH = (int)ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
+      int pillW  = 315;
+      int pillH  = 20;
+      int boxX   = wpx - pillW - 4;
+      if(chartW > pillW + 20)
+      {
+         if(boxX + pillW > chartW - 65) boxX = chartW - 65 - pillW;
+         if(boxX < 6) boxX = 6;
+      }
+      int boxY = wpy - (pillH / 2);
+      if(boxY < 4) boxY = 4;
+      if(chartH > pillH + 10 && boxY + pillH > chartH - 4) boxY = chartH - pillH - 4;
+
+      CreateRect(wickPill + "_BG", boxX, boxY, pillW, pillH, wickBgCol, wickBorderCol);
+      ObjectSetInteger(0, wickPill + "_BG", OBJPROP_ZORDER, 34);
+      CreateLabel(wickPill + "_TXT", boxX + 8, boxY + 2, lblTxt, clrWhite, 8, true);
+      ObjectSetInteger(0, wickPill + "_TXT", OBJPROP_ZORDER, 39);
+   }
+   else
+   {
+      ObjectDelete(0, wickPill + "_BG");
+      ObjectDelete(0, wickPill + "_TXT");
+   }
 
    // 4B. ลูกศรชี้เป้า + ก้านชี้ + ป้ายไฮไลต์ทึบแสงแยกสีแผน BUY (เขียว) / SELL (แดง) ไม่จมพื้นหลัง 100%
    if(InpDrawDTD_CandleStickers)
@@ -9099,31 +9130,24 @@ void RenderDashboard()
       CreateLabel(GUI_PREFIX + "C1_L_SIG_B", baseX + 12, lineY, sigCombined2, sigCombClr, 8, false);
       lineY += 15;
 
-      // Row 5: Demand DZ + Supply SZ
-      CreateLabel(GUI_PREFIX + "C1_L_DZ_T",   baseX + 12,  lineY, "🏛️ โซน: รับ DZ ", clrGold, 8, false);
-      CreateLabel(GUI_PREFIX + "C1_L_DZ_V",   baseX + 88,  lineY, nearDZShort, C'50,225,130', 8, true);
-      CreateLabel(GUI_PREFIX + "C1_L_SZ_SEP", baseX + 232, lineY, "| ต้าน SZ ", clrDarkGray, 8, false);
-      CreateLabel(GUI_PREFIX + "C1_L_SZ_V",   baseX + 286, lineY, nearSZShort, C'255,100,120', 8, true);
+      // Row 5 & 6: Demand DZ & Supply SZ (แยก 2 บรรทัด ↳ ไม่ล้นขอบการ์ด 100%)
+      CreateLabel(GUI_PREFIX + "C1_L_DZ_T",   baseX + 12,  lineY, "🏛️ โซนรับ Demand (DZ):", clrGold, 8, false);
+      CreateLabel(GUI_PREFIX + "C1_L_DZ_V",   baseX + 148, lineY, nearDZShort, C'50,225,130', 8, true);
+      lineY += 14;
+      CreateLabel(GUI_PREFIX + "C1_L_SZ_SEP", baseX + 12,  lineY, "   ↳ โซนต้าน Supply (SZ):", C'190,205,225', 8, false);
+      CreateLabel(GUI_PREFIX + "C1_L_SZ_V",   baseX + 148, lineY, nearSZShort, C'255,100,120', 8, true);
       lineY += 15;
 
-      // Row 6: Institutional Liquidity
+      // Row 7 & 8: Institutional Liquidity BSL & SSL (แยก 2 บรรทัด ↳ ไม่ล้นขอบการ์ด 100%)
       if(InpUseLQ_Scanner)
       {
-         if(g_LQ.hasSweepAlert)
-         {
-            color swCol = (g_LQ.sweepSide == 1) ? C'0,255,180' : C'255,180,60';
-            CreateLabel(GUI_PREFIX + "C1_L_LQ", baseX + 12, lineY, g_LQ.sweepAlertStr, swCol, 8, true);
-            ObjectDelete(0, GUI_PREFIX + "C1_L_LQ_B");
-            ObjectDelete(0, GUI_PREFIX + "C1_L_LQ_S");
-         }
-         else
-         {
-            string bslShort = g_LQ.bsl1.isValid ? StringFormat("บน BSL %s [%s] (+%s)", DoubleToString(g_LQ.bsl1.price, _Digits), g_LQ.bsl1.tfName, FormatMoneyOrPoints(g_LQ.bsl1.distPts)) : "บน BSL: ไม่พบ";
-            string sslShort = g_LQ.ssl1.isValid ? StringFormat("ล่าง SSL %s [%s] (-%s)", DoubleToString(g_LQ.ssl1.price, _Digits), g_LQ.ssl1.tfName, FormatMoneyOrPoints(g_LQ.ssl1.distPts)) : "ล่าง SSL: ไม่พบ";
-            CreateLabel(GUI_PREFIX + "C1_L_LQ",   baseX + 12,  lineY, "🧲 LQ:", clrGold, 8, false);
-            CreateLabel(GUI_PREFIX + "C1_L_LQ_B", baseX + 56,  lineY, bslShort, C'255,130,150', 8, false);
-            CreateLabel(GUI_PREFIX + "C1_L_LQ_S", baseX + 230, lineY, "| " + sslShort, C'80,245,170', 8, false);
-         }
+         string bslLine = g_LQ.bsl1.isValid ? StringFormat("🧲 ดักกิน SL ฝั่ง Sell (BSL บน): %s [%s] (+%s)", DoubleToString(g_LQ.bsl1.price, _Digits), g_LQ.bsl1.tfName, FormatMoneyOrPoints(g_LQ.bsl1.distPts)) : "🧲 ดักกิน SL ฝั่ง Sell (BSL บน): ไม่พบในระยะ";
+         string sslLine = g_LQ.ssl1.isValid ? StringFormat("   ↳ ดักกิน SL ฝั่ง Buy (SSL ล่าง): %s [%s] (-%s)", DoubleToString(g_LQ.ssl1.price, _Digits), g_LQ.ssl1.tfName, FormatMoneyOrPoints(g_LQ.ssl1.distPts)) : "   ↳ ดักกิน SL ฝั่ง Buy (SSL ล่าง): ไม่พบในระยะ";
+         CreateLabel(GUI_PREFIX + "C1_L_LQ_B", baseX + 12, lineY, bslLine, C'255,130,150', 8, false);
+         lineY += 14;
+         CreateLabel(GUI_PREFIX + "C1_L_LQ_S", baseX + 12, lineY, sslLine, C'80,245,170', 8, false);
+         ObjectDelete(0, GUI_PREFIX + "C1_L_LQ");
+         lineY += 15;
       }
       else
       {
@@ -9131,7 +9155,6 @@ void RenderDashboard()
          ObjectDelete(0, GUI_PREFIX + "C1_L_LQ_B");
          ObjectDelete(0, GUI_PREFIX + "C1_L_LQ_S");
       }
-      lineY += 15;
 
       // Row 7: CME Options Walls
       if(showCME)
