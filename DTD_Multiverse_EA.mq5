@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.10"
-#property description "DTD Multiverse V1.10 - Pure White Ajarn Dech Signature Elements, Zero-Overlap Clearance & Crisp Contrast"
+#property version     "1.11"
+#property description "DTD Multiverse V1.11 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -176,6 +176,14 @@ struct SDTD_M1_Engine
    double   lqLinePrice;                 // ระดับราคาเส้น LQ สไตล์ อ.เดช
    datetime lqLineTime;                  // เวลาจุดกำเนิดเส้น LQ
    bool     lqIsSwept;                   // จริงเมื่อเกิดการกวาด Sweep ไส้ทะลุ
+   bool     swBoxActive;
+   double   swBoxHigh;
+   double   swBoxLow;
+   double   swBoxMid;
+   datetime swBoxStartTime;
+   int      swBreakState;
+   string   swStatusText;
+   double   avgBarRange;
 };
 
 //+------------------------------------------------------------------+
@@ -818,21 +826,77 @@ void ScanDTD_CF_M1_Always()
    string moneyUnit = IsCentAccount() ? "USC" : "$";
 
    // =========================================================================
-   // 2. คำนวณแผน BUY อิสระ (Bullish DTD Candidate)
+   // 1A. คำนวณกรอบ Sideway Range Box (SW HIGH / SW LOW) อัตโนมัติทุก Timeframe
    // =========================================================================
-   bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 3);
-   int buyLookBack = 15;
-   double shortestUpperWick = 999999.0;
-   double buyTargetPrice = ratesM1[1].high;
-   datetime buyTargetTime = ratesM1[1].time;
-   double lowestLow = ratesM1[1].low;
+   double sumRange = 0.0;
+   int rangeCount = MathMin(24, copied - 1);
+   for(int r = 1; r <= rangeCount; r++) sumRange += (ratesM1[r].high - ratesM1[r].low);
+   double avgBarRange = (rangeCount > 0) ? (sumRange / rangeCount) : (100.0 * _Point);
+   if(avgBarRange <= 0.0) avgBarRange = 50.0 * _Point;
+   g_DTD_M1.avgBarRange = avgBarRange;
 
-   for(int b = 1; b <= buyLookBack && b < copied; b++)
+   int swBars = MathMin(24, copied - 1);
+   double rawSwHigh = ratesM1[2].high, rawSwLow = ratesM1[2].low;
+   double bodySwHigh = MathMax(ratesM1[2].open, ratesM1[2].close);
+   double bodySwLow  = MathMin(ratesM1[2].open, ratesM1[2].close);
+   for(int s = 2; s <= swBars; s++)
+   {
+      if(ratesM1[s].high > rawSwHigh) rawSwHigh = ratesM1[s].high;
+      if(ratesM1[s].low  < rawSwLow)  rawSwLow  = ratesM1[s].low;
+      double bTop = MathMax(ratesM1[s].open, ratesM1[s].close);
+      double bBot = MathMin(ratesM1[s].open, ratesM1[s].close);
+      if(bTop > bodySwHigh) bodySwHigh = bTop;
+      if(bBot < bodySwLow)  bodySwLow  = bBot;
+   }
+   g_DTD_M1.swBoxHigh      = (rawSwHigh - bodySwHigh > avgBarRange * 0.6) ? ((rawSwHigh + bodySwHigh) * 0.5) : rawSwHigh;
+   g_DTD_M1.swBoxLow       = (bodySwLow - rawSwLow   > avgBarRange * 0.6) ? ((rawSwLow  + bodySwLow)  * 0.5) : rawSwLow;
+   g_DTD_M1.swBoxMid       = (g_DTD_M1.swBoxHigh + g_DTD_M1.swBoxLow) * 0.5;
+   g_DTD_M1.swBoxStartTime = ratesM1[swBars].time;
+
+   int midCrosses = 0;
+   for(int s = 2; s <= swBars; s++)
+   {
+      if(ratesM1[s].high >= g_DTD_M1.swBoxMid && ratesM1[s].low <= g_DTD_M1.swBoxMid)
+         midCrosses++;
+   }
+   double boxSpan = g_DTD_M1.swBoxHigh - g_DTD_M1.swBoxLow;
+   g_DTD_M1.swBoxActive = (boxSpan <= avgBarRange * 6.0 || midCrosses >= 4);
+   g_DTD_M1.swBreakState = 0;
+   if(ratesM1[1].close > g_DTD_M1.swBoxHigh || ratesM1[0].close > g_DTD_M1.swBoxHigh + (avgBarRange * 0.20))
+      g_DTD_M1.swBreakState = 1;
+   else if(ratesM1[1].close < g_DTD_M1.swBoxLow || ratesM1[0].close < g_DTD_M1.swBoxLow - (avgBarRange * 0.20))
+      g_DTD_M1.swBreakState = -1;
+   else if((ratesM1[1].high > g_DTD_M1.swBoxHigh && ratesM1[1].close <= g_DTD_M1.swBoxHigh) || (ratesM1[0].high > g_DTD_M1.swBoxHigh && ratesM1[0].close <= g_DTD_M1.swBoxHigh))
+      g_DTD_M1.swBreakState = 2;
+   else if((ratesM1[1].low < g_DTD_M1.swBoxLow && ratesM1[1].close >= g_DTD_M1.swBoxLow) || (ratesM1[0].low < g_DTD_M1.swBoxLow && ratesM1[0].close >= g_DTD_M1.swBoxLow))
+      g_DTD_M1.swBreakState = -2;
+
+   // =========================================================================
+   // 2. คำนวณแผน BUY อิสระแบบ Realtime (แยกแท่ง RETEST และแท่ง CF ออกจากกัน 100%)
+   // =========================================================================
+   bool buyHasShift = (ratesM1[0].close >= highestM1High || ratesM1[1].close >= highestM1High || highestM1Bar >= 2);
+   int buyLookBack = MathMin(10, copied - 1);
+   int buyRetestIdx = 1;
+   double lowestLow = ratesM1[1].low;
+   for(int b = 1; b <= buyLookBack; b++)
+   {
+      if(ratesM1[b].low <= lowestLow)
+      {
+         lowestLow = ratesM1[b].low;
+         buyRetestIdx = b;
+      }
+   }
+   datetime lowestPullbackTime = ratesM1[buyRetestIdx].time;
+
+   double buyTargetPrice = ratesM1[buyRetestIdx].high;
+   datetime buyTargetTime = ratesM1[buyRetestIdx].time;
+   double shortestUpperWick = 999999.0;
+   int wStart = (buyRetestIdx >= 2) ? 2 : 1;
+   int wEnd   = MathMin(buyRetestIdx + 2, copied - 1);
+   for(int b = wStart; b <= wEnd; b++)
    {
       double bodyTop = MathMax(ratesM1[b].open, ratesM1[b].close);
       double upperWick = ratesM1[b].high - bodyTop;
-      if(ratesM1[b].low < lowestLow) lowestLow = ratesM1[b].low;
-
       if(upperWick < shortestUpperWick && upperWick >= 0.0)
       {
          shortestUpperWick = upperWick;
@@ -841,8 +905,21 @@ void ScanDTD_CF_M1_Always()
       }
    }
 
-   bool buyConfirmed = (ratesM1[1].close > buyTargetPrice || ratesM1[2].close > buyTargetPrice);
-   bool buyIsTestingNow = (!buyConfirmed && ratesM1[0].close > buyTargetPrice);
+   bool buyConfirmed = false;
+   int  buyCFBar = 1;
+   int  maxCFCheck = (buyRetestIdx >= 2) ? (buyRetestIdx - 1) : 1;
+   for(int c = 1; c <= maxCFCheck && c <= 5; c++)
+   {
+      if(c < buyRetestIdx && ratesM1[c].close > buyTargetPrice && ratesM1[c].close > ratesM1[c].open && ratesM1[0].low >= lowestLow)
+      {
+         buyConfirmed = true;
+         buyCFBar = c;
+         break;
+      }
+   }
+   bool buyIsTestingNow = (!buyConfirmed && ratesM1[0].close > buyTargetPrice && ratesM1[0].close > ratesM1[0].open);
+   datetime buyConfirmBarTime  = buyConfirmed ? ratesM1[buyCFBar].time : ratesM1[0].time;
+   double   buyConfirmBarPrice = buyConfirmed ? ratesM1[buyCFBar].high : ratesM1[0].high;
 
    double buyEntryPrice = curAsk;
    double buySLPrice = lowestLow - buffer;
@@ -877,21 +954,31 @@ void ScanDTD_CF_M1_Always()
    g_DTD_M1.buyRecommendedLot    = buyRecommendedLot;
 
    // =========================================================================
-   // 3. คำนวณแผน SELL อิสระ (Bearish DTD Candidate)
+   // 3. คำนวณแผน SELL อิสระแบบ Realtime (แยกแท่ง RETEST และแท่ง CF ออกจากกัน 100%)
    // =========================================================================
-   bool sellHasShift = (ratesM1[0].close <= lowestM1Low || ratesM1[1].close <= lowestM1Low || lowestM1Bar >= 3);
-   int sellLookBack = 15;
-   double shortestLowerWick = 999999.0;
-   double sellTargetPrice = ratesM1[1].low;
-   datetime sellTargetTime = ratesM1[1].time;
+   bool sellHasShift = (ratesM1[0].close <= lowestM1Low || ratesM1[1].close <= lowestM1Low || lowestM1Bar >= 2);
+   int sellLookBack = MathMin(10, copied - 1);
+   int sellRetestIdx = 1;
    double highestHigh = ratesM1[1].high;
+   for(int b = 1; b <= sellLookBack; b++)
+   {
+      if(ratesM1[b].high >= highestHigh)
+      {
+         highestHigh = ratesM1[b].high;
+         sellRetestIdx = b;
+      }
+   }
+   datetime highestPullbackTime = ratesM1[sellRetestIdx].time;
 
-   for(int b = 1; b <= sellLookBack && b < copied; b++)
+   double sellTargetPrice = ratesM1[sellRetestIdx].low;
+   datetime sellTargetTime = ratesM1[sellRetestIdx].time;
+   double shortestLowerWick = 999999.0;
+   int swStart = (sellRetestIdx >= 2) ? 2 : 1;
+   int swEnd   = MathMin(sellRetestIdx + 2, copied - 1);
+   for(int b = swStart; b <= swEnd; b++)
    {
       double bodyBottom = MathMin(ratesM1[b].open, ratesM1[b].close);
       double lowerWick = bodyBottom - ratesM1[b].low;
-      if(ratesM1[b].high > highestHigh) highestHigh = ratesM1[b].high;
-
       if(lowerWick < shortestLowerWick && lowerWick >= 0.0)
       {
          shortestLowerWick = lowerWick;
@@ -900,8 +987,29 @@ void ScanDTD_CF_M1_Always()
       }
    }
 
-   bool sellConfirmed = (ratesM1[1].close < sellTargetPrice || ratesM1[2].close < sellTargetPrice);
-   bool sellIsTestingNow = (!sellConfirmed && ratesM1[0].close < sellTargetPrice);
+   bool sellConfirmed = false;
+   int  sellCFBar = 1;
+   int  sMaxCFCheck = (sellRetestIdx >= 2) ? (sellRetestIdx - 1) : 1;
+   for(int c = 1; c <= sMaxCFCheck && c <= 5; c++)
+   {
+      if(c < sellRetestIdx && ratesM1[c].close < sellTargetPrice && ratesM1[c].close < ratesM1[c].open && ratesM1[0].high <= highestHigh)
+      {
+         sellConfirmed = true;
+         sellCFBar = c;
+         break;
+      }
+   }
+   bool sellIsTestingNow = (!sellConfirmed && ratesM1[0].close < sellTargetPrice && ratesM1[0].close < ratesM1[0].open);
+   datetime sellConfirmBarTime  = sellConfirmed ? ratesM1[sellCFBar].time : ratesM1[0].time;
+   double   sellConfirmBarPrice = sellConfirmed ? ratesM1[sellCFBar].low  : ratesM1[0].low;
+
+   if(buyConfirmed && sellConfirmed)
+   {
+      if(buyCFBar < sellCFBar) sellConfirmed = false;
+      else if(sellCFBar < buyCFBar) buyConfirmed = false;
+      else if(ratesM1[0].close >= ratesM1[0].open) sellConfirmed = false;
+      else buyConfirmed = false;
+   }
 
    double sellEntryPrice = curBid;
    double sellSLPrice = highestHigh + buffer;
@@ -936,131 +1044,81 @@ void ScanDTD_CF_M1_Always()
    g_DTD_M1.sellRecommendedLot    = sellRecommendedLot;
 
    // =========================================================================
-   // 1B. ตรวจสอบสถานะการล็อกและตรึงกรอบแผนเทรด (SETUP FREEZE & LATCH CHECK)
+   // 1B. ตรวจสอบสถานะการล็อกและปลดล็อก Realtime เมื่อเกิดสัญญาณกลับตัวฝั่งตรงข้าม
    // =========================================================================
    if(g_DTD_M1.isLatched)
    {
       bool unlatch = false;
       string unlatchReason = "";
 
-      // 1) Target TP3 or Stop Loss Hit
       if(g_DTD_M1.latchedSide == 1)
       {
          if(curBid >= g_DTD_M1.latchedTP3Price) { unlatch = true; unlatchReason = "แตะเป้าหมายหลัก TP3 สำเร็จ"; }
          else if(curBid <= g_DTD_M1.latchedSLPrice) { unlatch = true; unlatchReason = "ราคาหลุดระดับ Stop Loss"; }
+         else if(sellConfirmed && sellCFBar <= 2) { unlatch = true; unlatchReason = "เกิดสัญญาณกลืนกิน CF SELL ใหม่แบบ Realtime"; }
       }
       else if(g_DTD_M1.latchedSide == -1)
       {
          if(curAsk <= g_DTD_M1.latchedTP3Price) { unlatch = true; unlatchReason = "แตะเป้าหมายหลัก TP3 สำเร็จ"; }
          else if(curAsk >= g_DTD_M1.latchedSLPrice) { unlatch = true; unlatchReason = "ราคาหลุดระดับ Stop Loss"; }
+         else if(buyConfirmed && buyCFBar <= 2) { unlatch = true; unlatchReason = "เกิดสัญญาณกลืนกิน CF BUY ใหม่แบบ Realtime"; }
       }
 
-      // 2) MTF / Macro Trend Flip & Reversal Guard (ป้องกันการล็อกแผนค้างผิดฝั่ง 100%)
       if(!unlatch)
       {
          int m15Dir = GetM15_TrendDirection();
-         if(g_DTD_M1.latchedSide == 1) // ล็อกฝั่ง BUY อยู่
+         if(g_DTD_M1.latchedSide == 1)
          {
-            if(InpRequireM15_Alignment && m15Dir == -1)
-            {
-               unlatch = true;
-               unlatchReason = "เทรนด์ M15 พลิกเป็นขาลง (SELL) ตัดสิทธิ์แผน BUY ทันที";
-            }
-            else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 25 * 60 && curBid < g_DTD_M1.latchedEntryPrice)
-            {
-               unlatch = true;
-               unlatchReason = "เวลาแผนเทรดหมดอายุ (25 นาที) และราคาติดลบ";
-            }
-            else if(g_DTD_M1.m1SwingLowPrice > 0.0 && curBid < g_DTD_M1.m1SwingLowPrice)
-            {
-               unlatch = true;
-               unlatchReason = "โครงสร้าง M1 เสียทรง (ราคาหลุด Swing Low)";
-            }
+            if(InpRequireM15_Alignment && m15Dir == -1) { unlatch = true; unlatchReason = "เทรนด์ M15 พลิกเป็นขาลง"; }
+            else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 15 * 60 && curBid < g_DTD_M1.latchedEntryPrice) { unlatch = true; unlatchReason = "หมดเวลาถือแผนเดิม"; }
+            else if(g_DTD_M1.m1SwingLowPrice > 0.0 && curBid < g_DTD_M1.m1SwingLowPrice) { unlatch = true; unlatchReason = "ราคาหลุด Swing Low"; }
          }
-         else if(g_DTD_M1.latchedSide == -1) // ล็อกฝั่ง SELL อยู่
+         else if(g_DTD_M1.latchedSide == -1)
          {
-            if(InpRequireM15_Alignment && m15Dir == 1)
-            {
-               unlatch = true;
-               unlatchReason = "เทรนด์ M15 พลิกเป็นขาขึ้น (BUY) ตัดสิทธิ์แผน SELL ทันที";
-            }
-            else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 25 * 60 && curAsk > g_DTD_M1.latchedEntryPrice)
-            {
-               unlatch = true;
-               unlatchReason = "เวลาแผนเทรดหมดอายุ (25 นาที) และราคาติดลบ";
-            }
-            else if(g_DTD_M1.m1SwingHighPrice > 0.0 && curAsk > g_DTD_M1.m1SwingHighPrice)
-            {
-               unlatch = true;
-               unlatchReason = "โครงสร้าง M1 เสียทรง (ราคาทะลุ Swing High)";
-            }
+            if(InpRequireM15_Alignment && m15Dir == 1) { unlatch = true; unlatchReason = "เทรนด์ M15 พลิกเป็นขาขึ้น"; }
+            else if((ratesM1[0].time - g_DTD_M1.latchedTime) > 15 * 60 && curAsk > g_DTD_M1.latchedEntryPrice) { unlatch = true; unlatchReason = "หมดเวลาถือแผนเดิม"; }
+            else if(g_DTD_M1.m1SwingHighPrice > 0.0 && curAsk > g_DTD_M1.m1SwingHighPrice) { unlatch = true; unlatchReason = "ราคาทะลุ Swing High"; }
          }
       }
 
       if(unlatch)
       {
-         Print(">>> [DTD_Multiverse] 🔓 ปลดล็อกแผนเทรดเดิมทันที! เหตุผล: ", unlatchReason);
-         g_DTD_M1.isLatched           = false;
-         g_DTD_M1.latchedSide         = 0;
-         g_DTD_M1.latchedTime         = 0;
-         g_DTD_M1.latchedEntryPrice   = 0.0;
-         g_DTD_M1.latchedSLPrice      = 0.0;
-         g_DTD_M1.latchedTP1Price     = 0.0;
-         g_DTD_M1.latchedTP2Price     = 0.0;
-         g_DTD_M1.latchedTP3Price     = 0.0;
-         g_DTD_M1.latchedSLPoints     = 0.0;
-         g_DTD_M1.latchedLot          = 0.0;
-         g_DTD_M1.latchedShortestWick = 0.0;
-         g_DTD_M1.latchedRetestTime   = 0;
-         g_DTD_M1.latchedRetestPrice  = 0.0;
-         g_DTD_M1.latchedConfirmTime  = 0;
-         g_DTD_M1.latchedConfirmPrice = 0.0;
-         g_DTD_M1.latchedLQPrice      = 0.0;
-         g_DTD_M1.latchedLQTime       = 0;
-         g_DTD_M1.latchedLQSwept      = false;
-         g_DTD_M1.retestBarTime       = 0;
-         g_DTD_M1.retestBarPrice      = 0.0;
-         g_DTD_M1.confirmBarTime      = 0;
-         g_DTD_M1.confirmBarPrice     = 0.0;
-         g_DTD_M1.lqLinePrice         = 0.0;
-         g_DTD_M1.lqLineTime          = 0;
-         g_DTD_M1.lqIsSwept           = false;
-         ObjectDelete(0, DTD_PREFIX + "M1_LINE_LQ");
-         ObjectDelete(0, DTD_PREFIX + "M1_LBL_LQ");
-         ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
-         ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
-         g_DTD_M1.isEngulfConfirmed   = false;
-         g_DTD_M1.buyEngulfConfirmed  = false;
-         g_DTD_M1.sellEngulfConfirmed = false;
-         g_DTD_M1.confirmEntryPrice   = 0.0;
-         g_DTD_M1.confirmSLPrice      = 0.0;
-         g_DTD_M1.confirmTP1RPrice    = 0.0;
-         g_DTD_M1.confirmTP2RPrice    = 0.0;
-         g_DTD_M1.confirmTP3RPrice    = 0.0;
-         g_DTD_M1.slPoints            = 0.0;
-         g_DTD_M1.tp1RPoints          = 0.0;
-         g_DTD_M1.tp2RPoints          = 0.0;
-         g_DTD_M1.tp3RPoints          = 0.0;
-
-         // ลบกล่อง TradingView Box และเส้นเป้าหมายเก่าทันที
-         ObjectDelete(0, DTD_PREFIX + "M1_BOX_SL");
-         ObjectDelete(0, DTD_PREFIX + "M1_BOX_TP");
-         ObjectDelete(0, DTD_PREFIX + "M1_LINE_TP1R");
-         ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP1R");
-         ObjectDelete(0, DTD_PREFIX + "M1_LINE_TP2R");
-         ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP2R");
-         ObjectDelete(0, DTD_PREFIX + "M1_LINE_TP3R");
-         ObjectDelete(0, DTD_PREFIX + "M1_LBL_TP3R");
-         ObjectDelete(0, DTD_PREFIX + "M1_LINE_SL");
-         ObjectDelete(0, DTD_PREFIX + "M1_LBL_SL");
-      ObjectDelete(0, DTD_PREFIX + "M1_LINE_LQ");
-      ObjectDelete(0, DTD_PREFIX + "M1_LBL_LQ");
-      ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
-      ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
-         ObjectDelete(0, DTD_PREFIX + "M1_MARK_ENTRY");
+         g_DTD_M1.isLatched      = false;
+         g_DTD_M1.latchedSide    = 0;
+         g_DTD_M1.retestBarTime  = 0;
+         g_DTD_M1.confirmBarTime = 0;
       }
       else
       {
+         if(g_DTD_M1.latchedSide == 1)
+         {
+            if(lowestPullbackTime >= g_DTD_M1.latchedRetestTime)
+            {
+               g_DTD_M1.latchedRetestTime  = lowestPullbackTime;
+               g_DTD_M1.latchedRetestPrice = lowestLow;
+            }
+            if(buyConfirmed && buyConfirmBarTime >= g_DTD_M1.latchedConfirmTime)
+            {
+               g_DTD_M1.latchedConfirmTime  = buyConfirmBarTime;
+               g_DTD_M1.latchedConfirmPrice = buyConfirmBarPrice;
+               g_DTD_M1.latchedShortestWick = buyTargetPrice;
+            }
+         }
+         else if(g_DTD_M1.latchedSide == -1)
+         {
+            if(highestPullbackTime >= g_DTD_M1.latchedRetestTime)
+            {
+               g_DTD_M1.latchedRetestTime  = highestPullbackTime;
+               g_DTD_M1.latchedRetestPrice = highestHigh;
+            }
+            if(sellConfirmed && sellConfirmBarTime >= g_DTD_M1.latchedConfirmTime)
+            {
+               g_DTD_M1.latchedConfirmTime  = sellConfirmBarTime;
+               g_DTD_M1.latchedConfirmPrice = sellConfirmBarPrice;
+               g_DTD_M1.latchedShortestWick = sellTargetPrice;
+            }
+         }
+
          g_DTD_M1.setupSide         = g_DTD_M1.latchedSide;
          g_DTD_M1.shortestWickPrice = g_DTD_M1.latchedShortestWick;
          g_DTD_M1.confirmEntryPrice = g_DTD_M1.latchedEntryPrice;
@@ -1072,166 +1130,50 @@ void ScanDTD_CF_M1_Always()
          g_DTD_M1.tp1RPoints        = g_DTD_M1.latchedSLPoints * 1.0;
          g_DTD_M1.tp2RPoints        = g_DTD_M1.latchedSLPoints * 2.0;
          g_DTD_M1.tp3RPoints        = g_DTD_M1.latchedSLPoints * InpTargetRR;
+         g_DTD_M1.retestBarTime     = g_DTD_M1.latchedRetestTime;
+         g_DTD_M1.retestBarPrice    = g_DTD_M1.latchedRetestPrice;
+         g_DTD_M1.confirmBarTime    = g_DTD_M1.latchedConfirmTime;
+         g_DTD_M1.confirmBarPrice   = g_DTD_M1.latchedConfirmPrice;
+         g_DTD_M1.lqLinePrice       = g_DTD_M1.latchedLQPrice;
+         g_DTD_M1.lqLineTime        = g_DTD_M1.latchedLQTime;
+         g_DTD_M1.lqIsSwept         = g_DTD_M1.latchedLQSwept;
          g_DTD_M1.recommendedLot    = g_DTD_M1.latchedLot;
          g_DTD_M1.isEngulfConfirmed = true;
-
-         if(g_DTD_M1.latchedSide == 1)
-         {
-            g_DTD_M1.buyEngulfConfirmed   = true;
-            g_DTD_M1.buyConfirmEntryPrice = g_DTD_M1.latchedEntryPrice;
-            g_DTD_M1.buyConfirmSLPrice    = g_DTD_M1.latchedSLPrice;
-            g_DTD_M1.buyConfirmTP1RPrice  = g_DTD_M1.latchedTP1Price;
-            g_DTD_M1.buyConfirmTP2RPrice  = g_DTD_M1.latchedTP2Price;
-            g_DTD_M1.buyConfirmTP3RPrice  = g_DTD_M1.latchedTP3Price;
-            g_DTD_M1.buySlPoints          = g_DTD_M1.latchedSLPoints;
-            g_DTD_M1.buyRecommendedLot    = g_DTD_M1.latchedLot;
-
-            double pnlPts     = (curBid - g_DTD_M1.latchedEntryPrice) / _Point;
-            double distRetest = (curBid - g_DTD_M1.shortestWickPrice) / _Point;
-            bool isHitTP3     = (g_DTD_M1.latchedTP3Price > 0.0 && curBid >= g_DTD_M1.latchedTP3Price);
-            bool isHitTP2     = (g_DTD_M1.latchedTP2Price > 0.0 && curBid >= g_DTD_M1.latchedTP2Price);
-            bool isHitTP1     = (g_DTD_M1.latchedTP1Price > 0.0 && curBid >= g_DTD_M1.latchedTP1Price);
-
-            if(isHitTP3)
-            {
-               g_DTD_M1.statusText  = StringFormat("🏆 CF M1: 🟢 [บรรลุเป้าหมาย 3R สำเร็จ! (+%.0f pts)] ➔ พิจารณาปิดทำกำไรเข้าพอร์ต", pnlPts);
-               g_DTD_M1.statusColor = C'0,255,200';
-            }
-            else if(isHitTP2)
-            {
-               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🟢 [บรรลุเป้า TP 2R (+%.0f pts)] ➔ เลื่อน SL ล็อกกำไรใต้ฐาน TP1 รันสู่ TP3", pnlPts);
-               g_DTD_M1.statusColor = C'50,255,180';
-            }
-            else if(isHitTP1)
-            {
-               g_DTD_M1.statusText  = StringFormat("🛡️ CF M1: 🟢 [บรรลุเป้า TP 1R (+%.0f pts)] ➔ กดบังทุนทันที ตัดความเสี่ยงเหลือ 0!", pnlPts);
-               g_DTD_M1.statusColor = C'100,245,160';
-            }
-            else if(MathAbs(distRetest) <= 40.0)
-            {
-               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🟢 [จังหวะย่อรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ BUY ราคาดีที่สุด!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
-               g_DTD_M1.statusColor = C'0,255,200';
-            }
-            else if(pnlPts > (StringFind(_Symbol, "BTC") >= 0 ? 2500.0 : ((StringFind(_Symbol, "XAU") >= 0 || StringFind(_Symbol, "GOLD") >= 0) ? MathMax(250.0, g_DTD_M1.slPoints * 0.45) : 80.0)))
-            {
-               g_DTD_M1.statusText  = StringFormat("⚠️ CF M1: 🟢 [แผน BUY วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคาเด็ดขาด!]", pnlPts);
-               g_DTD_M1.statusColor = clrGold;
-            }
-            else
-            {
-               g_DTD_M1.statusText  = "🟢 CF M1: 🟢 จบแท่งกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
-               g_DTD_M1.statusColor = C'0,255,136';
-            }
-         }
-         else
-         {
-            g_DTD_M1.sellEngulfConfirmed   = true;
-            g_DTD_M1.sellConfirmEntryPrice = g_DTD_M1.latchedEntryPrice;
-            g_DTD_M1.sellConfirmSLPrice    = g_DTD_M1.latchedSLPrice;
-            g_DTD_M1.sellConfirmTP1RPrice  = g_DTD_M1.latchedTP1Price;
-            g_DTD_M1.sellConfirmTP2RPrice  = g_DTD_M1.latchedTP2Price;
-            g_DTD_M1.sellConfirmTP3RPrice  = g_DTD_M1.latchedTP3Price;
-            g_DTD_M1.sellSlPoints          = g_DTD_M1.latchedSLPoints;
-            g_DTD_M1.sellRecommendedLot    = g_DTD_M1.latchedLot;
-
-            double pnlPts     = (g_DTD_M1.latchedEntryPrice - curAsk) / _Point;
-            double distRetest = (g_DTD_M1.shortestWickPrice - curAsk) / _Point;
-            bool isHitTP3     = (g_DTD_M1.latchedTP3Price > 0.0 && curAsk <= g_DTD_M1.latchedTP3Price);
-            bool isHitTP2     = (g_DTD_M1.latchedTP2Price > 0.0 && curAsk <= g_DTD_M1.latchedTP2Price);
-            bool isHitTP1     = (g_DTD_M1.latchedTP1Price > 0.0 && curAsk <= g_DTD_M1.latchedTP1Price);
-
-            if(isHitTP3)
-            {
-               g_DTD_M1.statusText  = StringFormat("🏆 CF M1: 🔴 [บรรลุเป้าหมาย 3R สำเร็จ! (+%.0f pts)] ➔ พิจารณาปิดทำกำไรเข้าพอร์ต", pnlPts);
-               g_DTD_M1.statusColor = C'255,80,90';
-            }
-            else if(isHitTP2)
-            {
-               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🔴 [บรรลุเป้า TP 2R (+%.0f pts)] ➔ เลื่อน SL ล็อกกำไรเหนือฐาน TP1 รันสู่ TP3", pnlPts);
-               g_DTD_M1.statusColor = C'255,100,120';
-            }
-            else if(isHitTP1)
-            {
-               g_DTD_M1.statusText  = StringFormat("🛡️ CF M1: 🔴 [บรรลุเป้า TP 1R (+%.0f pts)] ➔ กดบังทุนทันที ตัดความเสี่ยงเหลือ 0!", pnlPts);
-               g_DTD_M1.statusColor = C'255,120,135';
-            }
-            else if(MathAbs(distRetest) <= 40.0)
-            {
-               g_DTD_M1.statusText  = StringFormat("🎯 CF M1: 🔴 [จังหวะดีดรีเทส!] ราคาแตะเส้นไส้สั้นสุด %s • จุดขึ้นรถ SELL ราคาดีที่สุด!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
-               g_DTD_M1.statusColor = C'255,180,80';
-            }
-            else if(pnlPts > (StringFind(_Symbol, "BTC") >= 0 ? 2500.0 : ((StringFind(_Symbol, "XAU") >= 0 || StringFind(_Symbol, "GOLD") >= 0) ? MathMax(250.0, g_DTD_M1.slPoints * 0.45) : 80.0)))
-            {
-               g_DTD_M1.statusText  = StringFormat("⚠️ CF M1: 🔴 [แผน SELL วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคาเด็ดขาด!]", pnlPts);
-               g_DTD_M1.statusColor = clrGold;
-            }
-            else
-            {
-               g_DTD_M1.statusText  = "🔴 CF M1: 🔴 จบแท่งกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
-               g_DTD_M1.statusColor = C'255,80,90';
-            }
-         }
-
-         g_DTD_M1.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f (เสี่ยง %s%.1f)", FormatMoneyOrPoints(g_DTD_M1.slPoints), FormatMoneyOrPoints(g_DTD_M1.tp1RPoints), FormatMoneyOrPoints(g_DTD_M1.tp2RPoints), FormatMoneyOrPoints(g_DTD_M1.tp3RPoints), g_DTD_M1.recommendedLot, moneyUnit, InpRiskMoney);
+         g_DTD_M1.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f", FormatMoneyOrPoints(g_DTD_M1.slPoints), FormatMoneyOrPoints(g_DTD_M1.tp1RPoints), FormatMoneyOrPoints(g_DTD_M1.tp2RPoints), FormatMoneyOrPoints(g_DTD_M1.tp3RPoints), g_DTD_M1.recommendedLot);
          return;
       }
    }
 
    // =========================================================================
-   // 4. SMART CONTEXT ARBITRATOR (POI Proximity & Confluence Selector)
+   // 4. SMART CONTEXT ARBITRATOR
    // =========================================================================
    string sym = _Symbol; StringToUpper(sym);
    double zoneTol = (StringFind(sym, "BTC") >= 0) ? (curAsk * 0.003) : (((StringFind(sym, "XAU") >= 0 || StringFind(sym, "GOLD") >= 0)) ? 100.0 * _Point : 25.0 * _Point);
-
-   double distBuyPOI = 9999999.0;
-   double distSellPOI = 9999999.0;
+   double distBuyPOI = 9999999.0, distSellPOI = 9999999.0;
    for(int p = 0; p < g_POI_Count; p++)
    {
       if(!g_POI_Zones[p].isActive) continue;
-      if(g_POI_Zones[p].isBuy)
-      {
-         double d = MathAbs(curBid - g_POI_Zones[p].high);
-         if(d < distBuyPOI) distBuyPOI = d;
-      }
-      else
-      {
-         double d = MathAbs(curAsk - g_POI_Zones[p].low);
-         if(d < distSellPOI) distSellPOI = d;
-      }
+      if(g_POI_Zones[p].isBuy) { double d = MathAbs(curBid - g_POI_Zones[p].high); if(d < distBuyPOI) distBuyPOI = d; }
+      else                     { double d = MathAbs(curAsk - g_POI_Zones[p].low);  if(d < distSellPOI) distSellPOI = d; }
    }
 
    int m15Dir = GetM15_TrendDirection();
-   bool m15AllowsBuy  = (!InpRequireM15_Alignment || m15Dir == 1);
-   bool m15AllowsSell = (!InpRequireM15_Alignment || m15Dir == -1);
+   bool m15AllowsBuy  = (!InpRequireM15_Alignment || m15Dir >= 0 || buyConfirmed);
+   bool m15AllowsSell = (!InpRequireM15_Alignment || m15Dir <= 0 || sellConfirmed);
 
    int activeSide = 0;
-   if(distBuyPOI <= zoneTol)
-      activeSide = 1;
-   else if(distSellPOI <= zoneTol)
-      activeSide = -1;
-   else
-   {
-      if(buyConfirmed && !sellConfirmed)
-         activeSide = 1;
-      else if(sellConfirmed && !buyConfirmed)
-         activeSide = -1;
-      else if(buyConfirmed && sellConfirmed)
-         activeSide = (buyTargetTime >= sellTargetTime) ? 1 : -1;
-      else
-      {
-         if(distBuyPOI < distSellPOI) activeSide = 1;
-         else if(distSellPOI < distBuyPOI) activeSide = -1;
-         else if(g_ABCD.isFormed && g_ABCD.waveDir != 0) activeSide = g_ABCD.waveDir;
-         else if(g_HTF_Trend != 0) activeSide = g_HTF_Trend;
-         else activeSide = 1;
-      }
-   }
+   if(buyConfirmed && !sellConfirmed) activeSide = 1;
+   else if(sellConfirmed && !buyConfirmed) activeSide = -1;
+   else if(g_DTD_M1.swBoxActive && g_DTD_M1.swBreakState == 1) activeSide = 1;
+   else if(g_DTD_M1.swBoxActive && g_DTD_M1.swBreakState == -1) activeSide = -1;
+   else if(distBuyPOI <= zoneTol) activeSide = 1;
+   else if(distSellPOI <= zoneTol) activeSide = -1;
+   else if(distBuyPOI < distSellPOI) activeSide = 1;
+   else if(distSellPOI < distBuyPOI) activeSide = -1;
+   else activeSide = (g_HTF_Trend >= 0) ? 1 : -1;
 
    g_DTD_M1.setupSide = activeSide;
 
-   // =========================================================================
-   // 5. ซิงค์ค่าของฝั่งที่แอคทีฟเข้าสู่โครงสร้างหลัก g_DTD_M1
-   // =========================================================================
    if(activeSide == 1)
    {
       g_DTD_M1.hasM1Shift        = buyHasShift;
@@ -1248,6 +1190,13 @@ void ScanDTD_CF_M1_Always()
       g_DTD_M1.tp2RPoints        = buySLPoints * 2.0;
       g_DTD_M1.tp3RPoints        = buySLPoints * InpTargetRR;
       g_DTD_M1.recommendedLot    = buyRecommendedLot;
+      g_DTD_M1.retestBarTime     = lowestPullbackTime;
+      g_DTD_M1.retestBarPrice    = lowestLow;
+      g_DTD_M1.confirmBarTime    = buyConfirmBarTime;
+      g_DTD_M1.confirmBarPrice   = buyConfirmBarPrice;
+      g_DTD_M1.lqLinePrice       = g_DTD_M1.m1SwingLowPrice;
+      g_DTD_M1.lqLineTime        = g_DTD_M1.m1SwingLowTime;
+      g_DTD_M1.lqIsSwept         = (lowestLow <= g_DTD_M1.m1SwingLowPrice || ratesM1[0].low <= g_DTD_M1.m1SwingLowPrice);
 
       if(buyConfirmed)
       {
@@ -1255,7 +1204,7 @@ void ScanDTD_CF_M1_Always()
          {
             g_DTD_M1.isLatched           = true;
             g_DTD_M1.latchedSide         = 1;
-            g_DTD_M1.latchedTime         = ratesM1[1].time;
+            g_DTD_M1.latchedTime         = buyConfirmBarTime;
             g_DTD_M1.latchedEntryPrice   = buyEntryPrice;
             g_DTD_M1.latchedSLPrice      = buySLPrice;
             g_DTD_M1.latchedTP1Price     = buyTP1RPrice;
@@ -1271,25 +1220,15 @@ void ScanDTD_CF_M1_Always()
             g_DTD_M1.latchedLQPrice      = g_DTD_M1.lqLinePrice;
             g_DTD_M1.latchedLQTime       = g_DTD_M1.lqLineTime;
             g_DTD_M1.latchedLQSwept      = g_DTD_M1.lqIsSwept;
-            Print(">>> [DTD_Multiverse] 🔒 ล็อกกรอบแผนเทรด BUY นิ่งสนิท! Entry: ", buyEntryPrice, " SL: ", buySLPrice, " TP3: ", buyTP3RPrice);
          }
-         g_DTD_M1.statusText  = "🎯 CF M1: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
+         g_DTD_M1.statusText  = "🎯 CF: 🟢 จบกลืนกิน BUY สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
          g_DTD_M1.statusColor = C'0,255,136';
-      }
-      else if(buyIsTestingNow)
-      {
-         double dist = (buyTargetPrice - curAsk) / _Point;
-         g_DTD_M1.statusText  = StringFormat("⚡ CF M1: 🟢 แท่งสด M1 กำลังเบรกทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(buyTargetPrice, _Digits), DoubleToString(dist, 0));
-         g_DTD_M1.statusColor = clrOrange;
       }
       else
       {
-         double dist = (buyTargetPrice - curAsk) / _Point;
-         g_DTD_M1.statusText  = (buyHasShift ? StringFormat("🎯 CF M1: 🟢 ทะลุ 'ขึ้น' แล้ว ➔ รอ M1 รีเทสต์+กลืนกิน %s (ห่าง %s จุด)", DoubleToString(buyTargetPrice, _Digits), DoubleToString(dist, 0)) : StringFormat("🎯 CF M1: ⏳ รอแท่ง M1 เบรกทะลุเส้น 'ขึ้น' %s", DoubleToString(highestM1High, _Digits)));
+         g_DTD_M1.statusText  = StringFormat("🎯 CF: 🟢 รอแท่งปิดกลืนกินเหนือไส้ %s เพื่อ BUY", DoubleToString(buyTargetPrice, _Digits));
          g_DTD_M1.statusColor = clrGold;
       }
-
-      g_DTD_M1.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f (เสี่ยง %s%.1f)", FormatMoneyOrPoints(g_DTD_M1.slPoints), FormatMoneyOrPoints(g_DTD_M1.tp1RPoints), FormatMoneyOrPoints(g_DTD_M1.tp2RPoints), FormatMoneyOrPoints(g_DTD_M1.tp3RPoints), g_DTD_M1.recommendedLot, moneyUnit, InpRiskMoney);
    }
    else
    {
@@ -1307,6 +1246,13 @@ void ScanDTD_CF_M1_Always()
       g_DTD_M1.tp2RPoints        = sellSLPoints * 2.0;
       g_DTD_M1.tp3RPoints        = sellSLPoints * InpTargetRR;
       g_DTD_M1.recommendedLot    = sellRecommendedLot;
+      g_DTD_M1.retestBarTime     = highestPullbackTime;
+      g_DTD_M1.retestBarPrice    = highestHigh;
+      g_DTD_M1.confirmBarTime    = sellConfirmBarTime;
+      g_DTD_M1.confirmBarPrice   = sellConfirmBarPrice;
+      g_DTD_M1.lqLinePrice       = g_DTD_M1.m1SwingHighPrice;
+      g_DTD_M1.lqLineTime        = g_DTD_M1.m1SwingHighTime;
+      g_DTD_M1.lqIsSwept         = (highestHigh >= g_DTD_M1.m1SwingHighPrice || ratesM1[0].high >= g_DTD_M1.m1SwingHighPrice);
 
       if(sellConfirmed)
       {
@@ -1314,7 +1260,7 @@ void ScanDTD_CF_M1_Always()
          {
             g_DTD_M1.isLatched           = true;
             g_DTD_M1.latchedSide         = -1;
-            g_DTD_M1.latchedTime         = ratesM1[1].time;
+            g_DTD_M1.latchedTime         = sellConfirmBarTime;
             g_DTD_M1.latchedEntryPrice   = sellEntryPrice;
             g_DTD_M1.latchedSLPrice      = sellSLPrice;
             g_DTD_M1.latchedTP1Price     = sellTP1RPrice;
@@ -1330,26 +1276,17 @@ void ScanDTD_CF_M1_Always()
             g_DTD_M1.latchedLQPrice      = g_DTD_M1.lqLinePrice;
             g_DTD_M1.latchedLQTime       = g_DTD_M1.lqLineTime;
             g_DTD_M1.latchedLQSwept      = g_DTD_M1.lqIsSwept;
-            Print(">>> [DTD_Multiverse] 🔒 ล็อกกรอบแผนเทรด SELL นิ่งสนิท! Entry: ", sellEntryPrice, " SL: ", sellSLPrice, " TP3: ", sellTP3RPrice);
          }
-         g_DTD_M1.statusText  = "🎯 CF M1: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
+         g_DTD_M1.statusText  = "🎯 CF: 🔴 จบกลืนกิน SELL สำเร็จ! (1R/2R/3R พร้อมลั่นไก)";
          g_DTD_M1.statusColor = C'255,80,90';
-      }
-      else if(sellIsTestingNow)
-      {
-         double dist = (curBid - sellTargetPrice) / _Point;
-         g_DTD_M1.statusText  = StringFormat("⚡ CF M1: 🔴 แท่งสด M1 กำลังทุบทดสอบ %s (ห่าง %s จุด • รอจบแท่งคอนเฟิร์ม)", DoubleToString(sellTargetPrice, _Digits), DoubleToString(dist, 0));
-         g_DTD_M1.statusColor = clrOrange;
       }
       else
       {
-         double dist = (curBid - sellTargetPrice) / _Point;
-         g_DTD_M1.statusText  = (sellHasShift ? StringFormat("🎯 CF M1: 🔴 หลุด 'ลง' แล้ว ➔ รอ M1 รีเทสต์+กลืนกิน %s (ห่าง %s จุด)", DoubleToString(sellTargetPrice, _Digits), DoubleToString(dist, 0)) : StringFormat("🎯 CF M1: ⏳ รอแท่ง M1 หลุดทะลุเส้น 'ลง' %s", DoubleToString(lowestM1Low, _Digits)));
+         g_DTD_M1.statusText  = StringFormat("🎯 CF: 🔴 รอแท่งปิดกลืนกินใต้ไส้ %s เพื่อ SELL", DoubleToString(sellTargetPrice, _Digits));
          g_DTD_M1.statusColor = clrGold;
       }
-
-      g_DTD_M1.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f (เสี่ยง %s%.1f)", FormatMoneyOrPoints(g_DTD_M1.slPoints), FormatMoneyOrPoints(g_DTD_M1.tp1RPoints), FormatMoneyOrPoints(g_DTD_M1.tp2RPoints), FormatMoneyOrPoints(g_DTD_M1.tp3RPoints), g_DTD_M1.recommendedLot, moneyUnit, InpRiskMoney);
    }
+   g_DTD_M1.mmPlanText = StringFormat("💵 แผน MM (1R/2R/3R): SL %s | TP1 %s | TP2 %s | TP3 %s | Lot: %.2f", FormatMoneyOrPoints(g_DTD_M1.slPoints), FormatMoneyOrPoints(g_DTD_M1.tp1RPoints), FormatMoneyOrPoints(g_DTD_M1.tp2RPoints), FormatMoneyOrPoints(g_DTD_M1.tp3RPoints), g_DTD_M1.recommendedLot);
 }
 //+------------------------------------------------------------------+
 void DrawMultiverseVisuals()
@@ -1670,74 +1607,165 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, wickLbl, OBJPROP_ANCHOR, ANCHOR_LEFT);
       }
 
-      // 4C_STICKERS. ป้ายสติกเกอร์ "RETEST" และ "CF M1" แนบบนแท่งเทียนจริง (สีขาวสว่าง Segoe UI Black ป้องกันการกลืนกับพื้นหลัง)
+      // 4C_SW_BOX. วาดกรอบคุม SW HIGH / SW LOW อัตโนมัติเมื่อตรวจพบตลาด Sideway
+      if(g_DTD_M1.swBoxActive && g_DTD_M1.swBoxHigh > g_DTD_M1.swBoxLow)
+      {
+         string swBox     = DTD_PREFIX + "M1_SW_BOX";
+         string swHighLbl = DTD_PREFIX + "M1_SW_HIGH_LBL";
+         string swLowLbl  = DTD_PREFIX + "M1_SW_LOW_LBL";
+         datetime tSWStart = (g_DTD_M1.swBoxStartTime > 0) ? g_DTD_M1.swBoxStartTime : (TimeCurrent() - (tfSec * 24));
+         datetime tSWEnd   = TimeCurrent() + (tfSec * 8);
+         datetime tSWMid   = tSWStart + (datetime)((tSWEnd - tSWStart) * 0.45);
+         color boxCol      = (g_DTD_M1.swBreakState == 1) ? C'0,255,150' : ((g_DTD_M1.swBreakState == -1) ? C'255,90,110' : C'255,200,50');
+
+         if(ObjectFind(0, swBox) < 0)
+            ObjectCreate(0, swBox, OBJ_RECTANGLE, 0, tSWStart, g_DTD_M1.swBoxHigh, tSWEnd, g_DTD_M1.swBoxLow);
+         ObjectSetInteger(0, swBox, OBJPROP_TIME, 0, tSWStart);
+         ObjectSetDouble(0, swBox, OBJPROP_PRICE, 0, g_DTD_M1.swBoxHigh);
+         ObjectSetInteger(0, swBox, OBJPROP_TIME, 1, tSWEnd);
+         ObjectSetDouble(0, swBox, OBJPROP_PRICE, 1, g_DTD_M1.swBoxLow);
+         ObjectSetInteger(0, swBox, OBJPROP_COLOR, boxCol);
+         ObjectSetInteger(0, swBox, OBJPROP_STYLE, STYLE_DASH);
+         ObjectSetInteger(0, swBox, OBJPROP_WIDTH, 2);
+         ObjectSetInteger(0, swBox, OBJPROP_FILL, false);
+         ObjectSetInteger(0, swBox, OBJPROP_BACK, false);
+
+         string txtSWHigh = (g_DTD_M1.swBreakState == 1) ? StringFormat("🚀 เบรกกรอบบน SW HIGH: %s สำเร็จ! ➔ รอย่อ RETEST + CF BUY", DoubleToString(g_DTD_M1.swBoxHigh, _Digits)) : StringFormat("═══ กรอบบน SW HIGH: %s (รอเบรกขึ้น + CF) ═══", DoubleToString(g_DTD_M1.swBoxHigh, _Digits));
+         if(ObjectFind(0, swHighLbl) < 0)
+            ObjectCreate(0, swHighLbl, OBJ_TEXT, 0, tSWMid, g_DTD_M1.swBoxHigh + (g_DTD_M1.avgBarRange * 0.20));
+         ObjectSetInteger(0, swHighLbl, OBJPROP_TIME, 0, tSWMid);
+         ObjectSetDouble(0, swHighLbl, OBJPROP_PRICE, 0, g_DTD_M1.swBoxHigh + (g_DTD_M1.avgBarRange * 0.20));
+         ObjectSetString(0, swHighLbl, OBJPROP_TEXT, txtSWHigh);
+         ObjectSetString(0, swHighLbl, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, swHighLbl, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, swHighLbl, OBJPROP_COLOR, clrWhite);
+         ObjectSetInteger(0, swHighLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
+
+         string txtSWLow = (g_DTD_M1.swBreakState == -1) ? StringFormat("🚀 หลุดกรอบล่าง SW LOW: %s สำเร็จ! ➔ รอเด้ง RETEST + CF SELL", DoubleToString(g_DTD_M1.swBoxLow, _Digits)) : StringFormat("═══ กรอบล่าง SW LOW: %s (รอหลุดลง + CF) ═══", DoubleToString(g_DTD_M1.swBoxLow, _Digits));
+         if(ObjectFind(0, swLowLbl) < 0)
+            ObjectCreate(0, swLowLbl, OBJ_TEXT, 0, tSWMid, g_DTD_M1.swBoxLow - (g_DTD_M1.avgBarRange * 0.20));
+         ObjectSetInteger(0, swLowLbl, OBJPROP_TIME, 0, tSWMid);
+         ObjectSetDouble(0, swLowLbl, OBJPROP_PRICE, 0, g_DTD_M1.swBoxLow - (g_DTD_M1.avgBarRange * 0.20));
+         ObjectSetString(0, swLowLbl, OBJPROP_TEXT, txtSWLow);
+         ObjectSetString(0, swLowLbl, OBJPROP_FONT, "Segoe UI Black");
+         ObjectSetInteger(0, swLowLbl, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, swLowLbl, OBJPROP_COLOR, clrWhite);
+         ObjectSetInteger(0, swLowLbl, OBJPROP_ANCHOR, ANCHOR_UPPER);
+      }
+      else
+      {
+         ObjectDelete(0, DTD_PREFIX + "M1_SW_BOX");
+         ObjectDelete(0, DTD_PREFIX + "M1_SW_HIGH_LBL");
+         ObjectDelete(0, DTD_PREFIX + "M1_SW_LOW_LBL");
+      }
+
+      // 4C_STICKERS. ลูกศรชี้เป้า + ก้านชี้ 2 ระดับ บอกแท่ง "1.RETEST" และแท่ง "2.CF" แบบ Realtime (ทุก TF)
       if(InpDrawDTD_CandleStickers)
       {
+         double stemUnit = MathMax(g_DTD_M1.avgBarRange * 0.65, 25.0 * _Point * tfMultiplier);
          if(g_DTD_M1.retestBarTime > 0 && g_DTD_M1.retestBarPrice > 0.0)
          {
+            string arrowRetest = DTD_PREFIX + "M1_ARROW_RETEST";
+            string stemRetest  = DTD_PREFIX + "M1_STEM_RETEST";
             string badgeRetest = DTD_PREFIX + "M1_BADGE_RETEST";
-            string txtRetest   = "▰ RETEST ▰";
-            double retestOffsetPrice = (g_DTD_M1.setupSide == 1) ? (g_DTD_M1.retestBarPrice - (25.0 * _Point * tfMultiplier)) : (g_DTD_M1.retestBarPrice + (25.0 * _Point * tfMultiplier));
-            ENUM_ANCHOR_POINT retestAnc = (g_DTD_M1.setupSide == 1) ? ANCHOR_UPPER : ANCHOR_LOWER;
+            string arrSym      = (g_DTD_M1.setupSide == 1) ? "▲" : "▼";
+            string txtRetest   = StringFormat("%s 1.RETEST (แท่งเทสต์)", arrSym);
+            double rtTipPrice  = g_DTD_M1.retestBarPrice;
+            double rtLblPrice  = (g_DTD_M1.setupSide == 1) ? (rtTipPrice - stemUnit) : (rtTipPrice + stemUnit);
+            ENUM_ANCHOR_POINT rtAnc = (g_DTD_M1.setupSide == 1) ? ANCHOR_UPPER : ANCHOR_LOWER;
+
+            if(ObjectFind(0, arrowRetest) < 0)
+               ObjectCreate(0, arrowRetest, OBJ_TEXT, 0, g_DTD_M1.retestBarTime, rtTipPrice);
+            ObjectSetInteger(0, arrowRetest, OBJPROP_TIME, 0, g_DTD_M1.retestBarTime);
+            ObjectSetDouble(0, arrowRetest, OBJPROP_PRICE, 0, rtTipPrice);
+            ObjectSetString(0, arrowRetest, OBJPROP_TEXT, arrSym);
+            ObjectSetString(0, arrowRetest, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, arrowRetest, OBJPROP_FONTSIZE, 10);
+            ObjectSetInteger(0, arrowRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, arrowRetest, OBJPROP_ANCHOR, rtAnc);
+
+            if(ObjectFind(0, stemRetest) < 0)
+               ObjectCreate(0, stemRetest, OBJ_TREND, 0, g_DTD_M1.retestBarTime, rtTipPrice, g_DTD_M1.retestBarTime, rtLblPrice);
+            ObjectSetInteger(0, stemRetest, OBJPROP_TIME, 0, g_DTD_M1.retestBarTime);
+            ObjectSetDouble(0, stemRetest, OBJPROP_PRICE, 0, rtTipPrice);
+            ObjectSetInteger(0, stemRetest, OBJPROP_TIME, 1, g_DTD_M1.retestBarTime);
+            ObjectSetDouble(0, stemRetest, OBJPROP_PRICE, 1, rtLblPrice);
+            ObjectSetInteger(0, stemRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, stemRetest, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, stemRetest, OBJPROP_RAY_RIGHT, false);
+
             if(ObjectFind(0, badgeRetest) < 0)
-            {
-               ObjectCreate(0, badgeRetest, OBJ_TEXT, 0, g_DTD_M1.retestBarTime, retestOffsetPrice);
-               ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
-               ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
-               ObjectSetInteger(0, badgeRetest, OBJPROP_FONTSIZE, 8);
-               ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, clrWhite);
-               ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, retestAnc);
-               ObjectSetInteger(0, badgeRetest, OBJPROP_BACK, false);
-            }
-            else
-            {
-               ObjectSetInteger(0, badgeRetest, OBJPROP_TIME, 0, g_DTD_M1.retestBarTime);
-               ObjectSetDouble(0, badgeRetest, OBJPROP_PRICE, 0, retestOffsetPrice);
-               ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
-               ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, clrWhite);
-               ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
-               ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, retestAnc);
-            }
+               ObjectCreate(0, badgeRetest, OBJ_TEXT, 0, g_DTD_M1.retestBarTime, rtLblPrice);
+            ObjectSetInteger(0, badgeRetest, OBJPROP_TIME, 0, g_DTD_M1.retestBarTime);
+            ObjectSetDouble(0, badgeRetest, OBJPROP_PRICE, 0, rtLblPrice);
+            ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
+            ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, badgeRetest, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, rtAnc);
          }
          else
          {
+            ObjectDelete(0, DTD_PREFIX + "M1_ARROW_RETEST");
+            ObjectDelete(0, DTD_PREFIX + "M1_STEM_RETEST");
             ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
          }
 
-         if(g_DTD_M1.confirmBarTime > 0 && g_DTD_M1.confirmBarPrice > 0.0 && (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched))
+         if(g_DTD_M1.confirmBarTime > 0 && g_DTD_M1.confirmBarPrice > 0.0)
          {
-            string badgeCF = DTD_PREFIX + "M1_BADGE_CF";
-            string txtCF   = "▰ CF M1 ▰";
-            double cfOffsetPrice = (g_DTD_M1.setupSide == 1) ? (g_DTD_M1.confirmBarPrice + (35.0 * _Point * tfMultiplier)) : (g_DTD_M1.confirmBarPrice - (35.0 * _Point * tfMultiplier));
+            string arrowCF  = DTD_PREFIX + "M1_ARROW_CF";
+            string stemCF   = DTD_PREFIX + "M1_STEM_CF";
+            string badgeCF  = DTD_PREFIX + "M1_BADGE_CF";
+            string cfArrSym = (g_DTD_M1.setupSide == 1) ? "▼" : "▲";
+            string txtCF    = (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched) ? StringFormat("%s 2.CF ★ (แท่งกลืนกิน)", cfArrSym) : StringFormat("%s 2.รอปิด CF ⚡ (แท่งสด)", cfArrSym);
+            double cfTipPrice = g_DTD_M1.confirmBarPrice;
+            double cfLblPrice = (g_DTD_M1.setupSide == 1) ? (cfTipPrice + (stemUnit * 1.15)) : (cfTipPrice - (stemUnit * 1.15));
             ENUM_ANCHOR_POINT cfAnc = (g_DTD_M1.setupSide == 1) ? ANCHOR_LOWER : ANCHOR_UPPER;
+
+            if(ObjectFind(0, arrowCF) < 0)
+               ObjectCreate(0, arrowCF, OBJ_TEXT, 0, g_DTD_M1.confirmBarTime, cfTipPrice);
+            ObjectSetInteger(0, arrowCF, OBJPROP_TIME, 0, g_DTD_M1.confirmBarTime);
+            ObjectSetDouble(0, arrowCF, OBJPROP_PRICE, 0, cfTipPrice);
+            ObjectSetString(0, arrowCF, OBJPROP_TEXT, cfArrSym);
+            ObjectSetString(0, arrowCF, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, arrowCF, OBJPROP_FONTSIZE, 10);
+            ObjectSetInteger(0, arrowCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, arrowCF, OBJPROP_ANCHOR, cfAnc);
+
+            if(ObjectFind(0, stemCF) < 0)
+               ObjectCreate(0, stemCF, OBJ_TREND, 0, g_DTD_M1.confirmBarTime, cfTipPrice, g_DTD_M1.confirmBarTime, cfLblPrice);
+            ObjectSetInteger(0, stemCF, OBJPROP_TIME, 0, g_DTD_M1.confirmBarTime);
+            ObjectSetDouble(0, stemCF, OBJPROP_PRICE, 0, cfTipPrice);
+            ObjectSetInteger(0, stemCF, OBJPROP_TIME, 1, g_DTD_M1.confirmBarTime);
+            ObjectSetDouble(0, stemCF, OBJPROP_PRICE, 1, cfLblPrice);
+            ObjectSetInteger(0, stemCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, stemCF, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, stemCF, OBJPROP_RAY_RIGHT, false);
+
             if(ObjectFind(0, badgeCF) < 0)
-            {
-               ObjectCreate(0, badgeCF, OBJ_TEXT, 0, g_DTD_M1.confirmBarTime, cfOffsetPrice);
-               ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
-               ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
-               ObjectSetInteger(0, badgeCF, OBJPROP_FONTSIZE, 8);
-               ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, clrWhite);
-               ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, cfAnc);
-               ObjectSetInteger(0, badgeCF, OBJPROP_BACK, false);
-            }
-            else
-            {
-               ObjectSetInteger(0, badgeCF, OBJPROP_TIME, 0, g_DTD_M1.confirmBarTime);
-               ObjectSetDouble(0, badgeCF, OBJPROP_PRICE, 0, cfOffsetPrice);
-               ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
-               ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, clrWhite);
-               ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
-               ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, cfAnc);
-            }
+               ObjectCreate(0, badgeCF, OBJ_TEXT, 0, g_DTD_M1.confirmBarTime, cfLblPrice);
+            ObjectSetInteger(0, badgeCF, OBJPROP_TIME, 0, g_DTD_M1.confirmBarTime);
+            ObjectSetDouble(0, badgeCF, OBJPROP_PRICE, 0, cfLblPrice);
+            ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
+            ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
+            ObjectSetInteger(0, badgeCF, OBJPROP_FONTSIZE, 8);
+            ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, cfAnc);
          }
          else
          {
+            ObjectDelete(0, DTD_PREFIX + "M1_ARROW_CF");
+            ObjectDelete(0, DTD_PREFIX + "M1_STEM_CF");
             ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
          }
       }
       else
       {
+         ObjectDelete(0, DTD_PREFIX + "M1_ARROW_RETEST");
+         ObjectDelete(0, DTD_PREFIX + "M1_STEM_RETEST");
          ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+         ObjectDelete(0, DTD_PREFIX + "M1_ARROW_CF");
+         ObjectDelete(0, DTD_PREFIX + "M1_STEM_CF");
          ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
       }
 
