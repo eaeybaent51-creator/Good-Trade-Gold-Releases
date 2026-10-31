@@ -1591,29 +1591,31 @@ void DrawMultiverseVisuals()
       if(isCFDone)
       {
          lblTxt = isBuyWick
-                  ? StringFormat("🟢 แนว 1.RETEST+CF: %s ➔ ย่อใกล้เส้นนี้ กด BUY!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits))
-                  : StringFormat("🔴 แนว 1.RETEST+CF: %s ➔ เด้งใกล้เส้นนี้ กด SELL!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
+                  ? StringFormat("🟢 แนว RETEST+CF: %s ➔ ย่อใกล้เส้น กด BUY!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits))
+                  : StringFormat("🔴 แนว RETEST+CF: %s ➔ เด้งใกล้เส้น กด SELL!", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
       }
       else
       {
          lblTxt = isBuyWick
-                  ? StringFormat("⏳ แนวไส้ 1.RETEST: %s ➔ รอ 2.CF ปิดเหนือเส้นเพื่อ BUY", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits))
-                  : StringFormat("⏳ แนวไส้ 1.RETEST: %s ➔ รอ 2.CF ปิดใต้เส้นเพื่อ SELL", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
+                  ? StringFormat("⏳ แนวไส้ RETEST: %s ➔ รอ 2.CF ปิดเหนือเส้น", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits))
+                  : StringFormat("⏳ แนวไส้ RETEST: %s ➔ รอ 2.CF ปิดใต้เส้น", DoubleToString(g_DTD_M1.shortestWickPrice, _Digits));
       }
       color wickBgCol     = !isCFDone ? C'145,88,12' : (isBuyWick ? C'10,105,55' : C'135,18,38');
       color wickBorderCol = !isCFDone ? clrGold      : (isBuyWick ? C'0,255,150' : C'255,95,115');
-      int wpx = 0, wpy = 0;
+      int wpx = 0, wpy = 0, curBarX = 0, curBarY = 0;
+      ChartTimePriceToXY(0, 0, TimeCurrent(), g_DTD_M1.shortestWickPrice, curBarX, curBarY);
       if(ChartTimePriceToXY(0, 0, tEnd, g_DTD_M1.shortestWickPrice, wpx, wpy) && wpx > 0 && wpy > 0)
       {
          int chartW = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
-         int pillW  = 295, pillH = 20;
-         int boxX   = wpx - pillW - 4;
+         int pillW  = 255, pillH = 19;
+         int boxX   = (curBarX > 0) ? (curBarX + 24) : (wpx - pillW - 4);
          if(chartW > pillW + 20 && boxX + pillW > chartW - 65) boxX = chartW - 65 - pillW;
+         if(curBarX > 0 && boxX < curBarX + 10 && curBarX + 10 + pillW < chartW - 5) boxX = curBarX + 10;
          if(boxX < 6) boxX = 6;
          int boxY = MathMax(4, wpy - (pillH / 2));
          CreateRect(wickPill + "_BG", boxX, boxY, pillW, pillH, wickBgCol, wickBorderCol);
          ObjectSetInteger(0, wickPill + "_BG", OBJPROP_ZORDER, 34);
-         CreateLabel(wickPill + "_TXT", boxX + 8, boxY + 2, lblTxt, clrWhite, 8, true);
+         CreateLabel(wickPill + "_TXT", boxX + 7, boxY + 2, lblTxt, clrWhite, 8, true);
          ObjectSetInteger(0, wickPill + "_TXT", OBJPROP_ZORDER, 39);
       }
 
@@ -1625,7 +1627,7 @@ void DrawMultiverseVisuals()
          string swLowLbl  = DTD_PREFIX + "M1_SW_LOW_LBL";
          datetime tSWStart = (g_DTD_M1.swBoxStartTime > 0) ? g_DTD_M1.swBoxStartTime : (TimeCurrent() - (tfSec * 24));
          datetime tSWEnd   = TimeCurrent() + (tfSec * 8);
-         datetime tSWMid   = tSWStart + (datetime)((tSWEnd - tSWStart) * 0.45);
+         datetime tSWLblAnchor = tSWStart + (datetime)(tfSec * 1);
          color boxCol      = (g_DTD_M1.swBreakState == 1) ? C'0,255,150' : ((g_DTD_M1.swBreakState == -1) ? C'255,90,110' : C'255,200,50');
 
          if(ObjectFind(0, swBox) < 0)
@@ -1640,27 +1642,27 @@ void DrawMultiverseVisuals()
          ObjectSetInteger(0, swBox, OBJPROP_FILL, false);
          ObjectSetInteger(0, swBox, OBJPROP_BACK, false);
 
-         string txtSWHigh = (g_DTD_M1.swBreakState == 1) ? StringFormat("🚀 เบรกกรอบบน SW HIGH: %s สำเร็จ! ➔ รอย่อ RETEST + CF BUY", DoubleToString(g_DTD_M1.swBoxHigh, _Digits)) : StringFormat("═══ กรอบบน SW HIGH: %s (รอเบรกขึ้น + CF) ═══", DoubleToString(g_DTD_M1.swBoxHigh, _Digits));
+         string txtSWHigh = (g_DTD_M1.swBreakState == 1) ? StringFormat("🚀 เบรกกรอบบน SW HIGH: %s สำเร็จ! ➔ รอย่อ RETEST + CF BUY", DoubleToString(g_DTD_M1.swBoxHigh, _Digits)) : StringFormat("📦 กรอบบน SW HIGH: %s (รอเบรกขึ้น + CF)", DoubleToString(g_DTD_M1.swBoxHigh, _Digits));
          if(ObjectFind(0, swHighLbl) < 0)
-            ObjectCreate(0, swHighLbl, OBJ_TEXT, 0, tSWMid, g_DTD_M1.swBoxHigh + (g_DTD_M1.avgBarRange * 0.20));
-         ObjectSetInteger(0, swHighLbl, OBJPROP_TIME, 0, tSWMid);
-         ObjectSetDouble(0, swHighLbl, OBJPROP_PRICE, 0, g_DTD_M1.swBoxHigh + (g_DTD_M1.avgBarRange * 0.20));
+            ObjectCreate(0, swHighLbl, OBJ_TEXT, 0, tSWLblAnchor, g_DTD_M1.swBoxHigh + (g_DTD_M1.avgBarRange * 0.35));
+         ObjectSetInteger(0, swHighLbl, OBJPROP_TIME, 0, tSWLblAnchor);
+         ObjectSetDouble(0, swHighLbl, OBJPROP_PRICE, 0, g_DTD_M1.swBoxHigh + (g_DTD_M1.avgBarRange * 0.35));
          ObjectSetString(0, swHighLbl, OBJPROP_TEXT, txtSWHigh);
          ObjectSetString(0, swHighLbl, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, swHighLbl, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, swHighLbl, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, swHighLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
+         ObjectSetInteger(0, swHighLbl, OBJPROP_COLOR, clrGold);
+         ObjectSetInteger(0, swHighLbl, OBJPROP_ANCHOR, ANCHOR_LEFT_LOWER);
 
-         string txtSWLow = (g_DTD_M1.swBreakState == -1) ? StringFormat("🚀 หลุดกรอบล่าง SW LOW: %s สำเร็จ! ➔ รอเด้ง RETEST + CF SELL", DoubleToString(g_DTD_M1.swBoxLow, _Digits)) : StringFormat("═══ กรอบล่าง SW LOW: %s (รอหลุดลง + CF) ═══", DoubleToString(g_DTD_M1.swBoxLow, _Digits));
+         string txtSWLow = (g_DTD_M1.swBreakState == -1) ? StringFormat("🚀 หลุดกรอบล่าง SW LOW: %s สำเร็จ! ➔ รอเด้ง RETEST + CF SELL", DoubleToString(g_DTD_M1.swBoxLow, _Digits)) : StringFormat("📦 กรอบล่าง SW LOW: %s (รอหลุดลง + CF)", DoubleToString(g_DTD_M1.swBoxLow, _Digits));
          if(ObjectFind(0, swLowLbl) < 0)
-            ObjectCreate(0, swLowLbl, OBJ_TEXT, 0, tSWMid, g_DTD_M1.swBoxLow - (g_DTD_M1.avgBarRange * 0.20));
-         ObjectSetInteger(0, swLowLbl, OBJPROP_TIME, 0, tSWMid);
-         ObjectSetDouble(0, swLowLbl, OBJPROP_PRICE, 0, g_DTD_M1.swBoxLow - (g_DTD_M1.avgBarRange * 0.20));
+            ObjectCreate(0, swLowLbl, OBJ_TEXT, 0, tSWLblAnchor, g_DTD_M1.swBoxLow - (g_DTD_M1.avgBarRange * 0.35));
+         ObjectSetInteger(0, swLowLbl, OBJPROP_TIME, 0, tSWLblAnchor);
+         ObjectSetDouble(0, swLowLbl, OBJPROP_PRICE, 0, g_DTD_M1.swBoxLow - (g_DTD_M1.avgBarRange * 0.35));
          ObjectSetString(0, swLowLbl, OBJPROP_TEXT, txtSWLow);
          ObjectSetString(0, swLowLbl, OBJPROP_FONT, "Segoe UI Black");
          ObjectSetInteger(0, swLowLbl, OBJPROP_FONTSIZE, 8);
-         ObjectSetInteger(0, swLowLbl, OBJPROP_COLOR, clrWhite);
-         ObjectSetInteger(0, swLowLbl, OBJPROP_ANCHOR, ANCHOR_UPPER);
+         ObjectSetInteger(0, swLowLbl, OBJPROP_COLOR, clrGold);
+         ObjectSetInteger(0, swLowLbl, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
       }
       else
       {
@@ -1669,10 +1671,10 @@ void DrawMultiverseVisuals()
          ObjectDelete(0, DTD_PREFIX + "M1_SW_LOW_LBL");
       }
 
-      // 4C_STICKERS. ลูกศรชี้เป้า + ก้านชี้ + ป้ายไฮไลต์ทึบแสงแยกสีแผน BUY (เขียว) / SELL (แดง)
+      // 4C_STICKERS. ลูกศรชี้เป้า + ก้านชี้หลบกลุ่มแท่งเทียนข้างเคียง (±5 แท่ง) + ป้ายไฮไลต์กะทัดรัด ไม่บังแท่งเทียน
       if(InpDrawDTD_CandleStickers)
       {
-         double stemUnit = MathMax(g_DTD_M1.avgBarRange * 0.65, 25.0 * _Point * tfMultiplier);
+         double stemUnit = MathMax(g_DTD_M1.avgBarRange * 0.55, 22.0 * _Point * tfMultiplier);
          bool   isBuyPlan = (g_DTD_M1.setupSide == 1);
          color  planNeonCol = isBuyPlan ? C'0,255,150' : C'255,85,105';
 
@@ -1683,9 +1685,21 @@ void DrawMultiverseVisuals()
             string pillRetest  = DTD_PREFIX + "M1_PILL_RETEST";
             ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
             string arrSym      = isBuyPlan ? "▲" : "▼";
-            string txtRetest   = StringFormat("%s 1.RETEST (แท่งเทสต์)", arrSym);
+            string txtRetest   = StringFormat("%s 1.RETEST", arrSym);
             double rtTipPrice  = g_DTD_M1.retestBarPrice;
-            double rtLblPrice  = isBuyPlan ? (rtTipPrice - stemUnit) : (rtTipPrice + stemUnit);
+
+            int rtBarIdx = iBarShift(_Symbol, _Period, g_DTD_M1.retestBarTime, false);
+            double localMinLow = rtTipPrice, localMaxHigh = rtTipPrice;
+            if(rtBarIdx >= 0)
+            {
+               for(int b = MathMax(0, rtBarIdx - 5); b <= rtBarIdx + 5; b++)
+               {
+                  double bLow = iLow(_Symbol, _Period, b), bHigh = iHigh(_Symbol, _Period, b);
+                  if(bLow > 0.0 && bLow < localMinLow)   localMinLow  = bLow;
+                  if(bHigh > 0.0 && bHigh > localMaxHigh) localMaxHigh = bHigh;
+               }
+            }
+            double rtLblPrice  = isBuyPlan ? (MathMin(rtTipPrice, localMinLow) - stemUnit) : (MathMax(rtTipPrice, localMaxHigh) + stemUnit);
             ENUM_ANCHOR_POINT rtAnc = isBuyPlan ? ANCHOR_UPPER : ANCHOR_LOWER;
 
             if(ObjectFind(0, arrowRetest) < 0)
@@ -1714,12 +1728,12 @@ void DrawMultiverseVisuals()
             int px = 0, py = 0;
             if(ChartTimePriceToXY(0, 0, g_DTD_M1.retestBarTime, rtLblPrice, px, py) && px > 0 && py > 0)
             {
-               int pillW = 148, pillH = 20;
+               int pillW = 86, pillH = 18;
                int boxX = MathMax(6, px - (pillW / 2));
                int boxY = isBuyPlan ? (py + 2) : MathMax(4, py - pillH - 2);
                CreateRect(pillRetest + "_BG", boxX, boxY, pillW, pillH, rtBgCol, rtBorderCol);
                ObjectSetInteger(0, pillRetest + "_BG", OBJPROP_ZORDER, 35);
-               CreateLabel(pillRetest + "_TXT", boxX + 8, boxY + 2, txtRetest, clrWhite, 8, true);
+               CreateLabel(pillRetest + "_TXT", boxX + 7, boxY + 1, txtRetest, clrWhite, 8, true);
                ObjectSetInteger(0, pillRetest + "_TXT", OBJPROP_ZORDER, 40);
             }
          }
@@ -1740,9 +1754,21 @@ void DrawMultiverseVisuals()
             ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
             bool   isConfirmedCF = (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched);
             string cfArrSym = isBuyPlan ? "▼" : "▲";
-            string txtCF    = isConfirmedCF ? StringFormat("%s 2.CF ★ (แท่งกลืนกิน)", cfArrSym) : StringFormat("%s 2.รอปิด CF ⚡ (แท่งสด)", cfArrSym);
+            string txtCF    = isConfirmedCF ? StringFormat("%s 2.CF ★", cfArrSym) : StringFormat("%s 2.รอ CF ⚡", cfArrSym);
             double cfTipPrice = g_DTD_M1.confirmBarPrice;
-            double cfLblPrice = isBuyPlan ? (cfTipPrice + (stemUnit * 1.15)) : (cfTipPrice - (stemUnit * 1.15));
+
+            int cfBarIdx = iBarShift(_Symbol, _Period, g_DTD_M1.confirmBarTime, false);
+            double cfLocalMinLow = cfTipPrice, cfLocalMaxHigh = cfTipPrice;
+            if(cfBarIdx >= 0)
+            {
+               for(int b = MathMax(0, cfBarIdx - 5); b <= cfBarIdx + 5; b++)
+               {
+                  double bLow = iLow(_Symbol, _Period, b), bHigh = iHigh(_Symbol, _Period, b);
+                  if(bLow > 0.0 && bLow < cfLocalMinLow)   cfLocalMinLow  = bLow;
+                  if(bHigh > 0.0 && bHigh > cfLocalMaxHigh) cfLocalMaxHigh = bHigh;
+               }
+            }
+            double cfLblPrice = isBuyPlan ? (MathMax(cfTipPrice, cfLocalMaxHigh) + stemUnit) : (MathMin(cfTipPrice, cfLocalMinLow) - stemUnit);
             ENUM_ANCHOR_POINT cfAnc = isBuyPlan ? ANCHOR_LOWER : ANCHOR_UPPER;
             color cfStemCol = isConfirmedCF ? planNeonCol : clrGold;
 
@@ -1771,12 +1797,12 @@ void DrawMultiverseVisuals()
             int px = 0, py = 0;
             if(ChartTimePriceToXY(0, 0, g_DTD_M1.confirmBarTime, cfLblPrice, px, py) && px > 0 && py > 0)
             {
-               int pillW = 158, pillH = 20;
+               int pillW = isConfirmedCF ? 86 : 96, pillH = 18;
                int boxX = MathMax(6, px - (pillW / 2));
                int boxY = isBuyPlan ? MathMax(4, py - pillH - 2) : (py + 2);
                CreateRect(pillCF + "_BG", boxX, boxY, pillW, pillH, cfBgCol, clrGold);
                ObjectSetInteger(0, pillCF + "_BG", OBJPROP_ZORDER, 35);
-               CreateLabel(pillCF + "_TXT", boxX + 8, boxY + 2, txtCF, clrWhite, 8, true);
+               CreateLabel(pillCF + "_TXT", boxX + 7, boxY + 1, txtCF, clrWhite, 8, true);
                ObjectSetInteger(0, pillCF + "_TXT", OBJPROP_ZORDER, 40);
             }
          }

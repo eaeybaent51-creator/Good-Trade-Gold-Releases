@@ -21,7 +21,7 @@
 //| MACROS & ENUMS                                                   |
 //+------------------------------------------------------------------+
 #define GUI_PREFIX "DT_"
-#define APP_VERSION "2.39"
+#define APP_VERSION "2.40"
 
 enum ENUM_ASSET_CLASS
 {
@@ -4162,7 +4162,7 @@ void ScanCME_OptionsMatrix()
 //+------------------------------------------------------------------+
 //| CHART RIGHT-SIDE LABEL ANTI-COLLISION ENGINE                     |
 //+------------------------------------------------------------------+
-#define MAX_CHART_RIGHT_LABELS 40
+#define MAX_CHART_RIGHT_LABELS 80
 double g_RightLabelPrices[MAX_CHART_RIGHT_LABELS];
 int    g_RightLabelCount = 0;
 
@@ -4177,12 +4177,20 @@ void ResetChartRightLabelRegistry()
       if(p1 > 0.0 && p2 > 0.0)
       {
          const double fiboLevels[8] = {0.0, 0.236, 0.382, 0.500, 0.618, 0.705, 0.786, 1.000};
-         for(int k = 0; k < 8 && g_RightLabelCount < MAX_CHART_RIGHT_LABELS; k++)
+         for(int k = 0; k < 8 && g_RightLabelCount < MAX_CHART_RIGHT_LABELS - 2; k++)
          {
-            double lvPrice = p2 + (p1 - p2) * fiboLevels[k];
-            g_RightLabelPrices[g_RightLabelCount++] = lvPrice;
+            double lvPrice1 = p2 + (p1 - p2) * fiboLevels[k];
+            double lvPrice2 = p1 + (p2 - p1) * fiboLevels[k];
+            g_RightLabelPrices[g_RightLabelCount++] = lvPrice1;
+            if(MathAbs(lvPrice2 - lvPrice1) > _Point * 5.0)
+               g_RightLabelPrices[g_RightLabelCount++] = lvPrice2;
          }
       }
+   }
+   // จองพื้นที่ความสูงของป้ายไฮไลต์ แนว 1.RETEST+CF เพื่อไม่ให้ป้าย EMA 14 หรือ SL/TP มาซ้อนทับ
+   if(InpUseDTD_CF_M1 && InpDrawDTD_M1_Visuals && g_DTD.shortestWickPrice > 0.0 && g_RightLabelCount < MAX_CHART_RIGHT_LABELS)
+   {
+      g_RightLabelPrices[g_RightLabelCount++] = g_DTD.shortestWickPrice;
    }
 }
 
@@ -4240,23 +4248,23 @@ double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
    double bestDist  = 9999999.0;
    int stepDir1 = (preferDir != 0) ? preferDir : 1;
    int stepDir2 = -stepDir1;
-   double maxAllowedDist = minSep * 2.2; // Strict clamp: never displace vertically by more than 2.2 slots
+   double maxAllowedDist = minSep * 6.5; // รองรับการเรียงหลบกันสูงสุดถึง 10 ชั้นเมื่อเส้นมารวมกระจุกเดียวกัน
 
-   for(int step = 1; step <= 4; step++)
+   for(int step = 1; step <= 10; step++)
    {
       int dirs[2];
       dirs[0] = stepDir1;
       dirs[1] = stepDir2;
       for(int d = 0; d < 2; d++)
       {
-         double cand = rawPrice + (dirs[d] * step * minSep * 0.60);
+         double cand = rawPrice + (dirs[d] * step * minSep * 0.62);
          double dist = MathAbs(cand - rawPrice);
          if(dist > maxAllowedDist) continue;
 
          bool slotFree = true;
          for(int k = 0; k < g_RightLabelCount; k++)
          {
-            if(MathAbs(cand - g_RightLabelPrices[k]) < minSep * 0.85)
+            if(MathAbs(cand - g_RightLabelPrices[k]) < minSep * 0.82)
             {
                slotFree = false;
                break;
@@ -4274,9 +4282,8 @@ double ResolveRightChartLabelPrice(double rawPrice, int preferDir = 0)
       if(bestDist < 9999990.0) break;
    }
 
-   // If no nearby micro-nudge slot is available, maintain rawPrice to prevent visual distortion
    if(bestDist >= 9999990.0)
-      bestPrice = rawPrice;
+      bestPrice = rawPrice + (stepDir1 * minSep * 1.25);
 
    if(g_RightLabelCount < MAX_CHART_RIGHT_LABELS)
       g_RightLabelPrices[g_RightLabelCount++] = bestPrice;
@@ -5629,38 +5636,49 @@ void DrawDTD_M1_Visuals()
       ObjectSetInteger(0, swBox, OBJPROP_FILL, false);
       ObjectSetInteger(0, swBox, OBJPROP_BACK, false);
 
-      string txtSWHigh = StringFormat("═══ กรอบบน SW HIGH [%s]: %s (รอเบรกขึ้น + CF) ═══", g_DTD.tfName, DoubleToString(g_DTD.swBoxHigh, _Digits));
+      string txtSWHigh = StringFormat("📦 กรอบบน SW HIGH [%s]: %s (รอเบรกขึ้น + CF)", g_DTD.tfName, DoubleToString(g_DTD.swBoxHigh, _Digits));
       if(g_DTD.swBreakState == 1)
          txtSWHigh = StringFormat("🚀 เบรกกรอบบน SW HIGH [%s]: %s สำเร็จ! ➔ รอย่อ RETEST + CF BUY", g_DTD.tfName, DoubleToString(g_DTD.swBoxHigh, _Digits));
       else if(g_DTD.swBreakState == 2)
-         txtSWHigh = StringFormat("⚠️ ระวังเบรกหลอก (Sweep ขอบบน SW [%s]: %s)! ห้ามไล่ BUY", g_DTD.tfName, DoubleToString(g_DTD.swBoxHigh, _Digits));
+         txtSWHigh = StringFormat("⚠️ ระวังเบรกหลอก (Sweep SW HIGH [%s]: %s)! ห้ามไล่ BUY", g_DTD.tfName, DoubleToString(g_DTD.swBoxHigh, _Digits));
+
+      datetime tSWLblAnchor = tSWStart + (datetime)(tfSec * 1);
+      double swHighBase = g_DTD.swBoxHigh;
+      if(g_DTD.m1SwingHighPrice > 0.0 && MathAbs(g_DTD.m1SwingHighPrice - g_DTD.swBoxHigh) <= g_DTD.avgBarRange * 0.85)
+         swHighBase = MathMax(g_DTD.swBoxHigh, g_DTD.m1SwingHighPrice);
+      double swHighLblPrice = swHighBase + (g_DTD.avgBarRange * 0.35);
 
       if(ObjectFind(0, swHighLbl) < 0)
-         ObjectCreate(0, swHighLbl, OBJ_TEXT, 0, tSWMid, g_DTD.swBoxHigh + (g_DTD.avgBarRange * 0.20));
-      ObjectSetInteger(0, swHighLbl, OBJPROP_TIME, 0, tSWMid);
-      ObjectSetDouble(0, swHighLbl, OBJPROP_PRICE, 0, g_DTD.swBoxHigh + (g_DTD.avgBarRange * 0.20));
+         ObjectCreate(0, swHighLbl, OBJ_TEXT, 0, tSWLblAnchor, swHighLblPrice);
+      ObjectSetInteger(0, swHighLbl, OBJPROP_TIME, 0, tSWLblAnchor);
+      ObjectSetDouble(0, swHighLbl, OBJPROP_PRICE, 0, swHighLblPrice);
       ObjectSetString(0, swHighLbl, OBJPROP_TEXT, txtSWHigh);
       ObjectSetString(0, swHighLbl, OBJPROP_FONT, "Segoe UI Black");
       ObjectSetInteger(0, swHighLbl, OBJPROP_FONTSIZE, 8);
-      ObjectSetInteger(0, swHighLbl, OBJPROP_COLOR, (g_DTD.swBreakState == 1 ? C'0,255,150' : clrWhite));
-      ObjectSetInteger(0, swHighLbl, OBJPROP_ANCHOR, ANCHOR_LOWER);
+      ObjectSetInteger(0, swHighLbl, OBJPROP_COLOR, (g_DTD.swBreakState == 1 ? C'0,255,150' : clrGold));
+      ObjectSetInteger(0, swHighLbl, OBJPROP_ANCHOR, ANCHOR_LEFT_LOWER);
       ObjectSetInteger(0, swHighLbl, OBJPROP_BACK, false);
 
-      string txtSWLow = StringFormat("═══ กรอบล่าง SW LOW [%s]: %s (รอหลุดลง + CF) ═══", g_DTD.tfName, DoubleToString(g_DTD.swBoxLow, _Digits));
+      string txtSWLow = StringFormat("📦 กรอบล่าง SW LOW [%s]: %s (รอหลุดลง + CF)", g_DTD.tfName, DoubleToString(g_DTD.swBoxLow, _Digits));
       if(g_DTD.swBreakState == -1)
          txtSWLow = StringFormat("🚀 หลุดกรอบล่าง SW LOW [%s]: %s สำเร็จ! ➔ รอเด้ง RETEST + CF SELL", g_DTD.tfName, DoubleToString(g_DTD.swBoxLow, _Digits));
       else if(g_DTD.swBreakState == -2)
-         txtSWLow = StringFormat("⚠️ ระวังหลุดหลอก (Sweep ขอบล่าง SW [%s]: %s)! ห้ามไล่ SELL", g_DTD.tfName, DoubleToString(g_DTD.swBoxLow, _Digits));
+         txtSWLow = StringFormat("⚠️ ระวังหลุดหลอก (Sweep SW LOW [%s]: %s)! ห้ามไล่ SELL", g_DTD.tfName, DoubleToString(g_DTD.swBoxLow, _Digits));
+
+      double swLowBase = g_DTD.swBoxLow;
+      if(g_DTD.m1SwingLowPrice > 0.0 && MathAbs(g_DTD.m1SwingLowPrice - g_DTD.swBoxLow) <= g_DTD.avgBarRange * 0.85)
+         swLowBase = MathMin(g_DTD.swBoxLow, g_DTD.m1SwingLowPrice);
+      double swLowLblPrice = swLowBase - (g_DTD.avgBarRange * 0.35);
 
       if(ObjectFind(0, swLowLbl) < 0)
-         ObjectCreate(0, swLowLbl, OBJ_TEXT, 0, tSWMid, g_DTD.swBoxLow - (g_DTD.avgBarRange * 0.20));
-      ObjectSetInteger(0, swLowLbl, OBJPROP_TIME, 0, tSWMid);
-      ObjectSetDouble(0, swLowLbl, OBJPROP_PRICE, 0, g_DTD.swBoxLow - (g_DTD.avgBarRange * 0.20));
+         ObjectCreate(0, swLowLbl, OBJ_TEXT, 0, tSWLblAnchor, swLowLblPrice);
+      ObjectSetInteger(0, swLowLbl, OBJPROP_TIME, 0, tSWLblAnchor);
+      ObjectSetDouble(0, swLowLbl, OBJPROP_PRICE, 0, swLowLblPrice);
       ObjectSetString(0, swLowLbl, OBJPROP_TEXT, txtSWLow);
       ObjectSetString(0, swLowLbl, OBJPROP_FONT, "Segoe UI Black");
       ObjectSetInteger(0, swLowLbl, OBJPROP_FONTSIZE, 8);
-      ObjectSetInteger(0, swLowLbl, OBJPROP_COLOR, (g_DTD.swBreakState == -1 ? C'255,95,115' : clrWhite));
-      ObjectSetInteger(0, swLowLbl, OBJPROP_ANCHOR, ANCHOR_UPPER);
+      ObjectSetInteger(0, swLowLbl, OBJPROP_COLOR, (g_DTD.swBreakState == -1 ? C'255,95,115' : clrGold));
+      ObjectSetInteger(0, swLowLbl, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
       ObjectSetInteger(0, swLowLbl, OBJPROP_BACK, false);
 
       if(ObjectFind(0, swMidLine) < 0)
@@ -5781,10 +5799,10 @@ void DrawDTD_M1_Visuals()
       ObjectSetInteger(0, lineLQ, OBJPROP_BACK, false);
 
       string lblLQ = GUI_PREFIX + "DTD_LBL_LQ";
-      datetime tLQLbl = tLQStart + (datetime)((tEnd - tLQStart) * 0.45);
-      string txtLQ = g_DTD.lqIsSwept ? "• • • • LQ (SWEPT ⚡) • • • •" : "• • • • LQ • • • •";
-      double lqLblPrice = (g_DTD.setupSide == 1) ? (g_DTD.lqLinePrice - (15.0 * _Point * tfMultiplier)) : (g_DTD.lqLinePrice + (15.0 * _Point * tfMultiplier));
-      ENUM_ANCHOR_POINT lqAnc = (g_DTD.setupSide == 1) ? ANCHOR_UPPER : ANCHOR_LOWER;
+      datetime tLQLbl = TimeCurrent() + (datetime)(tfSec * 2);
+      string txtLQ = g_DTD.lqIsSwept ? "• • LQ (SWEPT ⚡) • •" : "• • • LQ • • •";
+      double lqRawPrice = (g_DTD.setupSide == 1) ? (g_DTD.lqLinePrice - (12.0 * _Point * tfMultiplier)) : (g_DTD.lqLinePrice + (12.0 * _Point * tfMultiplier));
+      double lqLblPrice = ResolveRightChartLabelPrice(lqRawPrice, (g_DTD.setupSide == 1 ? -1 : 1));
 
       if(ObjectFind(0, lblLQ) < 0)
          ObjectCreate(0, lblLQ, OBJ_TEXT, 0, tLQLbl, lqLblPrice);
@@ -5794,7 +5812,7 @@ void DrawDTD_M1_Visuals()
       ObjectSetString(0, lblLQ, OBJPROP_FONT, "Segoe UI Black");
       ObjectSetInteger(0, lblLQ, OBJPROP_FONTSIZE, 8);
       ObjectSetInteger(0, lblLQ, OBJPROP_COLOR, clrWhite);
-      ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, lqAnc);
+      ObjectSetInteger(0, lblLQ, OBJPROP_ANCHOR, ANCHOR_LEFT);
       ObjectSetInteger(0, lblLQ, OBJPROP_BACK, false);
    }
    else
@@ -5853,44 +5871,49 @@ void DrawDTD_M1_Visuals()
    ObjectSetInteger(0, wickLine, OBJPROP_RAY_RIGHT, false);
    ObjectSetInteger(0, wickLine, OBJPROP_BACK, false);
 
-   // 4. ป้ายไฮไลต์ทึบแสงบอก "แนว 1.RETEST+CF (จุดดักย่อ BUY / เด้ง SELL)" สอดคล้องเป็นชุดเดียวกับ 1.RETEST & 2.CF 100%
+   // 4. ป้ายไฮไลต์ทึบแสงบอก "แนว RETEST+CF (จุดดักย่อ BUY / เด้ง SELL)" วางในพื้นที่ว่างด้านขวาหลังแท่งปัจจุบัน ไม่บังแท่งเทียน 100%
    ObjectDelete(0, GUI_PREFIX + "DTD_WICK_LBL");
    string wickPill = GUI_PREFIX + "DTD_PILL_WICK";
    string lblTxt   = "";
    if(isCFDone)
    {
       lblTxt = isBuyWick
-               ? StringFormat("🟢 แนว 1.RETEST+CF [%s]: %s ➔ ย่อใกล้เส้นนี้ กด BUY!", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
-               : StringFormat("🔴 แนว 1.RETEST+CF [%s]: %s ➔ เด้งใกล้เส้นนี้ กด SELL!", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
+               ? StringFormat("🟢 แนว RETEST+CF [%s]: %s ➔ ย่อใกล้เส้น กด BUY!", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
+               : StringFormat("🔴 แนว RETEST+CF [%s]: %s ➔ เด้งใกล้เส้น กด SELL!", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
    }
    else
    {
       lblTxt = isBuyWick
-               ? StringFormat("⏳ แนวไส้ 1.RETEST [%s]: %s ➔ รอ 2.CF ปิดเหนือเส้นเพื่อ BUY", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
-               : StringFormat("⏳ แนวไส้ 1.RETEST [%s]: %s ➔ รอ 2.CF ปิดใต้เส้นเพื่อ SELL", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
+               ? StringFormat("⏳ แนวไส้ RETEST [%s]: %s ➔ รอ 2.CF ปิดเหนือเส้น", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits))
+               : StringFormat("⏳ แนวไส้ RETEST [%s]: %s ➔ รอ 2.CF ปิดใต้เส้น", g_DTD.tfName, DoubleToString(g_DTD.shortestWickPrice, _Digits));
    }
    color wickBgCol     = !isCFDone ? C'145,88,12' : (isBuyWick ? C'10,105,55' : C'135,18,38');
    color wickBorderCol = !isCFDone ? clrGold      : (isBuyWick ? C'0,255,150' : C'255,95,115');
-   int wpx = 0, wpy = 0;
+   int wpx = 0, wpy = 0, curBarX = 0, curBarY = 0;
+   ChartTimePriceToXY(0, 0, TimeCurrent(), g_DTD.shortestWickPrice, curBarX, curBarY);
+   int wickBoxX = -1, wickBoxY = -1, wickPillW = 268, wickPillH = 19;
    if(ChartTimePriceToXY(0, 0, tEnd, g_DTD.shortestWickPrice, wpx, wpy) && wpx > 0 && wpy > 0)
    {
       int chartW = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
       int chartH = (int)ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
-      int pillW  = 315;
-      int pillH  = 20;
-      int boxX   = wpx - pillW - 4;
-      if(chartW > pillW + 20)
+      // วางป้ายในโซนพื้นที่ว่างทางขวาของแท่งเทียนปัจจุบันเสมอ (curBarX + 24 px) ไม่ให้ถอยกลับมาบังแท่งเทียน
+      int boxX   = (curBarX > 0) ? (curBarX + 24) : (wpx - wickPillW - 4);
+      if(chartW > wickPillW + 20)
       {
-         if(boxX + pillW > chartW - 65) boxX = chartW - 65 - pillW;
+         if(boxX + wickPillW > chartW - 65) boxX = chartW - 65 - wickPillW;
+         if(curBarX > 0 && boxX < curBarX + 10 && curBarX + 10 + wickPillW < chartW - 5)
+            boxX = curBarX + 10;
          if(boxX < 6) boxX = 6;
       }
-      int boxY = wpy - (pillH / 2);
+      int boxY = wpy - (wickPillH / 2);
       if(boxY < 4) boxY = 4;
-      if(chartH > pillH + 10 && boxY + pillH > chartH - 4) boxY = chartH - pillH - 4;
+      if(chartH > wickPillH + 10 && boxY + wickPillH > chartH - 4) boxY = chartH - wickPillH - 4;
+      wickBoxX = boxX;
+      wickBoxY = boxY;
 
-      CreateRect(wickPill + "_BG", boxX, boxY, pillW, pillH, wickBgCol, wickBorderCol);
+      CreateRect(wickPill + "_BG", boxX, boxY, wickPillW, wickPillH, wickBgCol, wickBorderCol);
       ObjectSetInteger(0, wickPill + "_BG", OBJPROP_ZORDER, 34);
-      CreateLabel(wickPill + "_TXT", boxX + 8, boxY + 2, lblTxt, clrWhite, 8, true);
+      CreateLabel(wickPill + "_TXT", boxX + 7, boxY + 2, lblTxt, clrWhite, 8, true);
       ObjectSetInteger(0, wickPill + "_TXT", OBJPROP_ZORDER, 39);
    }
    else
@@ -5899,14 +5922,15 @@ void DrawDTD_M1_Visuals()
       ObjectDelete(0, wickPill + "_TXT");
    }
 
-   // 4B. ลูกศรชี้เป้า + ก้านชี้ + ป้ายไฮไลต์ทึบแสงแยกสีแผน BUY (เขียว) / SELL (แดง) ไม่จมพื้นหลัง 100%
+   // 4B. ลูกศรชี้เป้า + ก้านชี้หลบกลุ่มแท่งเทียนข้างเคียง (±5 แท่ง) + ป้ายไฮไลต์ขนาดกะทัดรัด ไม่บังเนื้อเทียน 100%
    if(InpDrawDTD_CandleStickers)
    {
-      double stemUnit = MathMax(g_DTD.avgBarRange * 0.65, 25.0 * _Point * tfMultiplier);
+      double stemUnit = MathMax(g_DTD.avgBarRange * 0.55, 22.0 * _Point * tfMultiplier);
       bool   isBuyPlan = (g_DTD.setupSide == 1);
       color  planNeonCol = isBuyPlan ? C'0,255,150' : C'255,85,105';
+      int    rtBoxX_Saved = -1, rtBoxY_Saved = -1, rtPillW_Saved = 104, rtPillH_Saved = 18;
 
-      // --- แท่งที่ 1: ลูกศร + ก้านชี้ + กล่องไฮไลต์ทึบแสง 1.RETEST ---
+      // --- แท่งที่ 1: ลูกศร + ก้านชี้ + กล่องไฮไลต์กะทัดรัด 1.RETEST ---
       if(g_DTD.retestBarTime > 0 && g_DTD.retestBarPrice > 0.0)
       {
          string arrowRetest = GUI_PREFIX + "DTD_ARROW_RETEST";
@@ -5915,9 +5939,27 @@ void DrawDTD_M1_Visuals()
          ObjectDelete(0, GUI_PREFIX + "DTD_BADGE_RETEST");
 
          string arrSym      = isBuyPlan ? "▲" : "▼";
-         string txtRetest   = StringFormat("%s 1.RETEST [%s] (แท่งเทสต์)", arrSym, g_DTD.tfName);
+         string txtRetest   = StringFormat("%s 1.RETEST [%s]", arrSym, g_DTD.tfName);
          double rtTipPrice  = g_DTD.retestBarPrice;
-         double rtLblPrice  = isBuyPlan ? (rtTipPrice - stemUnit) : (rtTipPrice + stemUnit);
+
+         // สแกนหาจุดต่ำสุด/สูงสุดของกลุ่มแท่งเทียนข้างเคียง (±5 แท่ง) เพื่อดันกล่องป้ายออกไปวางในพื้นที่โล่งพ้นแท่งเทียนทั้งหมด
+         int rtBarIdx = iBarShift(_Symbol, _Period, g_DTD.retestBarTime, false);
+         double localMinLow  = rtTipPrice;
+         double localMaxHigh = rtTipPrice;
+         if(rtBarIdx >= 0)
+         {
+            int startB = MathMax(0, rtBarIdx - 5);
+            int endB   = rtBarIdx + 5;
+            for(int b = startB; b <= endB; b++)
+            {
+               double bLow  = iLow(_Symbol, _Period, b);
+               double bHigh = iHigh(_Symbol, _Period, b);
+               if(bLow > 0.0 && bLow < localMinLow)   localMinLow  = bLow;
+               if(bHigh > 0.0 && bHigh > localMaxHigh) localMaxHigh = bHigh;
+            }
+         }
+
+         double rtLblPrice  = isBuyPlan ? (MathMin(rtTipPrice, localMinLow) - stemUnit) : (MathMax(rtTipPrice, localMaxHigh) + stemUnit);
          ENUM_ANCHOR_POINT rtAnc = isBuyPlan ? ANCHOR_UPPER : ANCHOR_LOWER;
 
          // 1) หัวลูกศรสีเขียวนีออน (BUY) หรือสีแดงสว่าง (SELL) ชี้จี้ที่ปลายไส้แท่ง RETEST
@@ -5932,7 +5974,7 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, arrowRetest, OBJPROP_ANCHOR, rtAnc);
          ObjectSetInteger(0, arrowRetest, OBJPROP_BACK, false);
 
-         // 2) เส้นก้านชี้เป้าเชื่อมจากปลายไส้เทียนมายังกล่องป้ายไฮไลต์
+         // 2) เส้นก้านชี้เป้าเชื่อมจากปลายไส้เทียนมายังกล่องป้ายไฮไลต์ในพื้นที่โล่ง
          if(ObjectFind(0, stemRetest) < 0)
             ObjectCreate(0, stemRetest, OBJ_TREND, 0, g_DTD.retestBarTime, rtTipPrice, g_DTD.retestBarTime, rtLblPrice);
          ObjectSetInteger(0, stemRetest, OBJPROP_TIME, 0, g_DTD.retestBarTime);
@@ -5945,7 +5987,7 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, stemRetest, OBJPROP_RAY_RIGHT, false);
          ObjectSetInteger(0, stemRetest, OBJPROP_BACK, false);
 
-         // 3) กล่องไฮไลต์ทึบแสงแยกสีแผน BUY (เขียวมรกตเข้มขอบเขียวนีออน) / SELL (แดงทับทิมเข้มขอบแดงสว่าง)
+         // 3) กล่องไฮไลต์ทึบแสงขนาดกะทัดรัด (กว้างเพียง 104 px ไม่ยื่นบังแท่งข้างเคียง)
          color rtBgCol     = isBuyPlan ? C'8,85,48'    : C'105,16,32';
          color rtBorderCol = isBuyPlan ? C'0,255,150'  : C'255,95,115';
          int px = 0, py = 0;
@@ -5953,8 +5995,8 @@ void DrawDTD_M1_Visuals()
          {
             int chartW = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
             int chartH = (int)ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
-            int pillW  = 168;
-            int pillH  = 20;
+            int pillW  = 104;
+            int pillH  = 18;
             int boxX   = px - (pillW / 2);
             if(chartW > pillW + 20)
             {
@@ -5962,12 +6004,19 @@ void DrawDTD_M1_Visuals()
                if(boxX + pillW > chartW - 65) boxX = chartW - 65 - pillW;
             }
             int boxY = isBuyPlan ? (py + 2) : (py - pillH - 2);
+            // ป้องกันป้าย 1.RETEST ชนกับป้าย แนว RETEST+CF
+            if(wickBoxX >= 0 && boxX < wickBoxX + wickPillW && boxX + pillW > wickBoxX && MathAbs(boxY - wickBoxY) < 20)
+               boxY = isBuyPlan ? (wickBoxY + wickPillH + 3) : (wickBoxY - pillH - 3);
             if(boxY < 4) boxY = 4;
             if(chartH > pillH + 10 && boxY + pillH > chartH - 4) boxY = chartH - pillH - 4;
+            rtBoxX_Saved  = boxX;
+            rtBoxY_Saved  = boxY;
+            rtPillW_Saved = pillW;
+            rtPillH_Saved = pillH;
 
             CreateRect(pillRetest + "_BG", boxX, boxY, pillW, pillH, rtBgCol, rtBorderCol);
             ObjectSetInteger(0, pillRetest + "_BG", OBJPROP_ZORDER, 35);
-            CreateLabel(pillRetest + "_TXT", boxX + 8, boxY + 2, txtRetest, clrWhite, 8, true);
+            CreateLabel(pillRetest + "_TXT", boxX + 7, boxY + 1, txtRetest, clrWhite, 8, true);
             ObjectSetInteger(0, pillRetest + "_TXT", OBJPROP_ZORDER, 40);
          }
          else
@@ -5985,7 +6034,7 @@ void DrawDTD_M1_Visuals()
          ObjectDelete(0, GUI_PREFIX + "DTD_PILL_RETEST_TXT");
       }
 
-      // --- แท่งที่ 2: ลูกศร + ก้านชี้ + กล่องไฮไลต์ทึบแสง 2.CF [TF] ---
+      // --- แท่งที่ 2: ลูกศร + ก้านชี้ + กล่องไฮไลต์กะทัดรัด 2.CF [TF] ★ ---
       if(g_DTD.confirmBarTime > 0 && g_DTD.confirmBarPrice > 0.0)
       {
          string arrowCF = GUI_PREFIX + "DTD_ARROW_CF";
@@ -5996,10 +6045,28 @@ void DrawDTD_M1_Visuals()
          bool   isConfirmedCF = (g_DTD.isEngulfConfirmed || g_DTD.isLatched);
          string cfArrSym = isBuyPlan ? "▼" : "▲";
          string txtCF    = isConfirmedCF
-                           ? StringFormat("%s 2.CF %s ★ (แท่งกลืนกิน)", cfArrSym, g_DTD.tfName)
-                           : StringFormat("%s 2.รอปิด CF %s ⚡ (แท่งสด)", cfArrSym, g_DTD.tfName);
+                           ? StringFormat("%s 2.CF [%s] ★", cfArrSym, g_DTD.tfName)
+                           : StringFormat("%s 2.รอ CF [%s] ⚡", cfArrSym, g_DTD.tfName);
          double cfTipPrice = g_DTD.confirmBarPrice;
-         double cfLblPrice = isBuyPlan ? (cfTipPrice + (stemUnit * 1.15)) : (cfTipPrice - (stemUnit * 1.15));
+
+         // สแกนหาจุดสูงสุด/ต่ำสุดของกลุ่มแท่งเทียนข้างเคียง (±5 แท่ง) เพื่อดันกล่องป้าย 2.CF ออกไปวางเหนือ/ใต้กลุ่มแท่งเทียน
+         int cfBarIdx = iBarShift(_Symbol, _Period, g_DTD.confirmBarTime, false);
+         double cfLocalMinLow  = cfTipPrice;
+         double cfLocalMaxHigh = cfTipPrice;
+         if(cfBarIdx >= 0)
+         {
+            int startB = MathMax(0, cfBarIdx - 5);
+            int endB   = cfBarIdx + 5;
+            for(int b = startB; b <= endB; b++)
+            {
+               double bLow  = iLow(_Symbol, _Period, b);
+               double bHigh = iHigh(_Symbol, _Period, b);
+               if(bLow > 0.0 && bLow < cfLocalMinLow)   cfLocalMinLow  = bLow;
+               if(bHigh > 0.0 && bHigh > cfLocalMaxHigh) cfLocalMaxHigh = bHigh;
+            }
+         }
+
+         double cfLblPrice = isBuyPlan ? (MathMax(cfTipPrice, cfLocalMaxHigh) + stemUnit) : (MathMin(cfTipPrice, cfLocalMinLow) - stemUnit);
          ENUM_ANCHOR_POINT cfAnc = isBuyPlan ? ANCHOR_LOWER : ANCHOR_UPPER;
          color cfStemCol = isConfirmedCF ? planNeonCol : clrGold;
 
@@ -6015,7 +6082,7 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, arrowCF, OBJPROP_ANCHOR, cfAnc);
          ObjectSetInteger(0, arrowCF, OBJPROP_BACK, false);
 
-         // 2) เส้นก้านชี้เป้าเชื่อมจากตัวแท่ง CF มายังกล่องป้ายไฮไลต์
+         // 2) เส้นก้านชี้เป้าเชื่อมจากตัวแท่ง CF มายังกล่องป้ายไฮไลต์ในพื้นที่โล่ง
          if(ObjectFind(0, stemCF) < 0)
             ObjectCreate(0, stemCF, OBJ_TREND, 0, g_DTD.confirmBarTime, cfTipPrice, g_DTD.confirmBarTime, cfLblPrice);
          ObjectSetInteger(0, stemCF, OBJPROP_TIME, 0, g_DTD.confirmBarTime);
@@ -6028,7 +6095,7 @@ void DrawDTD_M1_Visuals()
          ObjectSetInteger(0, stemCF, OBJPROP_RAY_RIGHT, false);
          ObjectSetInteger(0, stemCF, OBJPROP_BACK, false);
 
-         // 3) กล่องไฮไลต์ทึบแสง 2.CF (BUY = เขียวสดขอบทอง / SELL = แดงสดขอบทอง / แท่งสดรอปิด = ส้มทอง)
+         // 3) กล่องไฮไลต์ทึบแสงขนาดกะทัดรัด 2.CF (กว้าง 104-114 px ไม่บังแท่งเทียน)
          color cfBgCol     = !isConfirmedCF ? C'145,88,12' : (isBuyPlan ? C'14,135,68' : C'168,22,44');
          color cfBorderCol = clrGold;
          int px = 0, py = 0;
@@ -6036,8 +6103,8 @@ void DrawDTD_M1_Visuals()
          {
             int chartW = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
             int chartH = (int)ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
-            int pillW  = 176;
-            int pillH  = 20;
+            int pillW  = isConfirmedCF ? 104 : 114;
+            int pillH  = 18;
             int boxX   = px - (pillW / 2);
             if(chartW > pillW + 20)
             {
@@ -6045,12 +6112,16 @@ void DrawDTD_M1_Visuals()
                if(boxX + pillW > chartW - 65) boxX = chartW - 65 - pillW;
             }
             int boxY = isBuyPlan ? (py - pillH - 2) : (py + 2);
+            if(wickBoxX >= 0 && boxX < wickBoxX + wickPillW && boxX + pillW > wickBoxX && MathAbs(boxY - wickBoxY) < 20)
+               boxY = isBuyPlan ? (wickBoxY - pillH - 3) : (wickBoxY + wickPillH + 3);
+            if(rtBoxX_Saved >= 0 && boxX < rtBoxX_Saved + rtPillW_Saved && boxX + pillW > rtBoxX_Saved && MathAbs(boxY - rtBoxY_Saved) < 20)
+               boxY = isBuyPlan ? (rtBoxY_Saved - pillH - 3) : (rtBoxY_Saved + rtPillH_Saved + 3);
             if(boxY < 4) boxY = 4;
             if(chartH > pillH + 10 && boxY + pillH > chartH - 4) boxY = chartH - pillH - 4;
 
             CreateRect(pillCF + "_BG", boxX, boxY, pillW, pillH, cfBgCol, cfBorderCol);
             ObjectSetInteger(0, pillCF + "_BG", OBJPROP_ZORDER, 35);
-            CreateLabel(pillCF + "_TXT", boxX + 8, boxY + 2, txtCF, clrWhite, 8, true);
+            CreateLabel(pillCF + "_TXT", boxX + 7, boxY + 1, txtCF, clrWhite, 8, true);
             ObjectSetInteger(0, pillCF + "_TXT", OBJPROP_ZORDER, 40);
          }
          else
@@ -6266,7 +6337,7 @@ void DrawDTD_M1_Visuals()
 
          string lblTP2 = GUI_PREFIX + "DTD_LBL_TP2R";
          double tp2SetupDist = (g_DTD.tp2RDistPoints > 0.0) ? g_DTD.tp2RDistPoints : (MathAbs(g_DTD.confirmTP2RPrice - g_DTD.confirmEntryPrice) / _Point);
-         double tp2LblPrice  = InpDTD_TradingViewStyle ? g_DTD.confirmTP2RPrice : ResolveRightChartLabelPrice(g_DTD.confirmTP2RPrice, 1);
+         double tp2LblPrice  = ResolveRightChartLabelPrice(g_DTD.confirmTP2RPrice, 1);
          string tp2Txt       = InpDTD_TradingViewStyle ? " TP 1 2R " : StringFormat(" 🎯 TP 2R (1:2): %s (+%s) ", DoubleToString(g_DTD.confirmTP2RPrice, _Digits), FormatMoneyOrPoints(tp2SetupDist));
          color tp2LblCol     = InpDTD_TradingViewStyle ? C'255,120,135' : clrWhite;
          if(ObjectFind(0, lblTP2) < 0)
@@ -6314,7 +6385,7 @@ void DrawDTD_M1_Visuals()
 
          string lblTP3 = GUI_PREFIX + "DTD_LBL_TP3R";
          double tp3SetupDist = (g_DTD.tp3RDistPoints > 0.0) ? g_DTD.tp3RDistPoints : (MathAbs(g_DTD.confirmTP3RPrice - g_DTD.confirmEntryPrice) / _Point);
-         double tp3LblPrice  = InpDTD_TradingViewStyle ? g_DTD.confirmTP3RPrice : ResolveRightChartLabelPrice(g_DTD.confirmTP3RPrice, 1);
+         double tp3LblPrice  = ResolveRightChartLabelPrice(g_DTD.confirmTP3RPrice, 1);
          string tp3Txt;
          if(InpDTD_TradingViewStyle)
          {
@@ -6378,7 +6449,7 @@ void DrawDTD_M1_Visuals()
 
       string lblSL = GUI_PREFIX + "DTD_LBL_SL";
       double slSetupDist = (g_DTD.slDistPoints > 0.0) ? g_DTD.slDistPoints : (MathAbs(g_DTD.confirmEntryPrice - g_DTD.confirmSLPrice) / _Point);
-      double slLblPrice  = InpDTD_TradingViewStyle ? g_DTD.confirmSLPrice : ResolveRightChartLabelPrice(g_DTD.confirmSLPrice, -1);
+      double slLblPrice  = ResolveRightChartLabelPrice(g_DTD.confirmSLPrice, -1);
       string slTxt;
       if(InpDTD_TradingViewStyle)
       {
@@ -7631,13 +7702,14 @@ void DrawStructureBreaks()
       return;
    }
 
-   for(int i = g_BOS_Count; i < 15; i++)
+   int maxDrawBOS = 4;
+   for(int i = MathMin(g_BOS_Count, maxDrawBOS); i < 15; i++)
    {
       ObjectDelete(0, GUI_PREFIX + "SMC_BOS_L_" + IntegerToString(i));
       ObjectDelete(0, GUI_PREFIX + "SMC_BOS_T_" + IntegerToString(i));
    }
 
-   for(int i = 0; i < g_BOS_Count && i < 10; i++)
+   for(int i = 0; i < g_BOS_Count && i < maxDrawBOS; i++)
    {
       if(!g_BOS_Lines[i].isActive) continue;
       string lineName = GUI_PREFIX + "SMC_BOS_L_" + IntegerToString(i);
@@ -7754,8 +7826,7 @@ void DrawMultiTF_EMA14_Lines()
          }
       }
 
-      int extraBars     = (nearDTDLine ? 10 : 0) + (hColCount * 3);
-      datetime tLineEnd = tBaseEnd + (datetime)(secPerBar * (((i % 2) * 2) + extraBars));
+      datetime tLineEnd = tBaseEnd + (datetime)(secPerBar * 2);
       datetime tLbl     = tLineEnd + (datetime)(secPerBar * 1);
 
       // 1. Draw horizontal dotted EMA 14 level line
@@ -8416,13 +8487,22 @@ void DrawVisualsOnChart()
 
    for(int i = 0; i < g_SwingCount; i++)
    {
-      // ป้องกันป้าย HH/HL/LH/LL ชนทับกับป้าย คลื่น A / คลื่น B / คลื่น C บนจุดสวิงเดียวกัน
+      // ป้องกันป้าย HH/HL/LH/LL ชนทับกับป้าย คลื่น A / คลื่น B / คลื่น C และป้าย 1.RETEST / 2.CF
       if(g_WaveFormed)
       {
          int waveProxSec = tfSec * 8;
          if(MathAbs((long)(g_Swings[i].time - g_WaveA_Time)) <= waveProxSec ||
             MathAbs((long)(g_Swings[i].time - g_WaveB_Time)) <= waveProxSec ||
             MathAbs((long)(g_Swings[i].time - g_WaveC_Time)) <= waveProxSec)
+         {
+            continue;
+         }
+      }
+      if(InpUseDTD_CF_M1 && InpDrawDTD_CandleStickers)
+      {
+         int dtdProxSec = tfSec * 4;
+         if((g_DTD.retestBarTime > 0 && MathAbs((long)(g_Swings[i].time - g_DTD.retestBarTime)) <= dtdProxSec) ||
+            (g_DTD.confirmBarTime > 0 && MathAbs((long)(g_Swings[i].time - g_DTD.confirmBarTime)) <= dtdProxSec))
          {
             continue;
          }
@@ -9252,19 +9332,27 @@ void RenderDashboard()
             card3SigDesc2 = "   ↳ ได้เปรียบระยะ SL สั้นมาก สามารถลั่นไก BUY ได้เลย!";
             card3SigCol   = C'0,255,200';
          }
-         else if(isRunawayNow)
+         else if(g_DTD.swBoxActive && g_DTD.swBreakState == 2)
          {
-            card3BgCol = C'32,24,12'; card3BorderCol = C'220,160,40'; card3TitleCol = clrGold;
-            card3Title    = StringFormat("⚠️ 2. [ แผน BUY วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคา! ]", pnlPts);
-            card3SigDesc1 = "✋ คำสอน อ.เดช: กราฟพุ่งเลยจุดเข้าไกลแล้ว!";
-            card3SigDesc2 = StringFormat("   ↳ ห้ามไล่ยอดดอย! รอย่อรีเทสต์เส้นไส้สั้น (%s)", DoubleToString(wickRef, _Digits));
+            card3BgCol = C'36,26,12'; card3BorderCol = C'240,175,40'; card3TitleCol = clrGold;
+            card3Title    = "⚠️ 2. [ ระวังเบรกบนหลอก! • ห้ามไล่ BUY ที่ยอดกรอบ SW ]";
+            card3SigDesc1 = StringFormat("⚠️ กราฟแหย่ไส้กวาด SW HIGH (%s) แล้วดึงกลับเข้ากรอบ!", DoubleToString(g_DTD.swBoxHigh, _Digits));
+            card3SigDesc2 = StringFormat("   ↳ ห้ามไล่ BUY เด็ดขาด! รอย่อใกล้แนว %s ค่อยดัก BUY", DoubleToString(wickRef, _Digits));
+            card3SigCol   = clrGold;
+         }
+         else if(isRunawayNow || (curBid - wickRef) > (g_DTD.avgBarRange * 0.85))
+         {
+            card3BgCol = C'24,30,18'; card3BorderCol = C'220,175,45'; card3TitleCol = clrGold;
+            card3Title    = "⏳ 2. [ ยืนยัน CF ขาขึ้นแล้ว • รอย่อใกล้แนว RETEST+CF ]";
+            card3SigDesc1 = StringFormat("✋ ยืนยัน 2.CF [%s] แล้ว แต่ราคาอยู่ห่างแนวเข้า (ห้ามไล่ดอย!)", g_DTD.tfName);
+            card3SigDesc2 = StringFormat("   ↳ รอย่อลงใกล้แนว RETEST+CF (%s) ค่อยกด BUY คุ้ม SL กว่า!", DoubleToString(wickRef, _Digits));
             card3SigCol   = clrGold;
          }
          else
          {
             card3BgCol = C'10,32,22'; card3BorderCol = C'0,255,180'; card3TitleCol = C'0,255,200';
             card3Title    = "🟢 2. [ จบแท่งกลืนกิน BUY • พร้อมลั่นไก 1:3R! ]";
-            card3SigDesc1 = StringFormat("🚀 จบแท่งกลืนกิน %s คอนเฟิร์ม ➔ เข้า BUY ที่ราคาปิดแท่ง", g_DTD.tfName);
+            card3SigDesc1 = StringFormat("🚀 จบแท่งกลืนกิน %s ใกล้แนวเข้า ➔ กด BUY ได้ทันที!", g_DTD.tfName);
             card3SigDesc2 = StringFormat("   ↳ ตั้ง SL ใต้ชุดคอนเฟิร์ม (%s) เพื่อลุ้นเป้า 1:3R!", DoubleToString(g_Forecast.buySLPrice, _Digits));
             card3SigCol   = C'50,255,180';
          }
@@ -9312,19 +9400,27 @@ void RenderDashboard()
             card3SigDesc2 = "   ↳ ได้เปรียบระยะ SL สั้นมาก สามารถลั่นไก SELL ได้เลย!";
             card3SigCol   = C'255,160,80';
          }
-         else if(isRunawayNow)
+         else if(g_DTD.swBoxActive && g_DTD.swBreakState == -2)
          {
-            card3BgCol = C'32,24,12'; card3BorderCol = C'220,160,40'; card3TitleCol = clrGold;
-            card3Title    = StringFormat("⚠️ 2. [ แผน SELL วิ่งทำกำไร (+%.0f pts) • ห้ามไล่ราคา! ]", pnlPts);
-            card3SigDesc1 = "✋ คำสอน อ.เดช: กราฟทุบดิ่งเลยจุดเข้าไกลแล้ว!";
-            card3SigDesc2 = StringFormat("   ↳ ห้ามไล่ก้นเหว! รอเด้งรีเทสต์เส้นไส้สั้น (%s)", DoubleToString(wickRef, _Digits));
+            card3BgCol = C'36,26,12'; card3BorderCol = C'240,175,40'; card3TitleCol = clrGold;
+            card3Title    = "⚠️ 2. [ ระวังหลุดล่างหลอก! • ห้ามไล่ SELL ที่ก้นกรอบ SW ]";
+            card3SigDesc1 = StringFormat("⚠️ กราฟแหย่ไส้กวาด SW LOW (%s) แล้วดึงกลับเข้ากรอบ!", DoubleToString(g_DTD.swBoxLow, _Digits));
+            card3SigDesc2 = StringFormat("   ↳ ห้ามไล่ SELL เด็ดขาด! รอเด้งใกล้แนว %s ค่อยดัก SELL", DoubleToString(wickRef, _Digits));
+            card3SigCol   = clrGold;
+         }
+         else if(isRunawayNow || (wickRef - curAsk) > (g_DTD.avgBarRange * 0.85))
+         {
+            card3BgCol = C'32,20,16'; card3BorderCol = C'220,175,45'; card3TitleCol = clrGold;
+            card3Title    = "⏳ 2. [ ยืนยัน CF ขาลงแล้ว • รอเด้งใกล้แนว RETEST+CF ]";
+            card3SigDesc1 = StringFormat("✋ ยืนยัน 2.CF [%s] แล้ว แต่ราคาอยู่ห่างแนวเข้า (ห้ามไล่ก้นเหว!)", g_DTD.tfName);
+            card3SigDesc2 = StringFormat("   ↳ รอเด้งขึ้นใกล้แนว RETEST+CF (%s) ค่อยกด SELL คุ้ม SL กว่า!", DoubleToString(wickRef, _Digits));
             card3SigCol   = clrGold;
          }
          else
          {
             card3BgCol = C'38,12,18'; card3BorderCol = C'255,50,90'; card3TitleCol = C'255,80,110';
             card3Title    = "🔴 2. [ จบแท่งกลืนกิน SELL • พร้อมลั่นไก 1:3R! ]";
-            card3SigDesc1 = StringFormat("🚀 จบแท่งกลืนกิน %s คอนเฟิร์ม ➔ เข้า SELL ที่ราคาปิดแท่ง", g_DTD.tfName);
+            card3SigDesc1 = StringFormat("🚀 จบแท่งกลืนกิน %s ใกล้แนวเข้า ➔ กด SELL ได้ทันที!", g_DTD.tfName);
             card3SigDesc2 = StringFormat("   ↳ ตั้ง SL เหนือชุดคอนเฟิร์ม (%s) เพื่อลุ้นเป้า 1:3R!", DoubleToString(g_Forecast.sellSLPrice, _Digits));
             card3SigCol   = C'255,80,90';
          }
