@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "ลิขสิทธิ์ 2026, Good Trade Gold Suite & อาจารย์เดช DTD"
 #property link        "https://github.com/eaeybaent51-creator/Good"
-#property version     "1.11"
-#property description "DTD Multiverse V1.11 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
+#property version     "1.12"
+#property description "DTD Multiverse V1.12 - All-TF Real-Time CF/Retest Arrow Pointers, Auto Sideway Range Box & 3-Regime Adaptive Suite"
 #property description "วิเคราะห์โครงสร้างตลาด Multiverse 3-Timeframe (HTF -> MTF -> LTF M1)"
 #property description "ผสานคลื่น A-B-C-D, Fibonacci OTE, POI Zone, LQ Sweep และเรดาร์ CF M1 เสมอ"
 #property description "ระบบบริหารหน้าตัก MM 1:3R คำนวณ Lot อัตโนมัติ (ไม่ยิงออเดอร์ในลูปคำสั่ง 100%)"
@@ -1659,20 +1659,24 @@ void DrawMultiverseVisuals()
          ObjectDelete(0, DTD_PREFIX + "M1_SW_LOW_LBL");
       }
 
-      // 4C_STICKERS. ลูกศรชี้เป้า + ก้านชี้ 2 ระดับ บอกแท่ง "1.RETEST" และแท่ง "2.CF" แบบ Realtime (ทุก TF)
+      // 4C_STICKERS. ลูกศรชี้เป้า + ก้านชี้ + ป้ายไฮไลต์ทึบแสงแยกสีแผน BUY (เขียว) / SELL (แดง)
       if(InpDrawDTD_CandleStickers)
       {
          double stemUnit = MathMax(g_DTD_M1.avgBarRange * 0.65, 25.0 * _Point * tfMultiplier);
+         bool   isBuyPlan = (g_DTD_M1.setupSide == 1);
+         color  planNeonCol = isBuyPlan ? C'0,255,150' : C'255,85,105';
+
          if(g_DTD_M1.retestBarTime > 0 && g_DTD_M1.retestBarPrice > 0.0)
          {
             string arrowRetest = DTD_PREFIX + "M1_ARROW_RETEST";
             string stemRetest  = DTD_PREFIX + "M1_STEM_RETEST";
-            string badgeRetest = DTD_PREFIX + "M1_BADGE_RETEST";
-            string arrSym      = (g_DTD_M1.setupSide == 1) ? "▲" : "▼";
+            string pillRetest  = DTD_PREFIX + "M1_PILL_RETEST";
+            ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+            string arrSym      = isBuyPlan ? "▲" : "▼";
             string txtRetest   = StringFormat("%s 1.RETEST (แท่งเทสต์)", arrSym);
             double rtTipPrice  = g_DTD_M1.retestBarPrice;
-            double rtLblPrice  = (g_DTD_M1.setupSide == 1) ? (rtTipPrice - stemUnit) : (rtTipPrice + stemUnit);
-            ENUM_ANCHOR_POINT rtAnc = (g_DTD_M1.setupSide == 1) ? ANCHOR_UPPER : ANCHOR_LOWER;
+            double rtLblPrice  = isBuyPlan ? (rtTipPrice - stemUnit) : (rtTipPrice + stemUnit);
+            ENUM_ANCHOR_POINT rtAnc = isBuyPlan ? ANCHOR_UPPER : ANCHOR_LOWER;
 
             if(ObjectFind(0, arrowRetest) < 0)
                ObjectCreate(0, arrowRetest, OBJ_TEXT, 0, g_DTD_M1.retestBarTime, rtTipPrice);
@@ -1681,7 +1685,7 @@ void DrawMultiverseVisuals()
             ObjectSetString(0, arrowRetest, OBJPROP_TEXT, arrSym);
             ObjectSetString(0, arrowRetest, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, arrowRetest, OBJPROP_FONTSIZE, 10);
-            ObjectSetInteger(0, arrowRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, arrowRetest, OBJPROP_COLOR, planNeonCol);
             ObjectSetInteger(0, arrowRetest, OBJPROP_ANCHOR, rtAnc);
 
             if(ObjectFind(0, stemRetest) < 0)
@@ -1690,37 +1694,47 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, stemRetest, OBJPROP_PRICE, 0, rtTipPrice);
             ObjectSetInteger(0, stemRetest, OBJPROP_TIME, 1, g_DTD_M1.retestBarTime);
             ObjectSetDouble(0, stemRetest, OBJPROP_PRICE, 1, rtLblPrice);
-            ObjectSetInteger(0, stemRetest, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, stemRetest, OBJPROP_COLOR, planNeonCol);
             ObjectSetInteger(0, stemRetest, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, stemRetest, OBJPROP_WIDTH, 2);
             ObjectSetInteger(0, stemRetest, OBJPROP_RAY_RIGHT, false);
 
-            if(ObjectFind(0, badgeRetest) < 0)
-               ObjectCreate(0, badgeRetest, OBJ_TEXT, 0, g_DTD_M1.retestBarTime, rtLblPrice);
-            ObjectSetInteger(0, badgeRetest, OBJPROP_TIME, 0, g_DTD_M1.retestBarTime);
-            ObjectSetDouble(0, badgeRetest, OBJPROP_PRICE, 0, rtLblPrice);
-            ObjectSetString(0, badgeRetest, OBJPROP_TEXT, txtRetest);
-            ObjectSetString(0, badgeRetest, OBJPROP_FONT, "Segoe UI Black");
-            ObjectSetInteger(0, badgeRetest, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, badgeRetest, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, badgeRetest, OBJPROP_ANCHOR, rtAnc);
+            color rtBgCol     = isBuyPlan ? C'8,85,48'   : C'105,16,32';
+            color rtBorderCol = isBuyPlan ? C'0,255,150' : C'255,95,115';
+            int px = 0, py = 0;
+            if(ChartTimePriceToXY(0, 0, g_DTD_M1.retestBarTime, rtLblPrice, px, py) && px > 0 && py > 0)
+            {
+               int pillW = 148, pillH = 20;
+               int boxX = MathMax(6, px - (pillW / 2));
+               int boxY = isBuyPlan ? (py + 2) : MathMax(4, py - pillH - 2);
+               CreateRect(pillRetest + "_BG", boxX, boxY, pillW, pillH, rtBgCol, rtBorderCol);
+               ObjectSetInteger(0, pillRetest + "_BG", OBJPROP_ZORDER, 35);
+               CreateLabel(pillRetest + "_TXT", boxX + 8, boxY + 2, txtRetest, clrWhite, 8, true);
+               ObjectSetInteger(0, pillRetest + "_TXT", OBJPROP_ZORDER, 40);
+            }
          }
          else
          {
             ObjectDelete(0, DTD_PREFIX + "M1_ARROW_RETEST");
             ObjectDelete(0, DTD_PREFIX + "M1_STEM_RETEST");
             ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+            ObjectDelete(0, DTD_PREFIX + "M1_PILL_RETEST_BG");
+            ObjectDelete(0, DTD_PREFIX + "M1_PILL_RETEST_TXT");
          }
 
          if(g_DTD_M1.confirmBarTime > 0 && g_DTD_M1.confirmBarPrice > 0.0)
          {
             string arrowCF  = DTD_PREFIX + "M1_ARROW_CF";
             string stemCF   = DTD_PREFIX + "M1_STEM_CF";
-            string badgeCF  = DTD_PREFIX + "M1_BADGE_CF";
-            string cfArrSym = (g_DTD_M1.setupSide == 1) ? "▼" : "▲";
-            string txtCF    = (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched) ? StringFormat("%s 2.CF ★ (แท่งกลืนกิน)", cfArrSym) : StringFormat("%s 2.รอปิด CF ⚡ (แท่งสด)", cfArrSym);
+            string pillCF   = DTD_PREFIX + "M1_PILL_CF";
+            ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
+            bool   isConfirmedCF = (g_DTD_M1.isEngulfConfirmed || g_DTD_M1.isLatched);
+            string cfArrSym = isBuyPlan ? "▼" : "▲";
+            string txtCF    = isConfirmedCF ? StringFormat("%s 2.CF ★ (แท่งกลืนกิน)", cfArrSym) : StringFormat("%s 2.รอปิด CF ⚡ (แท่งสด)", cfArrSym);
             double cfTipPrice = g_DTD_M1.confirmBarPrice;
-            double cfLblPrice = (g_DTD_M1.setupSide == 1) ? (cfTipPrice + (stemUnit * 1.15)) : (cfTipPrice - (stemUnit * 1.15));
-            ENUM_ANCHOR_POINT cfAnc = (g_DTD_M1.setupSide == 1) ? ANCHOR_LOWER : ANCHOR_UPPER;
+            double cfLblPrice = isBuyPlan ? (cfTipPrice + (stemUnit * 1.15)) : (cfTipPrice - (stemUnit * 1.15));
+            ENUM_ANCHOR_POINT cfAnc = isBuyPlan ? ANCHOR_LOWER : ANCHOR_UPPER;
+            color cfStemCol = isConfirmedCF ? planNeonCol : clrGold;
 
             if(ObjectFind(0, arrowCF) < 0)
                ObjectCreate(0, arrowCF, OBJ_TEXT, 0, g_DTD_M1.confirmBarTime, cfTipPrice);
@@ -1729,7 +1743,7 @@ void DrawMultiverseVisuals()
             ObjectSetString(0, arrowCF, OBJPROP_TEXT, cfArrSym);
             ObjectSetString(0, arrowCF, OBJPROP_FONT, "Segoe UI Black");
             ObjectSetInteger(0, arrowCF, OBJPROP_FONTSIZE, 10);
-            ObjectSetInteger(0, arrowCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, arrowCF, OBJPROP_COLOR, cfStemCol);
             ObjectSetInteger(0, arrowCF, OBJPROP_ANCHOR, cfAnc);
 
             if(ObjectFind(0, stemCF) < 0)
@@ -1738,25 +1752,31 @@ void DrawMultiverseVisuals()
             ObjectSetDouble(0, stemCF, OBJPROP_PRICE, 0, cfTipPrice);
             ObjectSetInteger(0, stemCF, OBJPROP_TIME, 1, g_DTD_M1.confirmBarTime);
             ObjectSetDouble(0, stemCF, OBJPROP_PRICE, 1, cfLblPrice);
-            ObjectSetInteger(0, stemCF, OBJPROP_COLOR, clrWhite);
+            ObjectSetInteger(0, stemCF, OBJPROP_COLOR, cfStemCol);
             ObjectSetInteger(0, stemCF, OBJPROP_STYLE, STYLE_DOT);
+            ObjectSetInteger(0, stemCF, OBJPROP_WIDTH, 2);
             ObjectSetInteger(0, stemCF, OBJPROP_RAY_RIGHT, false);
 
-            if(ObjectFind(0, badgeCF) < 0)
-               ObjectCreate(0, badgeCF, OBJ_TEXT, 0, g_DTD_M1.confirmBarTime, cfLblPrice);
-            ObjectSetInteger(0, badgeCF, OBJPROP_TIME, 0, g_DTD_M1.confirmBarTime);
-            ObjectSetDouble(0, badgeCF, OBJPROP_PRICE, 0, cfLblPrice);
-            ObjectSetString(0, badgeCF, OBJPROP_TEXT, txtCF);
-            ObjectSetString(0, badgeCF, OBJPROP_FONT, "Segoe UI Black");
-            ObjectSetInteger(0, badgeCF, OBJPROP_FONTSIZE, 8);
-            ObjectSetInteger(0, badgeCF, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, badgeCF, OBJPROP_ANCHOR, cfAnc);
+            color cfBgCol = !isConfirmedCF ? C'145,88,12' : (isBuyPlan ? C'14,135,68' : C'168,22,44');
+            int px = 0, py = 0;
+            if(ChartTimePriceToXY(0, 0, g_DTD_M1.confirmBarTime, cfLblPrice, px, py) && px > 0 && py > 0)
+            {
+               int pillW = 158, pillH = 20;
+               int boxX = MathMax(6, px - (pillW / 2));
+               int boxY = isBuyPlan ? MathMax(4, py - pillH - 2) : (py + 2);
+               CreateRect(pillCF + "_BG", boxX, boxY, pillW, pillH, cfBgCol, clrGold);
+               ObjectSetInteger(0, pillCF + "_BG", OBJPROP_ZORDER, 35);
+               CreateLabel(pillCF + "_TXT", boxX + 8, boxY + 2, txtCF, clrWhite, 8, true);
+               ObjectSetInteger(0, pillCF + "_TXT", OBJPROP_ZORDER, 40);
+            }
          }
          else
          {
             ObjectDelete(0, DTD_PREFIX + "M1_ARROW_CF");
             ObjectDelete(0, DTD_PREFIX + "M1_STEM_CF");
             ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
+            ObjectDelete(0, DTD_PREFIX + "M1_PILL_CF_BG");
+            ObjectDelete(0, DTD_PREFIX + "M1_PILL_CF_TXT");
          }
       }
       else
@@ -1764,9 +1784,13 @@ void DrawMultiverseVisuals()
          ObjectDelete(0, DTD_PREFIX + "M1_ARROW_RETEST");
          ObjectDelete(0, DTD_PREFIX + "M1_STEM_RETEST");
          ObjectDelete(0, DTD_PREFIX + "M1_BADGE_RETEST");
+         ObjectDelete(0, DTD_PREFIX + "M1_PILL_RETEST_BG");
+         ObjectDelete(0, DTD_PREFIX + "M1_PILL_RETEST_TXT");
          ObjectDelete(0, DTD_PREFIX + "M1_ARROW_CF");
          ObjectDelete(0, DTD_PREFIX + "M1_STEM_CF");
          ObjectDelete(0, DTD_PREFIX + "M1_BADGE_CF");
+         ObjectDelete(0, DTD_PREFIX + "M1_PILL_CF_BG");
+         ObjectDelete(0, DTD_PREFIX + "M1_PILL_CF_TXT");
       }
 
       // 4D. สัญลักษณ์จุดลั่นไก (Entry Tick Mark สไตล์อาจารย์เดช)
